@@ -1,0 +1,311 @@
+
+#include "render.h"
+#include "window.h"
+#include "image.h"
+#include "mesh.h"
+#include "maths.h"
+#include "../utility.h"
+#include "timer.h"
+
+using namespace bkk;
+using namespace maths;
+
+static render::context_t gContext;
+static window::window_t gWindow;
+static render::gpu_buffer_t gUbo;
+static mesh::mesh_t gMesh;
+static mesh::skeletal_animator_t gAnimator;
+static maths::mat4 gModelTransform;
+static maths::mat4 gProjection;
+static render::pipeline_layout_t gPipelineLayout;
+static render::descriptor_pool_t gDescriptorPool;
+static render::descriptor_set_t gDescriptorSet;
+static render::graphics_pipeline_t gPipeline;
+static render::shader_t gVertexShader;
+static render::shader_t gFragmentShader;
+
+static sample_utils::orbiting_camera_t gCamera;
+static maths::vec2 gMousePosition = vec2(0.0f,0.0f);
+static bool gMouseButtonPressed = false;
+
+static const char* gVertexShaderSource = {
+	"#version 440 core\n \
+	layout(location = 0) in vec3 aPosition;\n \
+	layout(location = 1) in vec3 aNormal;\n \
+	layout(location = 2) in vec2 aTexCoord;\n \
+	layout(location = 3) in vec4 aBonesWeight;\n \
+	layout(location = 4) in vec4 aBonesId;\n \
+	layout(binding = 1) uniform UNIFORMS\n \
+	{\n \
+		mat4 modelView;\n \
+		mat4 modelViewProjection;\n \
+	}uniforms;\n \
+	layout(binding = 2) uniform BONESTX\n \
+	{\n \
+		mat4 bones[64];\n \
+	}bonesTx;\n \
+	out vec3 normalViewSpace;\n \
+	out vec3 lightViewSpace;\n \
+	void main(void)\n \
+	{\n \
+		mat4 transform = bonesTx.bones[int(aBonesId[0])] * aBonesWeight[0] +  \n \
+		bonesTx.bones[int(aBonesId[1])] * aBonesWeight[1] +					  \n \
+		bonesTx.bones[int(aBonesId[2])] * aBonesWeight[2] +					  \n \
+		bonesTx.bones[int(aBonesId[3])] * aBonesWeight[3];                    \n \
+		gl_Position = uniforms.modelViewProjection * transform * vec4(aPosition,1.0); \n \
+		mat4 normalTransform = mat4(inverse(transpose(uniforms.modelView * transform)));\n \
+		normalViewSpace = normalize((normalTransform * vec4(aNormal,0.0)).xyz);\n \
+		vec3 lightPositionModelSpace = vec3(-0.5,0.5,1.0);\n \
+		lightViewSpace = normalize((uniforms.modelView * vec4(normalize(lightPositionModelSpace),0.0)).xyz);\n \
+	}\n"
+};
+
+static const char* gFragmentShaderSource = {
+	"#version 440 core\n \
+	in vec3 normalViewSpace;\n \
+	in vec3 lightViewSpace;\n \
+	layout(location = 0) out vec4 color;\n \
+	void main(void)\n \
+	{\n \
+		float diffuse = max(dot(normalize(lightViewSpace), normalize(normalViewSpace)), 0.0);\n \
+		color = vec4(vec3(diffuse), 1.0);\n \
+	}\n"
+};
+
+bool CreateUniformBuffer()
+{
+  gCamera.offset_ = 35.0f;
+  gCamera.angle_ = vec2(-0.8f,0.0f);
+  gCamera.Update();
+
+  gProjection = computePerspectiveProjectionMatrix( 1.5f,(f32)gWindow.width_ / (f32)gWindow.height_,1.0f,1000.0f );
+  gModelTransform = computeTransform( VEC3_ZERO, vec3( 0.01f,0.01f,0.01f), quaternionFromAxisAngle( vec3(1.0f,0.0f,0.0f), -degreeToRadian(90.0f) ) );
+
+  mat4 matrices[2];
+  matrices[0] = gModelTransform * gCamera.view_;
+  matrices[1] = matrices[0] * gProjection;
+
+  //Create uniform buffer
+  render::gpuBufferCreate( gContext, render::gpu_buffer_usage_e::UNIFORM_BUFFER,
+                           render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
+                           (void*)&matrices, 2*sizeof(mat4),
+                           &gUbo );
+  return true;
+}
+
+void UpdateUniformBuffer()
+{
+  mat4 matrices[2];
+  matrices[0] = gModelTransform * gCamera.view_;
+  matrices[1] = matrices[0] * gProjection;
+
+  render::gpuBufferUpdate( gContext, (void*)&matrices, 0, 2*sizeof(mat4), &gUbo );
+}
+
+void CreateGeometry()
+{
+  mesh::createFromFile( gContext, "../resources/goblin.dae", &gMesh );
+  mesh::animatorCreate( gContext, gMesh, 0u, 5.0f, &gAnimator );
+}
+
+void CreatePipeline()
+{
+  //Create descriptor layout
+  render::descriptor_set_layout_t descriptorSetLayout;
+  descriptorSetLayout.bindings_.push_back( { render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::VERTEX } );
+  descriptorSetLayout.bindings_.push_back( { render::descriptor_type_e::UNIFORM_BUFFER, 2, render::descriptor_stage_e::VERTEX } );
+  render::descriptorSetLayoutCreate( gContext, &descriptorSetLayout );
+
+  //Create pipeline layout
+  gPipelineLayout.descriptorSetLayout_.push_back( descriptorSetLayout );
+  render::pipelineLayoutCreate( gContext, &gPipelineLayout );
+
+  //Create descriptor pool
+  gDescriptorPool = {};
+  gDescriptorPool.uniformBuffers_ = 2u;
+  gDescriptorPool.descriptorSets_ = 1u;
+  render::descriptorPoolCreate( gContext, &gDescriptorPool );
+
+  //Create descriptor set
+  gDescriptorSet.descriptors_.resize(2);
+  gDescriptorSet.descriptors_[0].bufferDescriptor_ = gUbo.descriptor_;
+  gDescriptorSet.descriptors_[1].bufferDescriptor_ = gAnimator.buffer_.descriptor_;
+  render::descriptorSetCreate( gContext, gDescriptorPool, descriptorSetLayout, &gDescriptorSet );
+
+  //Load shaders
+  bkk::render::shaderCreateFromGLSLSource(gContext, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &gVertexShader);
+  bkk::render::shaderCreateFromGLSLSource(gContext, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &gFragmentShader);
+
+  //Create pipeline
+  gPipeline.viewPort_ = { 0.0f, 0.0f, (float)gContext.swapChain_.imageWidth_, (float)gContext.swapChain_.imageHeight_, 0.0f, 1.0f};
+  gPipeline.scissorRect_ = { {0,0}, {gContext.swapChain_.imageWidth_,gContext.swapChain_.imageHeight_} };
+  gPipeline.blendState_.resize(1);
+  gPipeline.blendState_[0].colorWriteMask = 0xF;
+  gPipeline.blendState_[0].blendEnable = VK_FALSE;
+  gPipeline.cullMode_ = VK_CULL_MODE_BACK_BIT;
+  gPipeline.depthTestEnabled_ = true;
+  gPipeline.depthWriteEnabled_ = true;
+  gPipeline.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
+  gPipeline.vertexShader_ = gVertexShader.handle_;
+  gPipeline.fragmentShader_ = gFragmentShader.handle_;
+  render::graphicsPipelineCreate( gContext, gContext.swapChain_.renderPass_, gMesh.vertexFormat_, gPipelineLayout, &gPipeline );
+}
+
+void BuildCommandBuffers()
+{
+  for( unsigned i(0); i<3; ++i )
+  {
+    VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer( gContext, i, nullptr );
+    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,gPipeline.handle_);
+    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gPipelineLayout.handle_, 0, 1, &gDescriptorSet.handle_, 0, nullptr);
+    mesh::draw(cmdBuffer, gMesh );
+    render::endPresentationCommandBuffer( gContext, i );
+  }
+}
+
+void Exit()
+{
+  //Wait for all pending operations to be finished
+  render::contextFlush( gContext );
+
+  //Destroy all resources
+  mesh::destroy( gContext, &gMesh );
+  mesh::animatorDestroy( gContext, &gAnimator );
+  render::gpuBufferDestroy( gContext, &gUbo );
+
+  render::shaderDestroy(gContext, &gVertexShader);
+  render::shaderDestroy(gContext, &gFragmentShader);
+
+  render::graphicsPipelineDestroy( gContext, &gPipeline );
+  render::descriptorSetDestroy( gContext, &gDescriptorSet );
+  render::descriptorPoolDestroy( gContext, &gDescriptorPool );
+  render::pipelineLayoutDestroy( gContext, &gPipelineLayout );
+
+  render::contextDestroy( &gContext );
+
+  //Close window
+  window::close( &gWindow );
+}
+
+void OnKeyEvent( window::key_e key, bool pressed )
+{
+  if( pressed )
+  {
+    switch( key )
+    {
+      case window::key_e::KEY_UP:
+      case 'w':
+      {
+        gCamera.Move( -.5f );
+        UpdateUniformBuffer();
+        break;
+      }
+      case window::key_e::KEY_DOWN:
+      case 's':
+      {
+        gCamera.Move( .5f );
+        UpdateUniformBuffer();
+        break;
+      }
+
+      default:
+        break;
+    }
+  }
+}
+
+void OnMouseButton( window::mouse_button_e button, uint32_t x, uint32_t y, bool pressed )
+{
+  gMouseButtonPressed = pressed;
+  gMousePosition.x = (f32)x;
+  gMousePosition.y = (f32)y;
+}
+
+void OnMouseMove( uint32_t x, uint32_t y )
+{
+  if( gMouseButtonPressed )
+  {
+    f32 angleY = (x - gMousePosition.x) * 0.01f;
+    f32 angleX = (y - gMousePosition.y) * 0.01f;
+    gMousePosition.x = (f32)x;
+    gMousePosition.y = (f32)y;
+    gCamera.Rotate( angleY,angleX );
+    UpdateUniformBuffer();
+  }
+}
+
+int main()
+{
+  //Create a window
+  gWindow = {};
+  window::initialize( "Skinning", 400u, 400u, &gWindow );
+
+  //Initialize gContext
+  gContext = {};
+  render::contextCreate( "Skinning", "", &gWindow, 3, &gContext );
+
+  CreateUniformBuffer();
+  CreateGeometry();
+  CreatePipeline();
+  BuildCommandBuffers();
+
+  auto timePrev = bkk::time::getCurrent();
+  auto currentTime = timePrev;
+  f32 timeInSecond = 0;
+
+  bool quit = false;
+  while( !quit )
+  {
+    window::event_t* event = nullptr;
+    while( (event = window::getNextEvent( &gWindow )) )
+    {
+      switch( event->type_)
+      {
+        case window::EVENT_QUIT:
+        {
+          quit = true;
+          break;
+        }
+        case window::EVENT_RESIZE:
+        {
+          window::event_resize_t* resizeEvent = (window::event_resize_t*)event;
+          render::swapchainResize( &gContext, resizeEvent->width_, resizeEvent->height_ );
+          BuildCommandBuffers();
+          gProjection = computePerspectiveProjectionMatrix( 1.5f,(f32)resizeEvent->width_ / (f32)resizeEvent->height_ ,1.0f,1000.0f );
+          UpdateUniformBuffer();
+          break;
+        }
+        case window::EVENT_KEY:
+        {
+          window::event_key_t* keyEvent = (window::event_key_t*)event;
+          OnKeyEvent( keyEvent->keyCode_, keyEvent->pressed_ );
+          break;
+        }
+        case window::EVENT_MOUSE_BUTTON:
+        {
+          window::event_mouse_button_t* buttonEvent = (window::event_mouse_button_t*)event;
+          OnMouseButton( buttonEvent->button_, buttonEvent->x_, buttonEvent->y_, buttonEvent->pressed_ );
+          break;
+        }
+        case window::EVENT_MOUSE_MOVE:
+        {
+          window::event_mouse_move_t* moveEvent = (window::event_mouse_move_t*)event;
+          OnMouseMove( moveEvent->x_, moveEvent->y_);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+
+    //Update animator
+    currentTime = bkk::time::getCurrent();
+    timeInSecond += bkk::time::getDifference( timePrev, currentTime ) * 0.001f;
+    mesh::animatorUpdate( gContext, timeInSecond, &gAnimator );
+    render::presentNextImage( &gContext );
+    timePrev = currentTime;
+  }
+
+  Exit();
+  return 0;
+}

@@ -1,0 +1,188 @@
+#version 450
+
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+struct Camera
+{
+  mat4 tx;
+  float verticalFov;
+  float focalDistance;
+  float aperture;
+  float padding;
+};
+
+struct Ray
+{
+  vec3 origin;
+  vec3 direction;
+};
+
+struct Material
+{
+  vec3 albedo;
+  float metalness;
+  vec3 F0;
+  float roughness;
+};
+
+struct DistanceField
+{
+  mat4 tx;
+  uint width;
+  uint height;
+  uint depth;
+  uint padding;
+  vec4 aabbMin;
+  vec4 aabbMax;
+  //float data[8000];
+};
+
+//Generated image
+layout (binding = 0, rgba8) uniform writeonly image2D result;
+
+//Data sent from the client
+layout (std140, binding = 1) uniform UBO
+{
+  uint sampleCount;
+  uint maxBounces;
+  uvec2 imageSize;
+  Camera camera;
+  DistanceField distanceField;
+}data;
+
+layout (binding = 2) buffer SSBO
+{
+  float values[];
+}dfData;
+
+
+//Pseudo-random number generation
+uint rng_state = 0;
+uint wang_hash(in uint seed)
+{
+  seed = (seed ^ 61) ^ (seed >> 16);
+  seed *= 9;
+  seed = seed ^ (seed >> 4);
+  seed *= 0x27d4eb2d;
+  seed = seed ^ (seed >> 15);
+  return seed;
+}
+
+float rand()
+{
+  rng_state ^= (rng_state << 13);
+  rng_state ^= (rng_state >> 17);
+  rng_state ^= (rng_state << 5);
+  return float(rng_state) * (1.0 / 4294967296.0);
+}
+
+void GenerateCameraRay( in uint pixelX, in uint pixelY, out Ray ray)
+{
+  vec2 imagePlaneSize;
+  imagePlaneSize.x = tan( data.camera.verticalFov * 0.5f );
+  imagePlaneSize.y = imagePlaneSize.x * float(data.imageSize.y) / float(data.imageSize.x);
+  
+  float pixelWidth = 1.0 / float(data.imageSize.x);
+  float pixelHeight = 1.0 / float(data.imageSize.y);
+
+  //Random point inside the pixel
+  float u = ( pixelY + rand() ) * pixelWidth - 0.5f;
+  float v = ( pixelX + rand() ) * pixelHeight - 0.5f;
+
+  //Compute intersection with focal plane in world space
+  vec4 focalPlaneIntersection = data.camera.tx * vec4( u * imagePlaneSize.x * data.camera.focalDistance, v * imagePlaneSize.y * data.camera.focalDistance, -data.camera.focalDistance, 1.0f );
+
+  //Get random point in the lens in world space
+  vec4 lensRadomPoint = data.camera.tx * vec4( u * imagePlaneSize.x*(2.0f*rand()-1.0f) * data.camera.aperture, v * imagePlaneSize.y *(2.0f*rand()-1.0f) * data.camera.aperture, 0.0f, 1.0f );
+
+  ray.direction = normalize( focalPlaneIntersection.xyz - lensRadomPoint.xyz );
+  ray.origin = lensRadomPoint.xyz;
+}
+
+uvec3 localToGrid( vec4 local, DistanceField df )
+{
+	uvec3 result;
+	result.x = clamp( uint((local.x - df.aabbMin.x) / (df.aabbMax.x - df.aabbMin.x) * (df.width-1) + 0.5), 0, df.width-1);
+	result.y = clamp( uint((local.y - df.aabbMin.y) / (df.aabbMax.y - df.aabbMin.y) * (df.height-1) + 0.5), 0, df.height-1);
+	result.z = clamp( uint((local.z - df.aabbMin.z) / (df.aabbMax.z - df.aabbMin.z) * (df.depth-1) + 0.5), 0, df.depth-1);
+	
+	return result;
+}
+
+//Return distance in x and material id in y
+float Sphere( in vec3 p, vec3 center, float radius )
+{
+  vec3 v = center - p;
+  return length(v) - radius;
+}
+
+//Return distance in x and material id in y
+float HorizontalPlane( in vec3 p, float y )
+{
+	return p.y  + y;
+}
+
+float distanceFromDistanceField( vec3 point )
+{
+	//Iterate over all distance fields and return closest distance
+	//1. Transform point to distance field local coordinate space
+	//2. Get normalized coordinates
+	//3. Clamp to [0,1]
+	//4. Sample distance field
+	DistanceField df = data.distanceField;
+	
+	//TODO: Pass inverse local matrix to transform from wo
+	vec4 localCoord =  df.tx * vec4(point,1.0);
+	uvec3 gridCoord = localToGrid( localCoord, df );
+
+	//return dfData.values[gridCoord.z*df.width*df.height + gridCoord.y*df.width + gridCoord.x];
+	return min(dfData.values[gridCoord.z*df.width*df.height + gridCoord.y*df.width + gridCoord.x], HorizontalPlane(point,1.5));	
+}
+
+
+
+
+vec3 GetEnvironmentColor( in vec3 direction )
+{
+  return mix( vec3(0.1f,0.1f,0.3f),
+              vec3(1.0f,0.6f,1.0f),
+              clamp( -direction.y * 0.5f + 0.5f, 0.0, 1.0) );
+}
+
+void main()
+{
+  //Generate a random seed
+  rng_state = wang_hash(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y*data.imageSize.x*(data.sampleCount+1));
+
+  //Generate camera ray
+  Ray cameraRay;
+  GenerateCameraRay( gl_GlobalInvocationID.y, gl_GlobalInvocationID.x, cameraRay);
+	
+  float distance = 0.0;
+  uint iterationCount = 0;
+  float color = 0.0;
+  float tMax = 100.0;
+  float t = 0.0;
+  while( iterationCount < 300 && t<tMax )
+  {
+	distance = distanceFromDistanceField( cameraRay.origin + cameraRay.direction*t );
+	if( abs(distance) < 0.1 )
+	{
+		color = 1.0;
+		break;
+	}
+	
+	t += abs(distance);
+	++iterationCount;
+  }
+
+  color = iterationCount/300.0;
+  imageStore(result,
+             ivec2(gl_GlobalInvocationID.xy),
+             vec4(color,color,color,1.0) );		 
+	
+
+}

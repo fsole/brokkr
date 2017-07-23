@@ -1,0 +1,276 @@
+#version 450
+
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+struct Camera
+{
+  mat4 tx;
+  float verticalFov;
+  float focalDistance;
+  float aperture;
+  float padding;
+};
+
+struct Ray
+{
+  vec3 origin;
+  vec3 direction;
+};
+
+struct Material
+{
+  vec3 albedo;
+  float metalness;
+  vec3 F0;
+  float roughness;
+};
+
+struct Sphere
+{
+  vec3 origin;
+  float radius;
+  Material material;
+};
+
+//Generated image
+layout (binding = 0, rgba8) uniform writeonly image2D result;
+
+//Data sent from the client
+layout (std140, binding = 1) uniform UBO
+{
+  uint sampleCount;
+  uint maxBounces;
+  uvec2 imageSize;
+  Camera camera;
+  Sphere sphere[50];
+  uint sphereCount;
+}data;
+
+//Storage buffer used to accumulate the samples over multiple frames
+//at full float precision
+layout (binding = 2) buffer SSBO
+{
+  vec4 data[];
+}accumulationBuffer;
+
+//Pseudo-random number generation
+uint rng_state = 0;
+uint wang_hash(in uint seed)
+{
+  seed = (seed ^ 61) ^ (seed >> 16);
+  seed *= 9;
+  seed = seed ^ (seed >> 4);
+  seed *= 0x27d4eb2d;
+  seed = seed ^ (seed >> 15);
+  return seed;
+}
+
+float rand()
+{
+  rng_state ^= (rng_state << 13);
+  rng_state ^= (rng_state >> 17);
+  rng_state ^= (rng_state << 5);
+  return float(rng_state) * (1.0 / 4294967296.0);
+}
+
+float IntersectSphere(in Ray ray, in Sphere sphere)
+{
+  vec3 v = ray.origin - sphere.origin;
+  float b = 2.0 * dot(v, ray.direction);
+  float h = b*b - 4.0*(dot(v, v) - sphere.radius*sphere.radius);
+
+  if(h < 0.0)
+    return -1.0;
+
+  return (-b - sqrt(h)) / 2.0;
+}
+
+vec3 GetSampleBiased( in vec3 dir, float power )
+{
+  vec3 o1 = normalize( (abs(dir.x) > abs(dir.z)) ? vec3(-dir.y, dir.x, 0.0) : vec3(0.0, -dir.z, dir.y) );
+  vec3 o2 = normalize(cross(dir, o1));
+  vec2 r = vec2(rand(),rand());
+  r.x=r.x*2.0*3.1415;
+  r.y=pow(r.y,1.0/(power+1.0));
+  float oneminus = sqrt(1.0-r.y*r.y);
+  float a = cos(r.x)*oneminus;
+  float b = sin(r.x)*oneminus;
+  return a*o1 + b*o2 + r.y*dir;
+}
+
+vec3 RandomPointInSphere()
+{
+  vec3 point = vec3(0.0,0.0,0.0);
+  do
+  {
+    point = 2.0*vec3(rand(),rand(),rand()) - vec3(1.0,1.0,1.0);
+  }while( dot(point,point) <= 1.0f);
+
+  return point;
+}
+
+vec3 FresnelSchlick(float cosTheta, vec3 F0)
+{
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}  
+
+
+vec3 Brdf( in uint objectId, in vec3 normal, in vec3 inDir, in vec3 outDir )
+{
+  //h is the normal of the microfacets that contribute to the specular reflection
+  vec3 h = normalize( inDir + outDir );
+
+  //Angle between the normal and the out direction
+  float NdotL = max( dot( normal, outDir), 0.0);
+
+  //Angle between the normal and the incoming direction
+  float NdotV = max( dot( normal, inDir), 0.0 );
+
+  //Angle between the out direction and h
+  float LdotH = max( dot( outDir, h ), 0.0);
+  
+  float HdotV = max( dot( h, inDir ), 0.0);
+
+  //Fresnel reflection
+  vec3 F = FresnelSchlick(HdotV, data.sphere[objectId].material.F0);
+
+  //Compute normal distribution term
+  float roughness = data.sphere[objectId].material.roughness;
+  float specPower = pow(2,(1-roughness) * 4.0);
+  float D = ((specPower + 2.0f) / (2.0f*3.14159)) * pow( max( dot(normal,h),0.0 ), specPower);
+  vec3 specular = F * D / (4.0*NdotV*NdotL+0.001);
+  
+  
+  vec3 diffuse = (1.0-F) * data.sphere[objectId].material.albedo / 3.1415;
+
+  return (specular + diffuse) * NdotL;
+}
+
+void SampleMaterial( in uint objectId, in vec3 normal, in Ray ray, out vec3 newDirection, out vec3 attenuation )
+{
+  float v = rand();
+  float probability = data.sphere[objectId].material.metalness;
+
+  //Compute new direction
+  if( v <= probability )
+  {
+    //Specular reflection
+    newDirection = normalize(  reflect( ray.direction, normal ) + data.sphere[objectId].material.roughness * RandomPointInSphere() );
+  }
+  else
+  {
+    //Diffuse reflection
+    newDirection = normalize( vec3(rand(),rand(),rand()));//GetSampleBiased(normal,1.0) );
+	probability = 1.0 - probability;
+  }
+
+  //Evaluate brdf and multiply by the probability of the ray
+  attenuation = Brdf(objectId, normal, -ray.direction, newDirection) * probability;
+}
+
+int IntersectScene( in Ray ray, out vec3 hitPosition, out vec3 hitNormal )
+{
+  float tMin = 0.0;
+  float tMax = 10000.0;
+
+  int hitObject = -1;
+  for (int i=0; i<data.sphereCount; i++)
+  {
+    float t = IntersectSphere(ray, data.sphere[i]);
+    if( t > tMin && t < tMax )
+    {
+      tMax = t;
+      hitObject = i;
+      hitPosition = ray.origin + ray.direction * t;
+      hitNormal = normalize( hitPosition - data.sphere[i].origin);
+      //hitPosition += hitNormal * 0.01;
+    }
+  }
+
+  return hitObject;
+}
+
+void GenerateCameraRay( in uint pixelX, in uint pixelY, out Ray ray)
+{
+  vec2 imagePlaneSize;
+  imagePlaneSize.x = tan( data.camera.verticalFov * 0.5f );
+  imagePlaneSize.y = imagePlaneSize.x * float(data.imageSize.y) / float(data.imageSize.x);
+  
+  float pixelWidth = 1.0 / float(data.imageSize.x);
+  float pixelHeight = 1.0 / float(data.imageSize.y);
+
+  //Random point inside the pixel
+  float u = ( pixelY + rand() ) * pixelWidth - 0.5f;
+  float v = ( pixelX + rand() ) * pixelHeight - 0.5f;
+
+  //Compute intersection with focal plane in world space
+  vec4 focalPlaneIntersection = data.camera.tx * vec4( u * imagePlaneSize.x * data.camera.focalDistance, v * imagePlaneSize.y * data.camera.focalDistance, -data.camera.focalDistance, 1.0f );
+
+  //Get random point in the lens in world space
+  vec4 lensRadomPoint = data.camera.tx * vec4( u * imagePlaneSize.x*(2.0f*rand()-1.0f) * data.camera.aperture, v * imagePlaneSize.y *(2.0f*rand()-1.0f) * data.camera.aperture, 0.0f, 1.0f );
+
+  ray.direction = normalize( focalPlaneIntersection.xyz - lensRadomPoint.xyz );
+  ray.origin = lensRadomPoint.xyz;
+}
+
+vec3 GetEnvironmentColor( in vec3 direction )
+{
+  return mix( vec3(0.1f,0.1f,0.3f),
+              vec3(1.0f,0.6f,1.0f),
+              clamp( -direction.y * 0.5f + 0.5f, 0.0, 1.0) );
+}
+
+void main()
+{
+  //Generate a random seed
+  rng_state = wang_hash(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y*data.imageSize.x*(data.sampleCount+1));
+
+  //Generate camera ray
+  Ray ray;
+  GenerateCameraRay( gl_GlobalInvocationID.y, gl_GlobalInvocationID.x, ray);
+
+  //Compute pixel color
+  vec3 normal;
+  vec3 position;
+  int objectId = IntersectScene( ray, position, normal );
+  vec3 finalColor = vec3(0.0);
+
+  if( objectId != -1 )
+  {	
+    vec3 color = vec3(1.0);
+    vec3 newDirection;
+    vec3 attenuation;
+    SampleMaterial( objectId, normal, ray, newDirection, attenuation );
+    color *= attenuation;
+
+    for( int i = 0; i<data.maxBounces; ++i )
+    {
+		
+      ray.origin = position + normal*0.001;
+      ray.direction = newDirection;
+      objectId = IntersectScene( ray, position, normal );
+      if( objectId == -1 )
+      {
+        finalColor = color * GetEnvironmentColor(ray.direction);
+        break;
+      }
+      SampleMaterial( objectId, normal, ray, newDirection, attenuation );
+      color *= attenuation;
+    }
+  }
+  else
+  {
+    finalColor = GetEnvironmentColor(ray.direction);
+  }
+
+  uint pixelIndex = gl_GlobalInvocationID.y * data.imageSize.x + gl_GlobalInvocationID.x;
+  vec4 averagedColor = ( data.sampleCount*accumulationBuffer.data[pixelIndex] + vec4(finalColor,1.0)) / (data.sampleCount + 1.0);
+  accumulationBuffer.data[pixelIndex] = averagedColor;
+
+  imageStore(result,
+             ivec2(gl_GlobalInvocationID.xy),
+             vec4( sqrt(averagedColor.xyz),1.0) );
+}
