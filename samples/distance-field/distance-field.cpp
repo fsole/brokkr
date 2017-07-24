@@ -395,7 +395,7 @@ void Exit()
   render::contextDestroy(&gContext);
 
   //Close window
-  window::close(&gWindow);
+  window::destroy(&gWindow);
 }
 
 void Render()
@@ -484,7 +484,7 @@ void OnMouseMove(uint32_t x, uint32_t y)
 int main()
 {
   //Create a window
-  window::initialize("Path Tracer", gImageSize.x, gImageSize.y, &gWindow);
+  window::create("Path Tracer", gImageSize.x, gImageSize.y, &gWindow);
 
   //Initialize gContext
   render::contextCreate("Path Tracer", "", &gWindow, 3, &gContext);

@@ -139,9 +139,9 @@ namespace bkk
 			event_unknow_t unknowEvent_;
 		};
 
-		void initialize(const std::string& title, unsigned int width, unsigned int height, window_t* window);
+		void create(const std::string& title, unsigned int width, unsigned int height, window_t* window);
 		event_t* getNextEvent(window_t* window);
-		void close(window_t* window);
+		void destroy(window_t* window);
 
 	} //namespace window
 

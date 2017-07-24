@@ -119,7 +119,7 @@ int main()
 {
   //Create a window
   bkk::window::window_t window;
-  bkk::window::initialize("Textured Quad", 400u, 400u, &window);
+  bkk::window::create("Textured Quad", 400u, 400u, &window);
 
   //Initialize context
   bkk::render::context_t context;
@@ -200,7 +200,7 @@ int main()
   bkk::render::contextDestroy(&context);
 
   //Close window
-  bkk::window::close(&window);
+  bkk::window::destroy(&window);
 
   return 0;
 }

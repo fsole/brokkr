@@ -95,7 +95,7 @@ static long __stdcall WindowProcedure(HWND hWnd, unsigned int msg, WPARAM wp, LP
   return 0;
 }
 
-void window::initialize(const std::string& title, unsigned int width, unsigned int height, window_t* window)
+void window::create(const std::string& title, unsigned int width, unsigned int height, window_t* window)
 {
   window->instance_ = GetModuleHandle(0);
   window->width_ = width;
@@ -155,7 +155,7 @@ event_t* window::getNextEvent(window_t* window)
   return window->activeEvent_;
 }
 
-void window::close(window_t* window)
+void window::destroy(window_t* window)
 {
   DestroyWindow(window->handle_);
 }
@@ -191,7 +191,7 @@ static window::key_e KeyFromKeyCode(xcb_keycode_t keycode)
   return KEY_COUNT;
 }
 
-void window::Initialize(const std::string& title, unsigned int width, unsigned int height, window_t* window)
+void window::create(const std::string& title, unsigned int width, unsigned int height, window_t* window)
 {
   const xcb_setup_t *setup;
   xcb_screen_iterator_t iter;
@@ -341,7 +341,7 @@ event_t* window::GetNextEvent(window_t* window)
   return result;
 }
 
-void window::Close(window_t* window)
+void window::destroy(window_t* window)
 {
   free(window->atomWmDeleteWindow_);
   xcb_unmap_window(window->connection_, window->handle_);

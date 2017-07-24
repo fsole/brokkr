@@ -184,7 +184,7 @@ void Exit()
   render::contextDestroy( &gContext );
 
   //Close window
-  window::close( &gWindow );
+  window::destroy( &gWindow );
 }
 
 void OnKeyEvent( window::key_e key, bool pressed )
@@ -238,7 +238,7 @@ int main()
 {
   //Create a window
   gWindow = {};
-  window::initialize( "Skinning", 400u, 400u, &gWindow );
+  window::create( "Skinning", 400u, 400u, &gWindow );
 
   //Initialize gContext
   gContext = {};

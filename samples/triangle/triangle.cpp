@@ -90,7 +90,7 @@ int main()
 {
   //Create a window
   bkk::window::window_t window;
-  bkk::window::initialize( "Hello Triangle", 400u, 400u, &window );
+  bkk::window::create( "Hello Triangle", 400u, 400u, &window );
 
   //Create a context
   bkk::render::context_t context;
@@ -126,7 +126,7 @@ int main()
     }
 
     //Render next image
-	bkk::render::presentNextImage( &context );
+    bkk::render::presentNextImage( &context );
   }
 
   //Wait for all pending operations to be finished
@@ -141,7 +141,7 @@ int main()
   bkk::render::contextDestroy( &context );
 
   //Close window
-  bkk::window::close( &window );
+  bkk::window::destroy( &window );
 
   return 0;
 }
