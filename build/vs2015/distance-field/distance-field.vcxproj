@@ -152,9 +152,6 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\samples\distance-field\distance-field.cpp" />
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\..\samples\distance-field\distance-field.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

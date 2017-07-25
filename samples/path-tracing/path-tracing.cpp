@@ -285,8 +285,8 @@ void CreateGraphicsPipeline()
   gPipeline.cullMode_ = VK_CULL_MODE_BACK_BIT;
   gPipeline.depthTestEnabled_ = false;
   gPipeline.depthWriteEnabled_ = false;
-  gPipeline.vertexShader_ = gVertexShader.handle_;
-  gPipeline.fragmentShader_ = gFragmentShader.handle_;
+  gPipeline.vertexShader_ = gVertexShader;
+  gPipeline.fragmentShader_ = gFragmentShader;
   render::graphicsPipelineCreate( gContext, gContext.swapChain_.renderPass_, gMesh.vertexFormat_, gPipelineLayout, &gPipeline );
 }
 
@@ -312,7 +312,7 @@ void CreateComputePipeline()
 
   //Create pipeline
   bkk::render::shaderCreateFromGLSL(gContext, bkk::render::shader_t::COMPUTE_SHADER, "../path-tracing/path-tracing.comp", &gComputeShader);
-  gComputePipeline.computeShader_ = gComputeShader.handle_;
+  gComputePipeline.computeShader_ = gComputeShader;
   render::computePipelineCreate( gContext, gComputePipelineLayout, &gComputePipeline );
 }
 
@@ -514,7 +514,7 @@ int main()
   window::create( "Path Tracer", gImageSize.x, gImageSize.y, &gWindow );
 
   //Initialize gContext
-  render::contextCreate( "Path Tracer", "", &gWindow, 3, &gContext );
+  render::contextCreate( "Path Tracer", "", gWindow, 3, &gContext );
 
   CreateGeometry();
   CreateResources();

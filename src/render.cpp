@@ -116,7 +116,8 @@ static VkInstance CreateInstance(const char* applicationName, const char* engine
 #endif
   std::vector<const char*> instanceLayers;
 
-#ifdef DEBUG
+
+#ifdef VK_DEBUG_LAYERS
   instanceLayers.push_back("VK_LAYER_LUNARG_standard_validation");
   instanceExtensions.push_back("VK_EXT_debug_report");
 #endif
@@ -320,13 +321,13 @@ static void CreateDepthStencilBuffer(context_t* context, uint32_t width, uint32_
 }
 
 
-static void CreateSurface(VkInstance instance, VkPhysicalDevice physicalDevice, const window::window_t* window, surface_t* surface, import_table_t* importTable)
+static void CreateSurface(VkInstance instance, VkPhysicalDevice physicalDevice, const window::window_t& window, surface_t* surface, import_table_t* importTable)
 {
 #ifdef WIN32
   VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
   surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-  surfaceCreateInfo.hinstance = window->instance_;
-  surfaceCreateInfo.hwnd = window->handle_;
+  surfaceCreateInfo.hinstance = window.instance_;
+  surfaceCreateInfo.hwnd = window.handle_;
   vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, nullptr, &surface->handle_);
 #else
   VkXcbSurfaceCreateInfoKHR surfaceCreateInfo = {};
@@ -500,7 +501,7 @@ static VkCommandPool CreateCommandPool(VkDevice device, uint32_t queueIndex)
 
 void render::contextCreate(const char* applicationName,
   const char* engineName,
-  const window::window_t* window,
+  const window::window_t& window,
   uint32_t swapChainImageCount,
   context_t* context)
 {
@@ -527,8 +528,7 @@ void render::contextCreate(const char* applicationName,
 
   context->importTable_.Initialize(context->instance_, context->device_);
 
-
-#ifdef DEBUG
+#ifdef VK_DEBUG_LAYERS
   VkDebugReportCallbackCreateInfoEXT createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
   createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
@@ -538,7 +538,7 @@ void render::contextCreate(const char* applicationName,
 
   CreateSurface(context->instance_, context->physicalDevice_, window, &context->surface_, &context->importTable_);
 
-  CreateSwapChain(context, window->width_, window->height_, swapChainImageCount);
+  CreateSwapChain(context, window.width_, window.height_, swapChainImageCount);
 
   CreateSemaphores(context->device_, &context->swapChain_);
 }
@@ -565,7 +565,7 @@ void render::contextDestroy(context_t* context)
   vkDestroySwapchainKHR(context->device_, context->swapChain_.handle_, nullptr);
   vkDestroySurfaceKHR(context->instance_, context->surface_.handle_, nullptr);
 
-#ifdef DEBUG
+#ifdef VK_DEBUG_LAYERS
   context->importTable_.vkDestroyDebugReportCallbackEXT(context->instance_, context->debugCallback_, nullptr);
 #endif
 
@@ -1291,7 +1291,7 @@ void render::gpuBufferCreate(const context_t& context,
 
 void render::gpuBufferCreate(const context_t& context, gpu_buffer_usage_e usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
 {
-  return gpuBufferCreate(context, usage, 0u, data, size, buffer, allocator);
+  return gpuBufferCreate(context, usage, HOST_VISIBLE, data, size, buffer, allocator);
 }
 
 void render::gpuBufferDestroy(const context_t& context, gpu_buffer_t* buffer, gpu_memory_allocator_t* allocator)
@@ -1306,6 +1306,16 @@ void render::gpuBufferUpdate(const context_t& context, void* data, size_t offset
   assert(mapping);
   memcpy(mapping, data, size);
   gpuMemoryUnmap(context, buffer->memory_);
+}
+
+void* render::gpuBufferMap(const context_t& context, const gpu_buffer_t& buffer)
+{
+  return gpuMemoryMap(context, buffer.memory_, buffer.memory_.offset_, buffer.memory_.size_);
+}
+
+void render::gpuBufferUnmap(const context_t& context, const gpu_buffer_t& buffer)
+{
+  gpuMemoryUnmap(context, buffer.memory_);
 }
 
 void render::descriptorSetLayoutCreate(const context_t& context, descriptor_set_layout_t* descriptorSetLayout)
@@ -1484,12 +1494,12 @@ void render::graphicsPipelineCreate(const context_t& context, VkRenderPass rende
 
   VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfos[2] = {};
   pipelineShaderStageCreateInfos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  pipelineShaderStageCreateInfos[0].module = pipeline->vertexShader_;
+  pipelineShaderStageCreateInfos[0].module = pipeline->vertexShader_.handle_;
   pipelineShaderStageCreateInfos[0].pName = "main";
   pipelineShaderStageCreateInfos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 
   pipelineShaderStageCreateInfos[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  pipelineShaderStageCreateInfos[1].module = pipeline->fragmentShader_;
+  pipelineShaderStageCreateInfos[1].module = pipeline->fragmentShader_.handle_;
   pipelineShaderStageCreateInfos[1].pName = "main";
   pipelineShaderStageCreateInfos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 
@@ -1530,7 +1540,7 @@ void render::computePipelineCreate(const context_t& context, const pipeline_layo
   shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   shaderStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
   shaderStage.pName = "main";
-  shaderStage.module = pipeline->computeShader_;
+  shaderStage.module = pipeline->computeShader_.handle_;
 
   VkComputePipelineCreateInfo computePipelineCreateInfo = {};
   computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -1567,8 +1577,11 @@ VK_FORMAT_R32G32_SINT, VK_FORMAT_R32G32_UINT, VK_FORMAT_R32G32_SFLOAT,
 VK_FORMAT_R32G32B32_SINT, VK_FORMAT_R32G32B32_UINT, VK_FORMAT_R32G32B32_SFLOAT,
 VK_FORMAT_R32G32B32A32_SINT, VK_FORMAT_R32G32B32A32_UINT, VK_FORMAT_R32G32B32A32_SFLOAT };
 
+static const uint32_t AttributeFormatSizeTable[] = { 4u, 4u, 4u, 8u, 8u, 8u, 12u, 12u, 12u, 16u,  16u, 16u };
+
 void render::vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attributeCount, vertex_format_t* format)
 {
+  format->vertexSize_ = 0u;
   VkVertexInputAttributeDescription* attributeDescription = new VkVertexInputAttributeDescription[attributeCount];;
   VkVertexInputBindingDescription* bindingDescription = new VkVertexInputBindingDescription[attributeCount];
   for (uint32_t i = 0; i < attributeCount; ++i)
@@ -1581,6 +1594,7 @@ void render::vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attribut
     attributeDescription[i].format = attributeFormat;
     attributeDescription[i].location = i;
     attributeDescription[i].offset = attribute[i].offset_;
+    format->vertexSize_ += AttributeFormatSizeTable[attribute[i].format_];
   }
 
   format->vertexInputState_ = {};

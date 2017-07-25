@@ -146,8 +146,8 @@ void CreatePipeline()
   gPipeline.depthTestEnabled_ = true;
   gPipeline.depthWriteEnabled_ = true;
   gPipeline.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
-  gPipeline.vertexShader_ = gVertexShader.handle_;
-  gPipeline.fragmentShader_ = gFragmentShader.handle_;
+  gPipeline.vertexShader_ = gVertexShader;
+  gPipeline.fragmentShader_ = gFragmentShader;
   render::graphicsPipelineCreate( gContext, gContext.swapChain_.renderPass_, gMesh.vertexFormat_, gPipelineLayout, &gPipeline );
 }
 
@@ -242,7 +242,7 @@ int main()
 
   //Initialize gContext
   gContext = {};
-  render::contextCreate( "Skinning", "", &gWindow, 3, &gContext );
+  render::contextCreate( "Skinning", "", gWindow, 3, &gContext );
 
   CreateUniformBuffer();
   CreateGeometry();

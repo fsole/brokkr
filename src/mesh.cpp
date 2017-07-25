@@ -25,8 +25,16 @@ void mesh::create( const render::context_t& context,
                    render::vertex_attribute_t* attribute, uint32_t attributeCount,
                    mesh_t* mesh, render::gpu_memory_allocator_t* allocator )
 {
-  mesh->indexCount_ = indexDataSize / sizeof(uint32_t);
+  //Create vertex format
+  render::vertexFormatCreate(attribute, attributeCount, &mesh->vertexFormat_);
 
+  mesh->indexCount_ = (u32)indexDataSize / sizeof(uint32_t);
+  mesh->vertexCount_ = (u32)vertexDataSize / mesh->vertexFormat_.vertexSize_;
+
+  render::gpuBufferCreate(context, render::gpu_buffer_usage_e::INDEX_BUFFER, (void*)indexData, (size_t)indexDataSize, allocator, &mesh->indexBuffer_);
+  render::gpuBufferCreate(context, render::gpu_buffer_usage_e::VERTEX_BUFFER, (void*)vertexData, (size_t)vertexDataSize, allocator, &mesh->vertexBuffer_);
+
+  /*
   //Create index buffer
   VkBufferCreateInfo bufferCreateInfo = {};
   bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -66,8 +74,9 @@ void mesh::create( const render::context_t& context,
   memcpy(mapping, vertexData, vertexDataSize);
   memcpy(mapping + indexBufferOffset,indexData, indexDataSize);
   render::gpuMemoryUnmap( context, mesh->memory_ );
+  */
 
-  render::vertexFormatCreate( attribute, attributeCount, &mesh->vertexFormat_ );
+  
 }
 
 static void CountNodes( aiNode* node, u32& total )
@@ -259,20 +268,20 @@ void mesh::createFromFile( const render::context_t& context, const char* file, m
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
   }
 
-  vec3 vertexMin( FLT_MAX, FLT_MAX, FLT_MAX );
-  vec3 vertexMax( -FLT_MAX, -FLT_MAX, -FLT_MAX );
+  vec3 aabbMin( FLT_MAX, FLT_MAX, FLT_MAX );
+  vec3 aabbMax( -FLT_MAX, -FLT_MAX, -FLT_MAX );
   size_t vertexBufferSize( vertexCount * vertexSize * sizeof(f32) );
   f32* vertexData = new f32[ vertexCount * vertexSize  ];
   u32 index(0);
   for( u32 vertex(0); vertex<vertexCount; ++vertex )
   {
-    vertexMin = vec3( maths::myMin( aimesh->mVertices[vertex].x, vertexMin.x ),
-                      maths::myMin( aimesh->mVertices[vertex].y, vertexMin.y ),
-                      maths::myMin( aimesh->mVertices[vertex].z, vertexMin.z ) );
+	  aabbMin = vec3( maths::myMin( aimesh->mVertices[vertex].x, aabbMin.x ),
+                      maths::myMin( aimesh->mVertices[vertex].y, aabbMin.y ),
+                      maths::myMin( aimesh->mVertices[vertex].z, aabbMin.z ) );
 
-    vertexMax = vec3( maths::myMax( aimesh->mVertices[vertex].x, vertexMax.x ),
-                      maths::myMax( aimesh->mVertices[vertex].y, vertexMax.y ),
-                      maths::myMax( aimesh->mVertices[vertex].z, vertexMax.z ) );
+	  aabbMax = vec3( maths::myMax( aimesh->mVertices[vertex].x, aabbMax.x ),
+                      maths::myMax( aimesh->mVertices[vertex].y, aabbMax.y ),
+                      maths::myMax( aimesh->mVertices[vertex].z, aabbMax.z ) );
 
     vertexData[index++] = aimesh->mVertices[vertex].x;
     vertexData[index++] = aimesh->mVertices[vertex].y;
@@ -370,8 +379,8 @@ void mesh::createFromFile( const render::context_t& context, const char* file, m
     }
   }
 
-  mesh->aabb_.center_ = 0.5f * ( vertexMax + vertexMin );
-  mesh->aabb_.extents_ = mesh->aabb_.center_ - vertexMin;
+  mesh->aabb_.min_ = aabbMin;
+  mesh->aabb_.max_ = aabbMax;
 
   create( context, indices, indexBufferSize, vertexData, vertexBufferSize, &attributes[0], attributeCount, mesh, allocator);
 
@@ -381,9 +390,11 @@ void mesh::createFromFile( const render::context_t& context, const char* file, m
 
 void mesh::destroy( const render::context_t& context, mesh_t* mesh, render::gpu_memory_allocator_t* allocator )
 {
-  vkDestroyBuffer(context.device_, mesh->vertexBuffer_, nullptr);
-  vkDestroyBuffer(context.device_, mesh->indexBuffer_, nullptr);
-  render::gpuMemoryDeallocate(context, mesh->memory_, allocator);
+  render::gpuBufferDestroy(context, &mesh->indexBuffer_, allocator);
+  render::gpuBufferDestroy(context, &mesh->vertexBuffer_, allocator);
+  //vkDestroyBuffer(context.device_, mesh->vertexBuffer_, nullptr);
+  //vkDestroyBuffer(context.device_, mesh->indexBuffer_, nullptr);
+  //render::gpuMemoryDeallocate(context, mesh->memory_, allocator);
 
   if( mesh->skeleton_ )
   {
@@ -408,14 +419,14 @@ void mesh::destroy( const render::context_t& context, mesh_t* mesh, render::gpu_
 
 void mesh::draw( VkCommandBuffer commandBuffer, const mesh_t& mesh )
 {
-  vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer_, 0, VK_INDEX_TYPE_UINT32);
+  vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
 
   uint32_t attributeCount = mesh.vertexFormat_.attributeCount_;
   std::vector<VkBuffer> buffers(attributeCount);
   std::vector<VkDeviceSize> offsets(attributeCount);
   for( uint32_t i(0); i<attributeCount; ++i )
   {
-    buffers[i] = mesh.vertexBuffer_;
+    buffers[i] = mesh.vertexBuffer_.handle_;
     offsets[i] = 0u;
   }
 

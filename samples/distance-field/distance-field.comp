@@ -28,17 +28,7 @@ struct Material
   float roughness;
 };
 
-struct DistanceField
-{
-  mat4 tx;
-  uint width;
-  uint height;
-  uint depth;
-  uint padding;
-  vec4 aabbMin;
-  vec4 aabbMax;
-  //float data[8000];
-};
+
 
 //Generated image
 layout (binding = 0, rgba8) uniform writeonly image2D result;
@@ -50,13 +40,20 @@ layout (std140, binding = 1) uniform UBO
   uint maxBounces;
   uvec2 imageSize;
   Camera camera;
-  DistanceField distanceField;
-}data;
+}globals;
+
 
 layout (binding = 2) buffer SSBO
 {
-  float values[];
-}dfData;
+  mat4 tx;
+  uint width;
+  uint height;
+  uint depth;
+  uint padding;
+  vec4 aabbMin;
+  vec4 aabbMax;
+  float data[];
+}distanceField;
 
 
 //Pseudo-random number generation
@@ -82,32 +79,32 @@ float rand()
 void GenerateCameraRay( in uint pixelX, in uint pixelY, out Ray ray)
 {
   vec2 imagePlaneSize;
-  imagePlaneSize.x = tan( data.camera.verticalFov * 0.5f );
-  imagePlaneSize.y = imagePlaneSize.x * float(data.imageSize.y) / float(data.imageSize.x);
+  imagePlaneSize.x = tan( globals.camera.verticalFov * 0.5f );
+  imagePlaneSize.y = imagePlaneSize.x * float(globals.imageSize.y) / float(globals.imageSize.x);
   
-  float pixelWidth = 1.0 / float(data.imageSize.x);
-  float pixelHeight = 1.0 / float(data.imageSize.y);
+  float pixelWidth = 1.0 / float(globals.imageSize.x);
+  float pixelHeight = 1.0 / float(globals.imageSize.y);
 
   //Random point inside the pixel
   float u = ( pixelY + rand() ) * pixelWidth - 0.5f;
   float v = ( pixelX + rand() ) * pixelHeight - 0.5f;
 
   //Compute intersection with focal plane in world space
-  vec4 focalPlaneIntersection = data.camera.tx * vec4( u * imagePlaneSize.x * data.camera.focalDistance, v * imagePlaneSize.y * data.camera.focalDistance, -data.camera.focalDistance, 1.0f );
+  vec4 focalPlaneIntersection = globals.camera.tx * vec4( u * imagePlaneSize.x * globals.camera.focalDistance, v * imagePlaneSize.y * globals.camera.focalDistance, -globals.camera.focalDistance, 1.0f );
 
   //Get random point in the lens in world space
-  vec4 lensRadomPoint = data.camera.tx * vec4( u * imagePlaneSize.x*(2.0f*rand()-1.0f) * data.camera.aperture, v * imagePlaneSize.y *(2.0f*rand()-1.0f) * data.camera.aperture, 0.0f, 1.0f );
+  vec4 lensRadomPoint = globals.camera.tx * vec4( u * imagePlaneSize.x*(2.0f*rand()-1.0f) * globals.camera.aperture, v * imagePlaneSize.y *(2.0f*rand()-1.0f) * globals.camera.aperture, 0.0f, 1.0f );
 
   ray.direction = normalize( focalPlaneIntersection.xyz - lensRadomPoint.xyz );
   ray.origin = lensRadomPoint.xyz;
 }
 
-uvec3 localToGrid( vec4 local, DistanceField df )
+uvec3 localToGrid( vec4 local )
 {
 	uvec3 result;
-	result.x = clamp( uint((local.x - df.aabbMin.x) / (df.aabbMax.x - df.aabbMin.x) * (df.width-1) + 0.5), 0, df.width-1);
-	result.y = clamp( uint((local.y - df.aabbMin.y) / (df.aabbMax.y - df.aabbMin.y) * (df.height-1) + 0.5), 0, df.height-1);
-	result.z = clamp( uint((local.z - df.aabbMin.z) / (df.aabbMax.z - df.aabbMin.z) * (df.depth-1) + 0.5), 0, df.depth-1);
+	result.x = clamp( uint((local.x - distanceField.aabbMin.x) / (distanceField.aabbMax.x - distanceField.aabbMin.x) * (distanceField.width-1) + 0.5), 0, distanceField.width-1);
+	result.y = clamp( uint((local.y - distanceField.aabbMin.y) / (distanceField.aabbMax.y - distanceField.aabbMin.y) * (distanceField.height-1) + 0.5), 0, distanceField.height-1);
+	result.z = clamp( uint((local.z - distanceField.aabbMin.z) / (distanceField.aabbMax.z - distanceField.aabbMin.z) * (distanceField.depth-1) + 0.5), 0, distanceField.depth-1);
 	
 	return result;
 }
@@ -132,14 +129,12 @@ float distanceFromDistanceField( vec3 point )
 	//2. Get normalized coordinates
 	//3. Clamp to [0,1]
 	//4. Sample distance field
-	DistanceField df = data.distanceField;
 	
 	//TODO: Pass inverse local matrix to transform from wo
-	vec4 localCoord =  df.tx * vec4(point,1.0);
-	uvec3 gridCoord = localToGrid( localCoord, df );
+	vec4 localCoord =  distanceField.tx * vec4(point,1.0);
+	uvec3 gridCoord = localToGrid( localCoord );
 
-	//return dfData.values[gridCoord.z*df.width*df.height + gridCoord.y*df.width + gridCoord.x];
-	return min(dfData.values[gridCoord.z*df.width*df.height + gridCoord.y*df.width + gridCoord.x], HorizontalPlane(point,1.5));	
+	return min(distanceField.data[gridCoord.z*distanceField.width*distanceField.height + gridCoord.y*distanceField.width + gridCoord.x], HorizontalPlane(point,1.5));	
 }
 
 
@@ -155,7 +150,7 @@ vec3 GetEnvironmentColor( in vec3 direction )
 void main()
 {
   //Generate a random seed
-  rng_state = wang_hash(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y*data.imageSize.x*(data.sampleCount+1));
+  rng_state = wang_hash(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y*globals.imageSize.x*(globals.sampleCount+1));
 
   //Generate camera ray
   Ray cameraRay;

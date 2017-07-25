@@ -2,7 +2,7 @@
 #include "window.h"
 #include "mesh.h"
 
-static const char* gVertexShader = {
+static const char* gVertexShaderSource = {
 	"#version 440 core\n \
 	layout(location = 0) in vec3 aPosition;\n \
 	layout(location = 1) in vec2 aTexCoord;\n \
@@ -15,7 +15,7 @@ static const char* gVertexShader = {
 };
 
 
-static const char* gFragmentShader = {
+static const char* gFragmentShaderSource = {
 	"#version 440 core\n \
 	in vec2 uv;\n  \
 	layout(location = 0) out vec4 color;\n \
@@ -54,7 +54,7 @@ bkk::mesh::mesh_t CreateTriangleGeometry(const bkk::render::context_t& context )
   return mesh;
 }
 
-void CreatePipeline(const bkk::render::context_t& context, const bkk::mesh::mesh_t& mesh, VkShaderModule vertexShader, VkShaderModule fragmentShader,
+void CreatePipeline(const bkk::render::context_t& context, const bkk::mesh::mesh_t& mesh, const bkk::render::shader_t& vertexShader, const bkk::render::shader_t& fragmentShader,
 	bkk::render::pipeline_layout_t* layout, bkk::render::graphics_pipeline_t* pipeline )
 
 {
@@ -94,23 +94,23 @@ int main()
 
   //Create a context
   bkk::render::context_t context;
-  bkk::render::contextCreate( "Hello triangle", "", &window, 3, &context );
+  bkk::render::contextCreate( "Hello triangle", "", window, 3, &context );
 
   bkk::mesh::mesh_t mesh = CreateTriangleGeometry( context );
 
   bkk::render::shader_t vertexShader, fragmentShader;
-  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShader, &vertexShader);
-  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShader, &fragmentShader);
+  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader);
+  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);
 
   bkk::render::pipeline_layout_t pipelineLayout;
   bkk::render::graphics_pipeline_t pipeline = {};
-  CreatePipeline(context, mesh, vertexShader.handle_, fragmentShader.handle_, &pipelineLayout, &pipeline );
+  CreatePipeline(context, mesh, vertexShader, fragmentShader, &pipelineLayout, &pipeline );
   BuildCommandBuffers(context, mesh, pipeline);
   
   bool quit = false;
   while( !quit )
   {
-	  bkk::window::event_t* event = nullptr;
+    bkk::window::event_t* event = nullptr;
     while( (event = bkk::window::getNextEvent( &window )) )
     {
       if( event->type_ == bkk::window::EVENT_QUIT )

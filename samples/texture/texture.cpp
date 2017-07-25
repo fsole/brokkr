@@ -5,7 +5,7 @@
 
 #include "mesh.h"
 
-static const char* gVertexShader = {
+static const char* gVertexShaderSource = {
   "#version 440 core\n \
 	layout(location = 0) in vec3 aPosition;\n \
 	layout(location = 1) in vec2 aTexCoord;\n \
@@ -17,7 +17,7 @@ static const char* gVertexShader = {
 	}\n"
 };
 
-static const char* gFragmentShader = {
+static const char* gFragmentShaderSource = {
   "#version 440 core\n \
 	in vec2 uv;\n  \
   layout (binding = 0) uniform sampler2D uTexture;\n \
@@ -84,7 +84,7 @@ bkk::render::texture_t CreateTexture(const bkk::render::context_t& context)
   return texture;
 }
 
-void CreatePipeline(const bkk::render::context_t& context, const bkk::render::vertex_format_t& vertexFormat, VkShaderModule vertexShader, VkShaderModule fragmentShader,
+void CreatePipeline(const bkk::render::context_t& context, const bkk::render::vertex_format_t& vertexFormat, const bkk::render::shader_t& vertexShader, const bkk::render::shader_t& fragmentShader,
                     const bkk::render::pipeline_layout_t& layout, bkk::render::graphics_pipeline_t* pipeline)
 {
   //Create pipeline
@@ -123,7 +123,7 @@ int main()
 
   //Initialize context
   bkk::render::context_t context;
-  bkk::render::contextCreate("Textured Quad", "", &window, 3, &context);
+  bkk::render::contextCreate("Textured Quad", "", window, 3, &context);
 
   //Create a quad and a texture
   bkk::mesh::mesh_t mesh = CreateQuadGeometry(context);
@@ -153,11 +153,11 @@ int main()
 
   //Load shaders
   bkk::render::shader_t vertexShader, fragmentShader;
-  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShader, &vertexShader);
-  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShader, &fragmentShader);
+  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader);
+  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);
 
   bkk::render::graphics_pipeline_t pipeline = {};
-  CreatePipeline(context, mesh.vertexFormat_, vertexShader.handle_, fragmentShader.handle_, pipelineLayout, &pipeline);
+  CreatePipeline(context, mesh.vertexFormat_, vertexShader, fragmentShader, pipelineLayout, &pipeline);
   BuildCommandBuffers(context, mesh, &pipelineLayout, &descriptorSet, &pipeline);
 
   bool quit = false;

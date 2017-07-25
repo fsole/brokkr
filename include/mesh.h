@@ -10,8 +10,8 @@ namespace bkk
 	{
 		struct aabb_t
 		{
-			maths::vec3 center_;
-			maths::vec3 extents_;
+			maths::vec3 min_;
+			maths::vec3 max_;
 		};
 
 		struct skeleton_t
@@ -53,10 +53,14 @@ namespace bkk
 
 		struct mesh_t
 		{
-			VkBuffer               vertexBuffer_;
-			VkBuffer               indexBuffer_;
-			render::gpu_memory_t  memory_;
+      render::gpu_buffer_t vertexBuffer_;
+      render::gpu_buffer_t indexBuffer_;
+			
+      //VkBuffer vertexBuffer_;
+			//VkBuffer indexBuffer_;
+			//render::gpu_memory_t memory_;
 
+      u32 vertexCount_;
 			u32 indexCount_;
 			aabb_t aabb_;
 

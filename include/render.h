@@ -288,14 +288,14 @@ namespace bkk
 			//@TODO Stencil
 			//@TODO Multisampling
 
-			VkShaderModule vertexShader_;
-			VkShaderModule fragmentShader_;
+      shader_t vertexShader_;
+      shader_t fragmentShader_;
 		};
 
 		struct compute_pipeline_t
 		{
 			VkPipeline handle_;
-			VkShaderModule computeShader_;
+      shader_t computeShader_;
 		};
 
 		enum attribute_format_e
@@ -315,6 +315,7 @@ namespace bkk
 			ATTRIBUTE_FORMAT_COUNT
 		};
 
+
 		struct vertex_attribute_t
 		{
 			attribute_format_e format_;
@@ -327,9 +328,10 @@ namespace bkk
 			VkPipelineVertexInputStateCreateInfo vertexInputState_;
 			VkPipelineInputAssemblyStateCreateInfo inputAssemblyState_;
 			uint32_t attributeCount_;
+      uint32_t vertexSize_;
 		};
 
-		void contextCreate(const char* applicationName, const char* engineName, const window::window_t* window, uint32_t swapChainImageCount, context_t* context);
+		void contextCreate(const char* applicationName, const char* engineName, const window::window_t& window, uint32_t swapChainImageCount, context_t* context);
 		void contextDestroy(context_t* context);
 		void contextFlush(const context_t& context);
     void initResources(const context_t& context);
@@ -360,6 +362,9 @@ namespace bkk
 		void gpuBufferCreate(const context_t& context, gpu_buffer_usage_e usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
 		void gpuBufferDestroy(const context_t& context, gpu_buffer_t* buffer, gpu_memory_allocator_t* allocator = nullptr);
 		void gpuBufferUpdate(const context_t& context, void* data, size_t offset, size_t size, gpu_buffer_t* buffer);
+    void* gpuBufferMap(const context_t& context, const gpu_buffer_t& buffer);
+    void gpuBufferUnmap(const context_t& context, const gpu_buffer_t& buffer);
+
 
 		void descriptorSetLayoutCreate(const context_t& context, descriptor_set_layout_t* desriptorSetLayout);
 		void pipelineLayoutCreate(const context_t& context, pipeline_layout_t* pipelineLayout);
