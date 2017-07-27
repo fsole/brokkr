@@ -241,7 +241,7 @@ void CreateGeometry()
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
   attributes[1].format_ = render::attribute_format_e::VEC2;;
-  attributes[1].offset_ = 3*sizeof(float);
+  attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
 
   mesh::create( gContext, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &gMesh );
@@ -333,41 +333,23 @@ void BuildCommandBuffers()
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.pNext = NULL;
     barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
     barrier.image = gTexture.image_;
     barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
     barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
     vkCmdPipelineBarrier(
       cmdBuffer,
-      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
       VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
       0,
       0, nullptr,
       0, nullptr,
       1, &barrier);
 
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,gPipeline.handle_);
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gPipelineLayout.handle_, 0, 1, &gDescriptorSet.handle_, 0, nullptr);
+    bkk::render::graphicsPipelineBind(cmdBuffer, gPipeline);
+    bkk::render::descriptorSetBindForGraphics(cmdBuffer, gPipelineLayout, 0, &gDescriptorSet, 1u);
     mesh::draw(cmdBuffer, gMesh );
-
-    barrier = {};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.pNext = NULL;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    barrier.image = gTexture.image_;
-    barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    barrier.srcAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
-    barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    vkCmdPipelineBarrier(
-      cmdBuffer,
-      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-      0,
-      0, nullptr,
-      0, nullptr,
-      1, &barrier);
 
     render::endPresentationCommandBuffer( gContext, i );
   }
@@ -382,10 +364,9 @@ void BuildComputeCommandBuffer()
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
   vkBeginCommandBuffer(gComputeCommandBuffer, &beginInfo);
-
-
-  vkCmdBindPipeline(gComputeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, gComputePipeline.handle_);
-  vkCmdBindDescriptorSets(gComputeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, gComputePipelineLayout.handle_, 0, 1, &gComputeDescriptorSet.handle_, 0, 0);
+  
+  bkk::render::computePipelineBind(gComputeCommandBuffer, gComputePipeline);
+  bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
 
   vkCmdDispatch(gComputeCommandBuffer, gImageSize.x / 16, gImageSize.y / 16, 1);
 

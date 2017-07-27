@@ -51,7 +51,7 @@ bkk::mesh::mesh_t CreateQuadGeometry(const bkk::render::context_t& context)
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
   attributes[1].format_ = bkk::render::attribute_format_e::VEC2;;
-  attributes[1].offset_ = 3 * sizeof(float);
+  attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
 
   bkk::mesh::mesh_t mesh;
@@ -108,8 +108,8 @@ void BuildCommandBuffers(const bkk::render::context_t& context,const bkk::mesh::
   for (unsigned i(0); i<3; ++i)
   {
     VkCommandBuffer cmdBuffer = bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->handle_);
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout->handle_, 0, 1, &descriptorSet->handle_, 0, nullptr);
+    bkk::render::graphicsPipelineBind(cmdBuffer, *pipeline);
+    bkk::render::descriptorSetBindForGraphics(cmdBuffer, *layout, 0, descriptorSet, 1u);
     bkk::mesh::draw(cmdBuffer, mesh);
     bkk::render::endPresentationCommandBuffer(context, i);
   }

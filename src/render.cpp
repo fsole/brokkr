@@ -1451,6 +1451,29 @@ void render::descriptorSetUpdate(const context_t& context, const descriptor_set_
   vkUpdateDescriptorSets(context.device_, (uint32_t)writeDescriptorSets.size(), &writeDescriptorSets[0], 0, nullptr);
 }
 
+void render::descriptorSetBindForGraphics(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount)
+{
+  std::vector<VkDescriptorSet> descriptorSetHandles(descriptorSetCount);
+  for (u32 i(0); i < descriptorSetCount; ++i)
+  {
+    descriptorSetHandles[i] = descriptorSets[i].handle_;
+  }
+  
+  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.handle_, firstSet, descriptorSetCount, descriptorSetHandles.data(), 0, 0);
+}
+
+void render::descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount)
+{
+  std::vector<VkDescriptorSet> descriptorSetHandles(descriptorSetCount);
+  for (u32 i(0); i < descriptorSetCount; ++i)
+  {
+    descriptorSetHandles[i] = descriptorSets[i].handle_;
+  }
+
+  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.handle_, firstSet, descriptorSetCount, descriptorSetHandles.data(), 0, 0);
+}
+
+
 void render::graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, const render::vertex_format_t& vertexFormat,
   const pipeline_layout_t& layout, graphics_pipeline_t* pipeline)
 {
@@ -1533,6 +1556,12 @@ void render::graphicsPipelineDestroy(const context_t& context, graphics_pipeline
   vkDestroyPipeline(context.device_, pipeline->handle_, nullptr);
 }
 
+void render::graphicsPipelineBind(VkCommandBuffer commandBuffer, const graphics_pipeline_t& pipeline)
+{
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle_);
+}
+
+
 void render::computePipelineCreate(const context_t& context, const pipeline_layout_t& layout, compute_pipeline_t* pipeline)
 {
   //Compute pipeline
@@ -1555,6 +1584,11 @@ void render::computePipelineDestroy(const context_t& context, compute_pipeline_t
   vkDestroyPipeline(context.device_, pipeline->handle_, nullptr);
 }
 
+void render::computePipelineBind( VkCommandBuffer commandBuffer, const compute_pipeline_t& pipeline)
+{
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.handle_);
+}
+
 void render::allocateCommandBuffers(const context_t& context, VkCommandBufferLevel level, uint32_t count, VkCommandBuffer* buffers)
 {
   VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
@@ -1572,12 +1606,17 @@ void render::freeCommandBuffers(const context_t& context, uint32_t count, VkComm
 
 
 
-static const VkFormat AttributeFormatTable[] = { VK_FORMAT_R32_SINT, VK_FORMAT_R32_UINT, VK_FORMAT_R32_SFLOAT,
-VK_FORMAT_R32G32_SINT, VK_FORMAT_R32G32_UINT, VK_FORMAT_R32G32_SFLOAT,
-VK_FORMAT_R32G32B32_SINT, VK_FORMAT_R32G32B32_UINT, VK_FORMAT_R32G32B32_SFLOAT,
-VK_FORMAT_R32G32B32A32_SINT, VK_FORMAT_R32G32B32A32_UINT, VK_FORMAT_R32G32B32A32_SFLOAT };
+static const VkFormat AttributeFormatLUT[] = { VK_FORMAT_R32_SINT, VK_FORMAT_R32_UINT, VK_FORMAT_R32_SFLOAT,
+                                               VK_FORMAT_R32G32_SINT, VK_FORMAT_R32G32_UINT, VK_FORMAT_R32G32_SFLOAT,
+                                               VK_FORMAT_R32G32B32_SINT, VK_FORMAT_R32G32B32_UINT, VK_FORMAT_R32G32B32_SFLOAT,
+                                               VK_FORMAT_R32G32B32A32_SINT, VK_FORMAT_R32G32B32A32_UINT, VK_FORMAT_R32G32B32A32_SFLOAT 
+                                             };
 
-static const uint32_t AttributeFormatSizeTable[] = { 4u, 4u, 4u, 8u, 8u, 8u, 12u, 12u, 12u, 16u,  16u, 16u };
+static const uint32_t AttributeFormatSizeLUT[] = { 4u, 4u, 4u, 
+                                                   8u, 8u, 8u, 
+                                                   12u, 12u, 12u, 
+                                                   16u, 16u, 16u
+                                                 };
 
 void render::vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attributeCount, vertex_format_t* format)
 {
@@ -1586,7 +1625,7 @@ void render::vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attribut
   VkVertexInputBindingDescription* bindingDescription = new VkVertexInputBindingDescription[attributeCount];
   for (uint32_t i = 0; i < attributeCount; ++i)
   {
-    VkFormat attributeFormat = AttributeFormatTable[attribute[i].format_];
+    VkFormat attributeFormat = AttributeFormatLUT[attribute[i].format_];
     bindingDescription[i].binding = i;
     bindingDescription[i].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     bindingDescription[i].stride = (uint32_t)attribute[i].stride_;
@@ -1594,7 +1633,7 @@ void render::vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attribut
     attributeDescription[i].format = attributeFormat;
     attributeDescription[i].location = i;
     attributeDescription[i].offset = attribute[i].offset_;
-    format->vertexSize_ += AttributeFormatSizeTable[attribute[i].format_];
+    format->vertexSize_ += AttributeFormatSizeLUT[attribute[i].format_];
   }
 
   format->vertexInputState_ = {};

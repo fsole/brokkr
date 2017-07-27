@@ -156,8 +156,8 @@ void BuildCommandBuffers()
   for( unsigned i(0); i<3; ++i )
   {
     VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer( gContext, i, nullptr );
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,gPipeline.handle_);
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gPipelineLayout.handle_, 0, 1, &gDescriptorSet.handle_, 0, nullptr);
+    bkk::render::graphicsPipelineBind(cmdBuffer, gPipeline);
+    bkk::render::descriptorSetBindForGraphics(cmdBuffer, gPipelineLayout, 0, &gDescriptorSet, 1u);
     mesh::draw(cmdBuffer, gMesh );
     render::endPresentationCommandBuffer( gContext, i );
   }

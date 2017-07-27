@@ -325,7 +325,7 @@ void CreateFullscreenQuad( mesh::mesh_t* quad )
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
   attributes[1].format_ = render::attribute_format_e::VEC2;;
-  attributes[1].offset_ = 3 * sizeof(float);
+  attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
 
   mesh::create(gContext, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, quad);
@@ -431,8 +431,8 @@ void BuildCommandBuffers()
       0, nullptr,
       1, &barrier);
 
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gPipeline.handle_);
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, gPipelineLayout.handle_, 0, 1, &gDescriptorSet.handle_, 0, nullptr);
+    bkk::render::graphicsPipelineBind(cmdBuffer, gPipeline);
+    bkk::render::descriptorSetBindForGraphics(cmdBuffer, gPipelineLayout, 0, &gDescriptorSet, 1u);
     mesh::draw(cmdBuffer, gFSQuad);
 
     barrier = {};
@@ -467,9 +467,8 @@ void BuildComputeCommandBuffer()
 
   vkBeginCommandBuffer(gComputeCommandBuffer, &beginInfo);
 
-
-  vkCmdBindPipeline(gComputeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, gComputePipeline.handle_);
-  vkCmdBindDescriptorSets(gComputeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, gComputePipelineLayout.handle_, 0, 1, &gComputeDescriptorSet.handle_, 0, 0);
+  bkk::render::computePipelineBind(gComputeCommandBuffer, gComputePipeline);
+  bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
 
   vkCmdDispatch(gComputeCommandBuffer, gImageSize.x / 16, gImageSize.y / 16, 1);
 

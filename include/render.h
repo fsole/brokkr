@@ -376,12 +376,16 @@ namespace bkk
 		void descriptorSetCreate(const context_t& context, const descriptor_pool_t& descriptorPool, const descriptor_set_layout_t& descriptorSetLayout, descriptor_set_t* descriptorSet);
 		void descriptorSetDestroy(const context_t& context, descriptor_set_t* descriptorSet);
 		void descriptorSetUpdate(const context_t& context, const descriptor_set_layout_t& descriptorSetLayout, descriptor_set_t* descriptorSet);
+    void descriptorSetBindForGraphics(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount);
+    void descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount);
 
 		void graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, const render::vertex_format_t& vertexFormat, const pipeline_layout_t& pipelineLayout, graphics_pipeline_t* pipeline);
 		void graphicsPipelineDestroy(const context_t& context, graphics_pipeline_t* pipeline);
-	
+	  void graphicsPipelineBind( VkCommandBuffer commandBuffer, const graphics_pipeline_t& pipeline);
+
 		void computePipelineCreate(const context_t& context, const pipeline_layout_t& pipelineLayout, compute_pipeline_t* pipeline);
 		void computePipelineDestroy(const context_t& context, compute_pipeline_t* pipeline);
+    void computePipelineBind( VkCommandBuffer commandBuffer, const compute_pipeline_t& pipeline);
 
 		void allocateCommandBuffers(const context_t& context, VkCommandBufferLevel level, uint32_t count, VkCommandBuffer* buffers);
 		void freeCommandBuffers(const context_t& context, uint32_t count, VkCommandBuffer* buffers);
