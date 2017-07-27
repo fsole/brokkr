@@ -62,26 +62,26 @@ static u32 gSampleCount = 0u;
 
 static const char* gVertexShaderSource = {
   "#version 440 core\n \
-	layout(location = 0) in vec3 aPosition;\n \
-	layout(location = 1) in vec2 aTexCoord;\n \
-	out vec2 uv;\n \
-	void main(void)\n \
-	{\n \
-		gl_Position = vec4(aPosition, 1.0);\n \
-		uv = aTexCoord;\n \
-	}\n"
+  layout(location = 0) in vec3 aPosition;\n \
+  layout(location = 1) in vec2 aTexCoord;\n \
+  out vec2 uv;\n \
+  void main(void)\n \
+  {\n \
+    gl_Position = vec4(aPosition, 1.0);\n \
+    uv = aTexCoord;\n \
+  }\n"
 };
 
 static const char* gFragmentShaderSource = {
   "#version 440 core\n \
-	in vec2 uv;\n \
-	layout(binding = 0) uniform sampler2D uTexture; \n \
-	layout(location = 0) out vec4 color; \n \
-	void main(void)\n \
-	{\n \
-		vec4 texColor = texture(uTexture, uv);\n \
-		color = texColor;\n \
-	}\n"
+  in vec2 uv;\n \
+  layout(binding = 0) uniform sampler2D uTexture; \n \
+  layout(location = 0) out vec4 color; \n \
+  void main(void)\n \
+  {\n \
+    vec4 texColor = texture(uTexture, uv);\n \
+    color = texColor;\n \
+  }\n"
 };
 
 
@@ -112,54 +112,54 @@ static bkk::mesh::mesh_t CreateCube(const render::context_t& context, u32 width,
 
 static maths::vec3 closestPointOnTriangle(const maths::vec3& p, const maths::vec3& a, const maths::vec3& b, const maths::vec3& c)
 {
-	maths::vec3 ab = b - a;
-	maths::vec3 ac = c - a;
-	maths::vec3 ap = p - a;
+  maths::vec3 ab = b - a;
+  maths::vec3 ac = c - a;
+  maths::vec3 ap = p - a;
 
-	float d1 = maths::dot(ab, ap);
-	float d2 = maths::dot(ac, ap);
+  float d1 = maths::dot(ab, ap);
+  float d2 = maths::dot(ac, ap);
 
-	if (d1 <= 0.0f && d2 < 0.0f)
-		return a;
+  if (d1 <= 0.0f && d2 < 0.0f)
+    return a;
 
-	maths::vec3 bp = p - b;
-	float d3 = maths::dot(ab, bp);
-	float d4 = maths::dot(ac, bp);
-	if (d3 >= 0.0f && d4 <= d3)
-		return b;
+  maths::vec3 bp = p - b;
+  float d3 = maths::dot(ab, bp);
+  float d4 = maths::dot(ac, bp);
+  if (d3 >= 0.0f && d4 <= d3)
+    return b;
 
-	float vc = d1*d4 - d3*d2;
-	if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f)
-	{
-		float v = d1 / (d1 - d3);
-		return a + ab * v;
-	}
+  float vc = d1*d4 - d3*d2;
+  if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f)
+  {
+    float v = d1 / (d1 - d3);
+    return a + ab * v;
+  }
 
-	maths::vec3 cp = p - c;
-	float d5 = maths::dot(ab, cp);
-	float d6 = maths::dot(ac, cp);
-	if (d6 >= 0.0f && d5 <= d6)
-		return c;
+  maths::vec3 cp = p - c;
+  float d5 = maths::dot(ab, cp);
+  float d6 = maths::dot(ac, cp);
+  if (d6 >= 0.0f && d5 <= d6)
+    return c;
 
-	float vb = d5*d2 - d1*d6;
-	if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f)
-	{
-		float w = d2 / (d2 - d6);
-		return a + ac * w;
-	}
+  float vb = d5*d2 - d1*d6;
+  if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f)
+  {
+    float w = d2 / (d2 - d6);
+    return a + ac * w;
+  }
 
-	float va = d3*d6 - d5*d4;
-	if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f)
-	{
-		float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
-		return b + (c - b) * w;
-	}
+  float va = d3*d6 - d5*d4;
+  if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f)
+  {
+    float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+    return b + (c - b) * w;
+  }
 
-	float denom = 1.0f / (va + vb + vc);
-	float v = vb * denom;
-	float w = vc * denom;
+  float denom = 1.0f / (va + vb + vc);
+  float v = vb * denom;
+  float w = vc * denom;
 
-	return a + ab*v + ac*w;
+  return a + ab*v + ac*w;
 }
 
 static float signedDistancePointTriangle(const maths::vec3& point, const maths::vec3& a, const maths::vec3& b, const maths::vec3& c)

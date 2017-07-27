@@ -3,26 +3,26 @@
 #include "mesh.h"
 
 static const char* gVertexShaderSource = {
-	"#version 440 core\n \
-	layout(location = 0) in vec3 aPosition;\n \
-	layout(location = 1) in vec2 aTexCoord;\n \
-	out vec2 uv;\n \
-	void main(void)\n \
-	{\n \
-		gl_Position = vec4(aPosition,1.0);\n \
-		uv = aTexCoord;\n \
-	}\n"
+  "#version 440 core\n \
+  layout(location = 0) in vec3 aPosition;\n \
+  layout(location = 1) in vec2 aTexCoord;\n \
+  out vec2 uv;\n \
+  void main(void)\n \
+  {\n \
+    gl_Position = vec4(aPosition,1.0);\n \
+    uv = aTexCoord;\n \
+  }\n"
 };
 
 
 static const char* gFragmentShaderSource = {
-	"#version 440 core\n \
-	in vec2 uv;\n  \
-	layout(location = 0) out vec4 color;\n \
-	void main(void)\n \
-	{\n \
-		color = vec4(uv,0.0,1.0);\n \
-	}\n"
+  "#version 440 core\n \
+  in vec2 uv;\n  \
+  layout(location = 0) out vec4 color;\n \
+  void main(void)\n \
+  {\n \
+    color = vec4(uv,0.0,1.0);\n \
+  }\n"
 };
 
 bkk::mesh::mesh_t CreateTriangleGeometry(const bkk::render::context_t& context )
@@ -35,8 +35,8 @@ bkk::mesh::mesh_t CreateTriangleGeometry(const bkk::render::context_t& context )
 
   //WARNING: In Vulkan, Y is pointing down in NDC!
   static const Vertex vertices[3] = { { { -0.5f, +0.5f, +0.0f }, { 0.0f, 0.0f } },
-                              	      { { +0.5f, +0.5f, +0.0f }, { 1.0f, 0.0f } },
-    	                                { { +0.0f, -0.5f, +0.0f }, { 0.5f, 1.0f } }
+                                      { { +0.5f, +0.5f, +0.0f }, { 1.0f, 0.0f } },
+                                      { { +0.0f, -0.5f, +0.0f }, { 0.5f, 1.0f } }
                                     };
 
   static const uint32_t indices[3] = {0,1,2};
@@ -55,7 +55,7 @@ bkk::mesh::mesh_t CreateTriangleGeometry(const bkk::render::context_t& context )
 }
 
 void CreatePipeline(const bkk::render::context_t& context, const bkk::mesh::mesh_t& mesh, const bkk::render::shader_t& vertexShader, const bkk::render::shader_t& fragmentShader,
-	bkk::render::pipeline_layout_t* layout, bkk::render::graphics_pipeline_t* pipeline )
+  bkk::render::pipeline_layout_t* layout, bkk::render::graphics_pipeline_t* pipeline )
 
 {
   //Create pipeline layout
@@ -81,8 +81,8 @@ void BuildCommandBuffers(const bkk::render::context_t& context, const bkk::mesh:
   {
     VkCommandBuffer cmdBuffer = bkk::render::beginPresentationCommandBuffer( context, i, nullptr );
     bkk::render::graphicsPipelineBind(cmdBuffer, pipeline);
-	  bkk::mesh::draw(cmdBuffer, mesh);
-	  bkk::render::endPresentationCommandBuffer( context, i );
+    bkk::mesh::draw(cmdBuffer, mesh);
+    bkk::render::endPresentationCommandBuffer( context, i );
   }
 }
 
@@ -120,7 +120,7 @@ int main()
       else if( event->type_ == bkk::window::EVENT_RESIZE )
       {
         bkk::window::event_resize_t* resizeEvent = (bkk::window::event_resize_t*)event;
-		    bkk::render::swapchainResize( &context, resizeEvent->width_, resizeEvent->height_ );
+        bkk::render::swapchainResize( &context, resizeEvent->width_, resizeEvent->height_ );
         BuildCommandBuffers(context, mesh, pipeline);
       }
     }

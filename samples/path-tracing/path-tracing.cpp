@@ -43,27 +43,27 @@ static u32 gSampleCount = 0u;
 
 
 static const char* gVertexShaderSource = {
-	"#version 440 core\n \
-	layout(location = 0) in vec3 aPosition;\n \
-	layout(location = 1) in vec2 aTexCoord;\n \
-	out vec2 uv;\n \
-	void main(void)\n \
-	{\n \
-		gl_Position = vec4(aPosition, 1.0);\n \
-		uv = aTexCoord;\n \
-	}\n"
+  "#version 440 core\n \
+  layout(location = 0) in vec3 aPosition;\n \
+  layout(location = 1) in vec2 aTexCoord;\n \
+  out vec2 uv;\n \
+  void main(void)\n \
+  {\n \
+    gl_Position = vec4(aPosition, 1.0);\n \
+    uv = aTexCoord;\n \
+  }\n"
 };
 
 static const char* gFragmentShaderSource = {
-	"#version 440 core\n \
-	in vec2 uv;\n \
-	layout(binding = 0) uniform sampler2D uTexture; \n \
-	layout(location = 0) out vec4 color; \n \
-	void main(void)\n \
-	{\n \
-		vec4 texColor = texture(uTexture, uv);\n \
-		color = texColor;\n \
-	}\n"
+  "#version 440 core\n \
+  in vec2 uv;\n \
+  layout(binding = 0) uniform sampler2D uTexture; \n \
+  layout(location = 0) out vec4 color; \n \
+  void main(void)\n \
+  {\n \
+    vec4 texColor = texture(uTexture, uv);\n \
+    color = texColor;\n \
+  }\n"
 };
 
 
@@ -229,7 +229,7 @@ void CreateGeometry()
   //WARNING: In Vulkan, Y is pointing down in NDC!
   static const Vertex vertices[] = { { { -1.0f, +1.0f, +0.0f }, { 0.0f, 0.0f } },
                                      { { +1.0f, +1.0f, +0.0f }, { 1.0f, 0.0f } },
-    	                               { { +1.0f, -1.0f, +0.0f }, { 1.0f, 1.0f } },
+                                     { { +1.0f, -1.0f, +0.0f }, { 1.0f, 1.0f } },
                                      { { -1.0f, -1.0f, +0.0f }, { 0.0f, 1.0f } }
                                     };
 

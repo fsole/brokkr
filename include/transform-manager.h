@@ -7,9 +7,9 @@
 
 namespace bkk
 {
-	struct transform_manager_t
-	{
-		
+  struct transform_manager_t
+  {
+    
     bkk::handle_t createTransform(const maths::mat4& transform);
     bool destroyTransform(bkk::handle_t id);
     
@@ -23,17 +23,17 @@ namespace bkk
 
     void update();
 
-	private:
+  private:
 
-		//Sorts transform by hierarchy level
-		void sortTransforms();
+    //Sorts transform by hierarchy level
+    void sortTransforms();
 
-		packed_freelist_t<maths::mat4> transform_;  ///< Local transforms
-		std::vector<bkk::handle_t> parent_;         ///< Parent of each transform
-		std::vector<maths::mat4> world_;            ///< World transforms
+    packed_freelist_t<maths::mat4> transform_;  ///< Local transforms
+    std::vector<bkk::handle_t> parent_;         ///< Parent of each transform
+    std::vector<maths::mat4> world_;            ///< World transforms
 
-		bool hierarchy_changed_;                    ///< Flag to indicates that the hierarchy has changed since the last update
-	};
+    bool hierarchy_changed_;                    ///< Flag to indicates that the hierarchy has changed since the last update
+  };
 
 }//namespace bkk
 #endif  //  TRANSFORM_MANAGER_H

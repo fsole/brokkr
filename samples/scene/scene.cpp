@@ -13,9 +13,9 @@ using namespace maths;
 
 static const char* gVertexShaderSource = {
   "#version 440 core\n \
-	layout(location = 0) in vec3 aPosition;\n \
-	layout(location = 1) in vec3 aNormal;\n \
-	layout (set = 0, binding = 0) uniform SCENE\n \
+  layout(location = 0) in vec3 aPosition;\n \
+  layout(location = 1) in vec3 aNormal;\n \
+  layout (set = 0, binding = 0) uniform SCENE\n \
   {\n \
   mat4 view;\n \
   mat4 projection;\n \
@@ -40,7 +40,7 @@ static const char* gVertexShaderSource = {
 
 static const char* gFragmentShaderSource = {
   "#version 440 core\n \
-	layout (set = 0, binding = 0) uniform SCENE\n \
+  layout (set = 0, binding = 0) uniform SCENE\n \
   {\n \
     mat4 view;\n \
     mat4 projection;\n \

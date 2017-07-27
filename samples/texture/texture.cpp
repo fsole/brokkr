@@ -7,23 +7,23 @@
 
 static const char* gVertexShaderSource = {
   "#version 440 core\n \
-	layout(location = 0) in vec3 aPosition;\n \
-	layout(location = 1) in vec2 aTexCoord;\n \
-	out vec2 uv;\n \
-	void main(void)\n \
-	{\n \
-		gl_Position = vec4(aPosition,1.0);\n \
-		uv = aTexCoord;\n \
-	}\n"
+  layout(location = 0) in vec3 aPosition;\n \
+  layout(location = 1) in vec2 aTexCoord;\n \
+  out vec2 uv;\n \
+  void main(void)\n \
+  {\n \
+    gl_Position = vec4(aPosition,1.0);\n \
+    uv = aTexCoord;\n \
+  }\n"
 };
 
 static const char* gFragmentShaderSource = {
   "#version 440 core\n \
-	in vec2 uv;\n  \
+  in vec2 uv;\n  \
   layout (binding = 0) uniform sampler2D uTexture;\n \
-	layout(location = 0) out vec4 color;\n \
-	void main(void)\n \
-	{\n \
+  layout(location = 0) out vec4 color;\n \
+  void main(void)\n \
+  {\n \
     color = texture(uTexture, uv);\n \
   }\n"
 };

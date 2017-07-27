@@ -275,11 +275,11 @@ void mesh::createFromFile( const render::context_t& context, const char* file, m
   u32 index(0);
   for( u32 vertex(0); vertex<vertexCount; ++vertex )
   {
-	  aabbMin = vec3( maths::myMin( aimesh->mVertices[vertex].x, aabbMin.x ),
+    aabbMin = vec3( maths::myMin( aimesh->mVertices[vertex].x, aabbMin.x ),
                       maths::myMin( aimesh->mVertices[vertex].y, aabbMin.y ),
                       maths::myMin( aimesh->mVertices[vertex].z, aabbMin.z ) );
 
-	  aabbMax = vec3( maths::myMax( aimesh->mVertices[vertex].x, aabbMax.x ),
+    aabbMax = vec3( maths::myMax( aimesh->mVertices[vertex].x, aabbMax.x ),
                       maths::myMax( aimesh->mVertices[vertex].y, aabbMax.y ),
                       maths::myMax( aimesh->mVertices[vertex].z, aabbMax.z ) );
 
