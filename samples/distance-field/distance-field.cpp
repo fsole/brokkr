@@ -340,17 +340,11 @@ void CreateGraphicsPipeline()
   render::descriptorSetLayoutCreate(gContext,1u, &binding,  &descriptorSetLayout);
 
   //Create pipeline layout
-  gPipelineLayout.descriptorSetLayout_.push_back(descriptorSetLayout);
-  render::pipelineLayoutCreate(gContext, &gPipelineLayout);
+  render::pipelineLayoutCreate(gContext, 1u, &descriptorSetLayout, &gPipelineLayout);
 
   //Create descriptor pool
   gDescriptorPool = {};
-  gDescriptorPool.combinedImageSamplers_ = 1;
-  gDescriptorPool.storageBuffers_ = 1;
-  gDescriptorPool.uniformBuffers_ = 1;
-  gDescriptorPool.storageImages_ = 1;
-  gDescriptorPool.descriptorSets_ = 2;
-  render::descriptorPoolCreate(gContext, &gDescriptorPool);
+  render::descriptorPoolCreate(gContext, 2u, 1u, 1u, 1u, 1u, &gDescriptorPool);
 
   //Create descriptor set
   gDescriptorSet.descriptors_.resize(1);
@@ -389,8 +383,7 @@ void CreateComputePipeline()
   render::descriptorSetLayoutCreate(gContext, bindings.size(), &bindings[0], &descriptorSetLayout);
 
   //Create pipeline layout
-  gComputePipelineLayout.descriptorSetLayout_.push_back(descriptorSetLayout);
-  render::pipelineLayoutCreate(gContext, &gComputePipelineLayout);
+  render::pipelineLayoutCreate(gContext, 1u, &descriptorSetLayout, &gComputePipelineLayout);
 
   //Create descriptor set
   gComputeDescriptorSet.descriptors_.resize(3);

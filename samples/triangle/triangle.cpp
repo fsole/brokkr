@@ -59,7 +59,7 @@ void CreatePipeline(const bkk::render::context_t& context, const bkk::mesh::mesh
 
 {
   //Create pipeline layout
-  bkk::render::pipelineLayoutCreate( context, layout );
+  bkk::render::pipelineLayoutCreate( context, 0u, nullptr, layout );
 
   //Create pipeline
   pipeline->viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f};

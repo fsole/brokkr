@@ -121,14 +121,11 @@ void CreatePipeline()
   render::descriptorSetLayoutCreate( gContext, bindings.size(), &bindings[0], &descriptorSetLayout );
 
   //Create pipeline layout
-  gPipelineLayout.descriptorSetLayout_.push_back( descriptorSetLayout );
-  render::pipelineLayoutCreate( gContext, &gPipelineLayout );
+  render::pipelineLayoutCreate( gContext, 1u, &descriptorSetLayout, &gPipelineLayout );
 
   //Create descriptor pool
   gDescriptorPool = {};
-  gDescriptorPool.uniformBuffers_ = 2u;
-  gDescriptorPool.descriptorSets_ = 1u;
-  render::descriptorPoolCreate( gContext, &gDescriptorPool );
+  render::descriptorPoolCreate( gContext, 1u, 0u, 2u, 0u, 0u, &gDescriptorPool );
 
   //Create descriptor set
   gDescriptorSet.descriptors_.resize(2);

@@ -235,8 +235,9 @@ namespace bkk
 
     struct pipeline_layout_t
     {
-      std::vector<descriptor_set_layout_t> descriptorSetLayout_;
       VkPipelineLayout handle_;
+      uint32_t descriptorSetLayoutCount_;
+      descriptor_set_layout_t* descriptorSetLayout_;      
     };
 
     struct descriptor_t
@@ -369,10 +370,10 @@ namespace bkk
 
 
     void descriptorSetLayoutCreate(const context_t& context, uint32_t bindingCount, descriptor_binding_t* bindings, descriptor_set_layout_t* desriptorSetLayout);
-    void pipelineLayoutCreate(const context_t& context, pipeline_layout_t* pipelineLayout);
+    void pipelineLayoutCreate(const context_t& context, uint32_t descriptorSetLayoutCount, descriptor_set_layout_t* descriptorSetLayouts, pipeline_layout_t* pipelineLayout);
     void pipelineLayoutDestroy(const context_t& context, pipeline_layout_t* pipelineLayout);
 
-    void descriptorPoolCreate(const context_t& context, descriptor_pool_t* descriptorPool);
+    void descriptorPoolCreate(const context_t& context, uint32_t descriptorSetsCount, uint32_t combinedImageSamplersCount, uint32_t uniformBuffersCount, uint32_t storageBuffersCount, uint32_t storageImagesCount,descriptor_pool_t* descriptorPool);
     void descriptorPoolDestroy(const context_t& context, descriptor_pool_t* descriptorPool);
     
     void descriptorSetCreate(const context_t& context, const descriptor_pool_t& descriptorPool, const descriptor_set_layout_t& descriptorSetLayout, descriptor_set_t* descriptorSet);

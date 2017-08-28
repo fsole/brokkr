@@ -7,6 +7,7 @@
 #include "../utility.h"
 #include "transform-manager.h"
 #include "packed-freelist.h"
+#include <array>
 
 using namespace bkk;
 using namespace maths;
@@ -192,10 +193,8 @@ struct scene_t
     render::descriptorSetLayoutCreate( context, 1u, &binding, &materialDescriptorSetLayout_ );
 
     //Create pipeline layout
-    pipelineLayout_.descriptorSetLayout_.push_back( descriptorSetLayout_ );
-    pipelineLayout_.descriptorSetLayout_.push_back( instanceDescriptorSetLayout_ );
-    pipelineLayout_.descriptorSetLayout_.push_back( materialDescriptorSetLayout_ );
-    render::pipelineLayoutCreate( context, &pipelineLayout_ );
+    std::array<render::descriptor_set_layout_t, 3> descriptorSetLayouts = { descriptorSetLayout_, instanceDescriptorSetLayout_, materialDescriptorSetLayout_ };
+    render::pipelineLayoutCreate( context, descriptorSetLayouts.size(), &descriptorSetLayouts[0], &pipelineLayout_ );
 
     //Create vertex format (position + normal)
     uint32_t vertexSize = 2 * sizeof(maths::vec3);
@@ -222,9 +221,7 @@ struct scene_t
 
     //Create descriptor pool
     descriptorPool_ = {};
-    descriptorPool_.uniformBuffers_ = 100u;
-    descriptorPool_.descriptorSets_ = 100u;
-    render::descriptorPoolCreate( context, &descriptorPool_ );
+    render::descriptorPoolCreate( context, 100u, 0u, 100u, 0u, 0u, &descriptorPool_ );
 
     //Create global descriptor set (Scene uniforms)
     descriptorSet_.descriptors_.resize(1);

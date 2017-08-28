@@ -7,7 +7,7 @@
 using namespace bkk;
 using namespace bkk::render;
 
-#define VK_DEBUG_LAYERS
+//#define VK_DEBUG_LAYERS
 
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
@@ -1323,9 +1323,15 @@ void render::gpuBufferUnmap(const context_t& context, const gpu_buffer_t& buffer
 void render::descriptorSetLayoutCreate(const context_t& context, uint32_t bindingCount, descriptor_binding_t* bindings, descriptor_set_layout_t* descriptorSetLayout)
 {
   descriptorSetLayout->bindingCount_ = bindingCount;
-  descriptorSetLayout->bindings_ = new descriptor_binding_t[bindingCount];
-  memcpy(descriptorSetLayout->bindings_, bindings, sizeof(descriptor_binding_t)*bindingCount);
+  descriptorSetLayout->bindings_ = 0;
+  descriptorSetLayout->handle_ = VK_NULL_HANDLE;
 
+  if (bindingCount > 0)
+  {
+    descriptorSetLayout->bindings_ = new descriptor_binding_t[bindingCount];
+    memcpy(descriptorSetLayout->bindings_, bindings, sizeof(descriptor_binding_t)*bindingCount);
+  }
+  
   std::vector<VkDescriptorSetLayoutBinding> layoutBindings(bindingCount);
   for (uint32_t i(0); i < layoutBindings.size(); ++i)
   {
@@ -1345,22 +1351,31 @@ void render::descriptorSetLayoutCreate(const context_t& context, uint32_t bindin
     descriptorSetLayoutCreateInfo.pBindings = &layoutBindings[0];
   }
 
-  vkCreateDescriptorSetLayout(context.device_, &descriptorSetLayoutCreateInfo, nullptr, &descriptorSetLayout->handle_);
+  vkCreateDescriptorSetLayout(context.device_, &descriptorSetLayoutCreateInfo, nullptr, &descriptorSetLayout->handle_);  
 }
 
-void render::pipelineLayoutCreate(const context_t& context, pipeline_layout_t* pipelineLayout)
+void render::pipelineLayoutCreate(const context_t& context, uint32_t descriptorSetLayoutCount, descriptor_set_layout_t* descriptorSetLayouts, pipeline_layout_t* pipelineLayout)
 {
   //Create pipeline layout
-  uint32_t descriptorSetCount = (uint32_t)pipelineLayout->descriptorSetLayout_.size();
-  std::vector<VkDescriptorSetLayout> setLayouts(descriptorSetCount);
-  for (uint32_t i(0); i < descriptorSetCount; ++i)
+  pipelineLayout->descriptorSetLayoutCount_ = descriptorSetLayoutCount;
+  pipelineLayout->descriptorSetLayout_ = 0;
+  pipelineLayout->handle_ = VK_NULL_HANDLE;
+
+  if (descriptorSetLayoutCount > 0)
+  {
+    pipelineLayout->descriptorSetLayout_ = new descriptor_set_layout_t[descriptorSetLayoutCount];
+    memcpy(pipelineLayout->descriptorSetLayout_, descriptorSetLayouts, sizeof(descriptor_set_layout_t)*descriptorSetLayoutCount);
+  }
+
+  std::vector<VkDescriptorSetLayout> setLayouts(descriptorSetLayoutCount);
+  for (uint32_t i(0); i < descriptorSetLayoutCount; ++i)
   {
     setLayouts[i] = pipelineLayout->descriptorSetLayout_[i].handle_;
   }
 
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
   pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipelineLayoutCreateInfo.setLayoutCount = descriptorSetCount;
+  pipelineLayoutCreateInfo.setLayoutCount = descriptorSetLayoutCount;
   pipelineLayoutCreateInfo.pSetLayouts = setLayouts.data();
   vkCreatePipelineLayout(context.device_, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout->handle_);
 }
@@ -1369,15 +1384,25 @@ void render::pipelineLayoutDestroy(const context_t& context, pipeline_layout_t* 
 {
   vkDestroyPipelineLayout(context.device_, pipelineLayout->handle_, nullptr);
 
-  for (uint32_t i(0); i < pipelineLayout->descriptorSetLayout_.size(); ++i)
+  for (uint32_t i(0); i < pipelineLayout->descriptorSetLayoutCount_; ++i)
   {
     delete[] pipelineLayout->descriptorSetLayout_[i].bindings_;
     vkDestroyDescriptorSetLayout(context.device_, pipelineLayout->descriptorSetLayout_[i].handle_, nullptr);
   }
+
+  delete[] pipelineLayout->descriptorSetLayout_;
 }
 
-void render::descriptorPoolCreate(const context_t& context, descriptor_pool_t* descriptorPool)
+void render::descriptorPoolCreate(const context_t& context, uint32_t descriptorSetsCount, 
+                                                            uint32_t combinedImageSamplersCount, uint32_t uniformBuffersCount, uint32_t storageBuffersCount, uint32_t storageImagesCount, 
+                                                            descriptor_pool_t* descriptorPool)
 {
+  descriptorPool->descriptorSets_ = descriptorSetsCount;
+  descriptorPool->combinedImageSamplers_ = combinedImageSamplersCount;
+  descriptorPool->uniformBuffers_ = uniformBuffersCount;
+  descriptorPool->storageBuffers_ = storageBuffersCount;
+  descriptorPool->storageImages_ = storageImagesCount;
+
   std::vector<VkDescriptorPoolSize> descriptorPoolSize;
   descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorPool->combinedImageSamplers_ });
   descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorPool->uniformBuffers_ });
