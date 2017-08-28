@@ -228,7 +228,9 @@ namespace bkk
     struct descriptor_set_layout_t
     {
       VkDescriptorSetLayout handle_;
-      std::vector<descriptor_binding_t> bindings_;
+      uint32_t bindingCount_;
+      descriptor_binding_t* bindings_;
+      //std::vector<descriptor_binding_t> bindings_;
     };
 
     struct pipeline_layout_t
@@ -366,7 +368,7 @@ namespace bkk
     void gpuBufferUnmap(const context_t& context, const gpu_buffer_t& buffer);
 
 
-    void descriptorSetLayoutCreate(const context_t& context, descriptor_set_layout_t* desriptorSetLayout);
+    void descriptorSetLayoutCreate(const context_t& context, uint32_t bindingCount, descriptor_binding_t* bindings, descriptor_set_layout_t* desriptorSetLayout);
     void pipelineLayoutCreate(const context_t& context, pipeline_layout_t* pipelineLayout);
     void pipelineLayoutDestroy(const context_t& context, pipeline_layout_t* pipelineLayout);
 

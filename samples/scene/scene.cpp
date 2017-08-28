@@ -182,14 +182,14 @@ struct scene_t
                              &allocator_, &ubo_ );
 
     //Create descriptorSets layouts
-    descriptorSetLayout_.bindings_.push_back( { render::descriptor_type_e::UNIFORM_BUFFER, 0, render::descriptor_stage_e::VERTEX | render::descriptor_stage_e::FRAGMENT } );
-    render::descriptorSetLayoutCreate( context, &descriptorSetLayout_ );
+    render::descriptor_binding_t binding = { render::descriptor_type_e::UNIFORM_BUFFER, 0, render::descriptor_stage_e::VERTEX | render::descriptor_stage_e::FRAGMENT };
+    render::descriptorSetLayoutCreate( context, 1u, &binding, &descriptorSetLayout_ );
 
-    instanceDescriptorSetLayout_.bindings_.push_back( { render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::VERTEX } );
-    render::descriptorSetLayoutCreate( context, &instanceDescriptorSetLayout_ );
+    binding = { render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::VERTEX };
+    render::descriptorSetLayoutCreate( context, 1u, &binding, &instanceDescriptorSetLayout_ );
 
-    materialDescriptorSetLayout_.bindings_.push_back( { render::descriptor_type_e::UNIFORM_BUFFER, 2, render::descriptor_stage_e::FRAGMENT } );
-    render::descriptorSetLayoutCreate( context, &materialDescriptorSetLayout_ );
+    binding = { render::descriptor_type_e::UNIFORM_BUFFER, 2, render::descriptor_stage_e::FRAGMENT };
+    render::descriptorSetLayoutCreate( context, 1u, &binding, &materialDescriptorSetLayout_ );
 
     //Create pipeline layout
     pipelineLayout_.descriptorSetLayout_.push_back( descriptorSetLayout_ );

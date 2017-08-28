@@ -7,6 +7,8 @@
 using namespace bkk;
 using namespace bkk::render;
 
+#define VK_DEBUG_LAYERS
+
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
@@ -1318,25 +1320,29 @@ void render::gpuBufferUnmap(const context_t& context, const gpu_buffer_t& buffer
   gpuMemoryUnmap(context, buffer.memory_);
 }
 
-void render::descriptorSetLayoutCreate(const context_t& context, descriptor_set_layout_t* descriptorSetLayout)
+void render::descriptorSetLayoutCreate(const context_t& context, uint32_t bindingCount, descriptor_binding_t* bindings, descriptor_set_layout_t* descriptorSetLayout)
 {
-  std::vector<VkDescriptorSetLayoutBinding> bindings(descriptorSetLayout->bindings_.size());
-  for (uint32_t i(0); i < bindings.size(); ++i)
+  descriptorSetLayout->bindingCount_ = bindingCount;
+  descriptorSetLayout->bindings_ = new descriptor_binding_t[bindingCount];
+  memcpy(descriptorSetLayout->bindings_, bindings, sizeof(descriptor_binding_t)*bindingCount);
+
+  std::vector<VkDescriptorSetLayoutBinding> layoutBindings(bindingCount);
+  for (uint32_t i(0); i < layoutBindings.size(); ++i)
   {
-    bindings[i].descriptorCount = 1;
-    bindings[i].descriptorType = (VkDescriptorType)descriptorSetLayout->bindings_[i].type_;
-    bindings[i].binding = descriptorSetLayout->bindings_[i].binding_;
-    bindings[i].stageFlags = descriptorSetLayout->bindings_[i].stageFlags_;
+    layoutBindings[i].descriptorCount = 1;
+    layoutBindings[i].descriptorType = (VkDescriptorType)descriptorSetLayout->bindings_[i].type_;
+    layoutBindings[i].binding = descriptorSetLayout->bindings_[i].binding_;
+    layoutBindings[i].stageFlags = descriptorSetLayout->bindings_[i].stageFlags_;
   }
 
   //Create DescriptorSetLayout
   VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
   descriptorSetLayoutCreateInfo.pNext = NULL;
   descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  if (!bindings.empty())
+  if (!layoutBindings.empty())
   {
-    descriptorSetLayoutCreateInfo.bindingCount = (uint32_t)bindings.size();
-    descriptorSetLayoutCreateInfo.pBindings = &bindings[0];
+    descriptorSetLayoutCreateInfo.bindingCount = (uint32_t)layoutBindings.size();
+    descriptorSetLayoutCreateInfo.pBindings = &layoutBindings[0];
   }
 
   vkCreateDescriptorSetLayout(context.device_, &descriptorSetLayoutCreateInfo, nullptr, &descriptorSetLayout->handle_);
@@ -1365,6 +1371,7 @@ void render::pipelineLayoutDestroy(const context_t& context, pipeline_layout_t* 
 
   for (uint32_t i(0); i < pipelineLayout->descriptorSetLayout_.size(); ++i)
   {
+    delete[] pipelineLayout->descriptorSetLayout_[i].bindings_;
     vkDestroyDescriptorSetLayout(context.device_, pipelineLayout->descriptorSetLayout_[i].handle_, nullptr);
   }
 }

@@ -6,6 +6,7 @@
 #include "maths.h"
 #include "../utility.h"
 #include "timer.h"
+#include <array>
 
 using namespace bkk;
 using namespace maths;
@@ -112,9 +113,12 @@ void CreatePipeline()
 {
   //Create descriptor layout
   render::descriptor_set_layout_t descriptorSetLayout;
-  descriptorSetLayout.bindings_.push_back( { render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::VERTEX } );
-  descriptorSetLayout.bindings_.push_back( { render::descriptor_type_e::UNIFORM_BUFFER, 2, render::descriptor_stage_e::VERTEX } );
-  render::descriptorSetLayoutCreate( gContext, &descriptorSetLayout );
+  std::array< render::descriptor_binding_t, 2> bindings{ 
+    render::descriptor_binding_t{ render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::VERTEX },
+    render::descriptor_binding_t{ render::descriptor_type_e::UNIFORM_BUFFER, 2, render::descriptor_stage_e::VERTEX } 
+  };
+ 
+  render::descriptorSetLayoutCreate( gContext, bindings.size(), &bindings[0], &descriptorSetLayout );
 
   //Create pipeline layout
   gPipelineLayout.descriptorSetLayout_.push_back( descriptorSetLayout );

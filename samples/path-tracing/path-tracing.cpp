@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <time.h>
 #include <math.h>
+#include <array>
 
 using namespace bkk;
 
@@ -251,8 +252,8 @@ void CreateGraphicsPipeline()
 {
   //Create descriptor layout
   render::descriptor_set_layout_t descriptorSetLayout;
-  descriptorSetLayout.bindings_.push_back( { render::descriptor_type_e::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_stage_e::FRAGMENT } );
-  render::descriptorSetLayoutCreate( gContext, &descriptorSetLayout );
+  render::descriptor_binding_t binding = { render::descriptor_type_e::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_stage_e::FRAGMENT };
+  render::descriptorSetLayoutCreate( gContext, 1, &binding, &descriptorSetLayout );
 
   //Create pipeline layout
   gPipelineLayout.descriptorSetLayout_.push_back( descriptorSetLayout );
@@ -294,10 +295,14 @@ void CreateComputePipeline()
 {
   //Create descriptor layout
   render::descriptor_set_layout_t descriptorSetLayout;
-  descriptorSetLayout.bindings_.push_back( { render::descriptor_type_e::STORAGE_IMAGE,  0, render::descriptor_stage_e::COMPUTE } );
-  descriptorSetLayout.bindings_.push_back( { render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::COMPUTE } );
-  descriptorSetLayout.bindings_.push_back( { render::descriptor_type_e::STORAGE_BUFFER, 2, render::descriptor_stage_e::COMPUTE } );
-  render::descriptorSetLayoutCreate( gContext, &descriptorSetLayout );
+
+  std::array< render::descriptor_binding_t, 3> bindings { 
+    render::descriptor_binding_t{ render::descriptor_type_e::STORAGE_IMAGE,  0, render::descriptor_stage_e::COMPUTE },
+    render::descriptor_binding_t{ render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::COMPUTE },
+    render::descriptor_binding_t{ render::descriptor_type_e::STORAGE_BUFFER, 2, render::descriptor_stage_e::COMPUTE } 
+  };
+  
+  render::descriptorSetLayoutCreate( gContext, bindings.size(), &bindings[0], &descriptorSetLayout );
 
   //Create pipeline layout
   gComputePipelineLayout.descriptorSetLayout_.push_back( descriptorSetLayout );
