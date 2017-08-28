@@ -5,6 +5,7 @@
 
 #ifdef WIN32
 #define NOMINMAX
+#define _USE_MATH_DEFINES
 #include <windows.h>
 #else
 #include <xcb/xcb.h>

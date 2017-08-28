@@ -101,6 +101,8 @@ vec3 GetSampleBiased( in vec3 dir, float power )
   return a*o1 + b*o2 + r.y*dir;
 }
 
+
+
 vec3 RandomPointInSphere()
 {
   vec3 point = vec3(0.0,0.0,0.0);
@@ -110,6 +112,16 @@ vec3 RandomPointInSphere()
   }while( dot(point,point) <= 1.0f);
 
   return point;
+}
+
+vec3 RandomPointInHemisphere( vec3 normal )
+{
+	vec3 p = RandomPointInSphere();
+	//if( dot(normal, p ) < 0.0 )
+	//{
+	//	p = vec3(-p.x,-p.y,-pz);
+	//}	
+	return p;
 }
 
 vec3 FresnelSchlick(float cosTheta, vec3 F0)
@@ -162,7 +174,8 @@ void SampleMaterial( in uint objectId, in vec3 normal, in Ray ray, out vec3 newD
   else
   {
     //Diffuse reflection
-    newDirection = normalize( GetSampleBiased(normal,1.0) );
+    //newDirection = normalize( GetSampleBiased(normal,1.0) );
+	newDirection = normalize( RandomPointInHemisphere( normal ) );
 	probability = 1.0 - probability;
   }
 

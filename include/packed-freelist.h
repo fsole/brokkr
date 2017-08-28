@@ -13,6 +13,8 @@ namespace bkk
 	};
 	static const handle_t INVALID_ID = { 65535u,65535u };
 
+  template <typename T> struct packed_freelist_iterator_t;
+
 	template <typename T>
 	struct packed_freelist_t
 	{
@@ -172,6 +174,22 @@ namespace bkk
 			return data_;
 		}
 
+    packed_freelist_iterator_t<T> begin()
+    {
+      packed_freelist_iterator_t<T> it;
+      it.packedFreelist_ = this;
+      it.index_ = 0;
+      return it;
+    }
+
+    packed_freelist_iterator_t<T> end()
+    {
+      packed_freelist_iterator_t<T> it;
+      it.packedFreelist_ = this;
+      it.index_ = getElementCount();
+      return it;
+    }
+
 	private:
 
 		std::vector<handle_t> freeList_;    ///< FreeList of IDs (vector with holes)
@@ -183,15 +201,18 @@ namespace bkk
 	};
 
 	template <typename T>
-	struct packed_freelist_iterator_t
-	{
-		packed_freelist_iterator_t<T>() = delete;
+  struct packed_freelist_iterator_t
+  {
+   
+    bool operator==(const packed_freelist_iterator_t<T>& it)
+    {
+      return ( packedFreelist_ == it.packedFreelist_ &&  index_ == it.index_ );
+    }
 
-		packed_freelist_iterator_t<T>(packed_freelist_t<T>& list)
-			: packedFreelist_(list),
-			index_(0)
-		{
-		}
+    bool operator!=(const packed_freelist_iterator_t<T>& it)
+    {
+      return !(*this == it);
+    }
 
 		packed_freelist_iterator_t<T>& operator++()
 		{
@@ -201,15 +222,10 @@ namespace bkk
 
 		T& get()
 		{
-			return packedFreelist_.getData()[index_];
+			return packedFreelist_->getData()[index_];
 		}
 
-		bool end()
-		{
-			return index_ >= packedFreelist_.getElementCount();
-		}
-
-		packed_freelist_t<T>& packedFreelist_;
+		packed_freelist_t<T>* packedFreelist_;
 		uint32_t index_;
 	};
 

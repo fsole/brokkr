@@ -265,8 +265,8 @@ struct scene_t
       VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer( context, i, nullptr );
       bkk::render::graphicsPipelineBind(cmdBuffer, pipeline_);
 
-      packed_freelist_iterator_t<instance_t> instanceIter( instance_ );
-      while( !instanceIter.end() )
+      packed_freelist_iterator_t<instance_t> instanceIter = instance_.begin();
+      while( instanceIter != instance_.end() )
       {
         //Bind descriptor set
         std::vector<render::descriptor_set_t> descriptorSets(3);
@@ -288,16 +288,16 @@ struct scene_t
   void Destroy( render::context_t& context )
   {
     //Destroy meshes
-    packed_freelist_iterator_t<mesh::mesh_t> meshIter( mesh_ );
-    while( !meshIter.end() )
+    packed_freelist_iterator_t<mesh::mesh_t> meshIter = mesh_.begin();
+    while( meshIter != mesh_.end() )
     {
       mesh::destroy( context, &meshIter.get(), &allocator_ );
       ++meshIter;
     }
 
     //Destroy material resources
-    packed_freelist_iterator_t<material_t> materialIter( material_ );
-    while( !materialIter.end() )
+    packed_freelist_iterator_t<material_t> materialIter = material_.begin();
+    while( materialIter != material_.end() )
     {
       render::gpuBufferDestroy( context, &materialIter.get().ubo_, &allocator_ );
       render::descriptorSetDestroy( context, &materialIter.get().descriptorSet_ );
@@ -305,8 +305,8 @@ struct scene_t
     }
 
     //Destroy instance resources
-    packed_freelist_iterator_t<instance_t> instanceIter( instance_ );
-    while( !instanceIter.end() )
+    packed_freelist_iterator_t<instance_t> instanceIter = instance_.begin();
+    while( instanceIter != instance_.end() )
     {
       render::gpuBufferDestroy( context, &instanceIter.get().ubo_, &allocator_ );
       render::descriptorSetDestroy( context, &instanceIter.get().descriptorSet_ );

@@ -158,7 +158,7 @@ static void CreateDeviceAndQueues(VkInstance instance,
   std::vector<VkPhysicalDevice> devices{ physicalDeviceCount };
   vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, devices.data());
 
-  //Find a physical device with graphics queue
+  //Find a physical device with graphics and compute queues
   *physicalDevice = nullptr;
   graphicsQueue->queueIndex_ = -1;
   computeQueue->queueIndex_ = -1;
