@@ -268,9 +268,8 @@ void CreateGraphicsPipeline()
   render::descriptorPoolCreate(gContext, 2u, 1u, 1u, 1u, 1u, &gDescriptorPool);
 
   //Create descriptor set
-  gDescriptorSet.descriptors_.resize(1);
-  gDescriptorSet.descriptors_[0].imageDescriptor_ = gTexture.descriptor_;
-  render::descriptorSetCreate( gContext, gDescriptorPool, descriptorSetLayout, &gDescriptorSet );
+  render::descriptor_t descriptor = render::getDescriptor(gTexture);
+  render::descriptorSetCreate( gContext, gDescriptorPool, descriptorSetLayout, &descriptor, &gDescriptorSet );
 
   //Load shaders
   bkk::render::shaderCreateFromGLSLSource(gContext, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &gVertexShader);
@@ -296,23 +295,20 @@ void CreateComputePipeline()
   //Create descriptor layout
   render::descriptor_set_layout_t descriptorSetLayout;
 
-  std::array< render::descriptor_binding_t, 3> bindings { 
+  std::array< render::descriptor_binding_t, 3> bindings{
     render::descriptor_binding_t{ render::descriptor_type_e::STORAGE_IMAGE,  0, render::descriptor_stage_e::COMPUTE },
     render::descriptor_binding_t{ render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::COMPUTE },
-    render::descriptor_binding_t{ render::descriptor_type_e::STORAGE_BUFFER, 2, render::descriptor_stage_e::COMPUTE } 
+    render::descriptor_binding_t{ render::descriptor_type_e::STORAGE_BUFFER, 2, render::descriptor_stage_e::COMPUTE }
   };
-  
-  render::descriptorSetLayoutCreate( gContext, bindings.size(), &bindings[0], &descriptorSetLayout );
+
+  render::descriptorSetLayoutCreate(gContext, bindings.size(), &bindings[0], &descriptorSetLayout);
 
   //Create pipeline layout
-  render::pipelineLayoutCreate( gContext, 1u, &descriptorSetLayout, &gComputePipelineLayout );
+  render::pipelineLayoutCreate(gContext, 1u, &descriptorSetLayout, &gComputePipelineLayout);
 
   //Create descriptor set
-  gComputeDescriptorSet.descriptors_.resize(3);
-  gComputeDescriptorSet.descriptors_[0].imageDescriptor_ = gTexture.descriptor_;
-  gComputeDescriptorSet.descriptors_[1].bufferDescriptor_ = gUbo.descriptor_;
-  gComputeDescriptorSet.descriptors_[2].bufferDescriptor_ = gSsbo.descriptor_;
-  render::descriptorSetCreate( gContext, gDescriptorPool, descriptorSetLayout, &gComputeDescriptorSet );
+  std::array<render::descriptor_t, 3> descriptors = { render::getDescriptor(gTexture), render::getDescriptor(gUbo), render::getDescriptor(gSsbo) };
+  render::descriptorSetCreate(gContext, gDescriptorPool, descriptorSetLayout, &descriptors[0], &gComputeDescriptorSet);
 
   //Create pipeline
   bkk::render::shaderCreateFromGLSL(gContext, bkk::render::shader_t::COMPUTE_SHADER, "../path-tracing/path-tracing.comp", &gComputeShader);

@@ -193,6 +193,12 @@ namespace bkk
       VkDescriptorBufferInfo descriptor_;
     };
 
+    struct descriptor_t
+    {
+      VkDescriptorBufferInfo bufferDescriptor_;
+      VkDescriptorImageInfo imageDescriptor_;
+    };
+
     enum struct descriptor_type_e
     {
       SAMPLER = 0,
@@ -240,12 +246,13 @@ namespace bkk
       descriptor_set_layout_t* descriptorSetLayout_;      
     };
 
+    /*
     struct descriptor_t
     {
       VkDescriptorImageInfo imageDescriptor_;
       VkDescriptorBufferInfo bufferDescriptor_;
     };
-
+    */
     struct descriptor_pool_t
     {
       VkDescriptorPool handle_;
@@ -259,7 +266,9 @@ namespace bkk
     struct descriptor_set_t
     {
       VkDescriptorSet handle_;
-      std::vector<descriptor_t> descriptors_;
+      uint32_t descriptorCount_;
+      descriptor_t* descriptors_;
+      //std::vector<descriptor_t> descriptors_;
       descriptor_pool_t pool_;
     };
 
@@ -370,7 +379,9 @@ namespace bkk
     void gpuBufferUpdate(const context_t& context, void* data, size_t offset, size_t size, gpu_buffer_t* buffer);
     void* gpuBufferMap(const context_t& context, const gpu_buffer_t& buffer);
     void gpuBufferUnmap(const context_t& context, const gpu_buffer_t& buffer);
-
+    
+    descriptor_t getDescriptor(const gpu_buffer_t& buffer);
+    descriptor_t getDescriptor(const texture_t& texture);
 
     void descriptorSetLayoutCreate(const context_t& context, uint32_t bindingCount, descriptor_binding_t* bindings, descriptor_set_layout_t* desriptorSetLayout);
     void pipelineLayoutCreate(const context_t& context, uint32_t descriptorSetLayoutCount, descriptor_set_layout_t* descriptorSetLayouts, pipeline_layout_t* pipelineLayout);
@@ -379,7 +390,7 @@ namespace bkk
     void descriptorPoolCreate(const context_t& context, uint32_t descriptorSetsCount, uint32_t combinedImageSamplersCount, uint32_t uniformBuffersCount, uint32_t storageBuffersCount, uint32_t storageImagesCount,descriptor_pool_t* descriptorPool);
     void descriptorPoolDestroy(const context_t& context, descriptor_pool_t* descriptorPool);
     
-    void descriptorSetCreate(const context_t& context, const descriptor_pool_t& descriptorPool, const descriptor_set_layout_t& descriptorSetLayout, descriptor_set_t* descriptorSet);
+    void descriptorSetCreate(const context_t& context, const descriptor_pool_t& descriptorPool, const descriptor_set_layout_t& descriptorSetLayout, descriptor_t* descriptors, descriptor_set_t* descriptorSet);
     void descriptorSetDestroy(const context_t& context, descriptor_set_t* descriptorSet);
     void descriptorSetUpdate(const context_t& context, const descriptor_set_layout_t& descriptorSetLayout, descriptor_set_t* descriptorSet);
     void descriptorSetBindForGraphics(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount);

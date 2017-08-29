@@ -143,9 +143,8 @@ struct scene_t
                               &allocator_, &ubo );
 
     material.ubo_ = ubo;
-    material.descriptorSet_.descriptors_.resize(1);
-    material.descriptorSet_.descriptors_[0].bufferDescriptor_ = material.ubo_.descriptor_;
-    render::descriptorSetCreate( context, descriptorPool_, materialDescriptorSetLayout_, &material.descriptorSet_ );
+    render::descriptor_t descriptor = render::getDescriptor(material.ubo_);
+    render::descriptorSetCreate( context, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_ );
     return material_.add( material );
   }
 
@@ -160,9 +159,8 @@ struct scene_t
                              &allocator_, &ubo );
 
     instance_t instance = { meshId, materialId, transformId, ubo };
-    instance.descriptorSet_.descriptors_.resize(1);
-    instance.descriptorSet_.descriptors_[0].bufferDescriptor_ = instance.ubo_.descriptor_;
-    render::descriptorSetCreate( context, descriptorPool_, instanceDescriptorSetLayout_, &instance.descriptorSet_ );
+    render::descriptor_t descriptor = render::getDescriptor(instance.ubo_);
+    render::descriptorSetCreate( context, descriptorPool_, instanceDescriptorSetLayout_, &descriptor, &instance.descriptorSet_ );
     return instance_.add( instance );
   }
 
@@ -224,10 +222,9 @@ struct scene_t
     descriptorPool_ = {};
     render::descriptorPoolCreate( context, 100u, 0u, 100u, 0u, 0u, &descriptorPool_ );
 
-    //Create global descriptor set (Scene uniforms)
-    descriptorSet_.descriptors_.resize(1);
-    descriptorSet_.descriptors_[0].bufferDescriptor_ = ubo_.descriptor_;
-    render::descriptorSetCreate( context, descriptorPool_, descriptorSetLayout_, &descriptorSet_ );
+    //Create global descriptor set (Scene uniforms)    
+    render::descriptor_t descriptor = render::getDescriptor(ubo_);
+    render::descriptorSetCreate( context, descriptorPool_, descriptorSetLayout_, &descriptor, &descriptorSet_ );
   }
 
   void Resize( render::context_t& context, uint32_t width, uint32_t height )

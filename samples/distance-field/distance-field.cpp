@@ -347,9 +347,8 @@ void CreateGraphicsPipeline()
   render::descriptorPoolCreate(gContext, 2u, 1u, 1u, 1u, 1u, &gDescriptorPool);
 
   //Create descriptor set
-  gDescriptorSet.descriptors_.resize(1);
-  gDescriptorSet.descriptors_[0].imageDescriptor_ = gTexture.descriptor_;
-  render::descriptorSetCreate(gContext, gDescriptorPool, descriptorSetLayout, &gDescriptorSet);
+  render::descriptor_t descriptor = render::getDescriptor(gTexture);
+  render::descriptorSetCreate(gContext, gDescriptorPool, descriptorSetLayout, &descriptor, &gDescriptorSet);
 
   //Load shaders
   render::shaderCreateFromGLSLSource(gContext, render::shader_t::VERTEX_SHADER, gVertexShaderSource, &gVertexShader);
@@ -387,11 +386,8 @@ void CreateComputePipeline()
   render::pipelineLayoutCreate(gContext, 1u, &descriptorSetLayout, &gComputePipelineLayout);
 
   //Create descriptor set
-  gComputeDescriptorSet.descriptors_.resize(3);
-  gComputeDescriptorSet.descriptors_[0].imageDescriptor_ = gTexture.descriptor_;
-  gComputeDescriptorSet.descriptors_[1].bufferDescriptor_ = gUbo.descriptor_;
-  gComputeDescriptorSet.descriptors_[2].bufferDescriptor_ = gDistanceField.descriptor_;
-  render::descriptorSetCreate(gContext, gDescriptorPool, descriptorSetLayout, &gComputeDescriptorSet);
+  std::array<render::descriptor_t, 3> descriptors = { render::getDescriptor(gTexture), render::getDescriptor(gUbo), render::getDescriptor(gDistanceField) };
+  render::descriptorSetCreate(gContext, gDescriptorPool, descriptorSetLayout, &descriptors[0], &gComputeDescriptorSet);
 
   //Create pipeline
   bkk::render::shaderCreateFromGLSL(gContext, bkk::render::shader_t::COMPUTE_SHADER, "../distance-field/distance-field.comp", &gComputeShader);

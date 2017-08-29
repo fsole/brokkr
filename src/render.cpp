@@ -1320,6 +1320,21 @@ void render::gpuBufferUnmap(const context_t& context, const gpu_buffer_t& buffer
   gpuMemoryUnmap(context, buffer.memory_);
 }
 
+descriptor_t render::getDescriptor(const gpu_buffer_t& buffer)
+{
+  descriptor_t descriptor;
+  descriptor.bufferDescriptor_ = buffer.descriptor_;
+  return descriptor;
+}
+
+descriptor_t render::getDescriptor(const texture_t& texture)
+{
+  descriptor_t descriptor;
+  descriptor.imageDescriptor_ = texture.descriptor_;
+  return descriptor;
+}
+
+
 void render::descriptorSetLayoutCreate(const context_t& context, uint32_t bindingCount, descriptor_binding_t* bindings, descriptor_set_layout_t* descriptorSetLayout)
 {
   descriptorSetLayout->bindingCount_ = bindingCount;
@@ -1426,8 +1441,11 @@ void render::descriptorPoolDestroy(const context_t& context, descriptor_pool_t* 
   vkDestroyDescriptorPool(context.device_, descriptorPool->handle_, nullptr);
 }
 
-void render::descriptorSetCreate(const context_t& context, const descriptor_pool_t& descriptorPool, const descriptor_set_layout_t& descriptorSetLayout, descriptor_set_t* descriptorSet)
+void render::descriptorSetCreate(const context_t& context, const descriptor_pool_t& descriptorPool, const descriptor_set_layout_t& descriptorSetLayout, descriptor_t* descriptors, descriptor_set_t* descriptorSet)
 {
+  descriptorSet->descriptorCount_ = descriptorSetLayout.bindingCount_;
+  descriptorSet->descriptors_ = new descriptor_t[descriptorSet->descriptorCount_];
+  memcpy(descriptorSet->descriptors_, descriptors, sizeof(descriptor_t)*descriptorSet->descriptorCount_);
   VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = {};
   descriptorSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   descriptorSetAllocateInfo.pSetLayouts = &descriptorSetLayout.handle_;
@@ -1441,12 +1459,13 @@ void render::descriptorSetCreate(const context_t& context, const descriptor_pool
 
 void render::descriptorSetDestroy(const context_t& context, descriptor_set_t* descriptorSet)
 {
+  delete[] descriptorSet->descriptors_;
   vkFreeDescriptorSets(context.device_, descriptorSet->pool_.handle_, 1, &descriptorSet->handle_);
 }
 
 void render::descriptorSetUpdate(const context_t& context, const descriptor_set_layout_t& descriptorSetLayout, descriptor_set_t* descriptorSet)
 {
-  std::vector<VkWriteDescriptorSet> writeDescriptorSets(descriptorSet->descriptors_.size());
+  std::vector<VkWriteDescriptorSet> writeDescriptorSets(descriptorSet->descriptorCount_);
   for (uint32_t i(0); i < writeDescriptorSets.size(); ++i)
   {
     writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

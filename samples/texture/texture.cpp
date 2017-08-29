@@ -147,9 +147,8 @@ int main()
 
   //Create descriptor set
   bkk::render::descriptor_set_t descriptorSet;
-  descriptorSet.descriptors_.resize(1);
-  descriptorSet.descriptors_[0].imageDescriptor_ = texture.descriptor_;
-  bkk::render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &descriptorSet);
+  bkk::render::descriptor_t descriptor = bkk::render::getDescriptor(texture);
+  bkk::render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &descriptor, &descriptorSet);
 
   //Load shaders
   bkk::render::shader_t vertexShader, fragmentShader;

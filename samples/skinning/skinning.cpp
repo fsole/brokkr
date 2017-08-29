@@ -128,10 +128,8 @@ void CreatePipeline()
   render::descriptorPoolCreate( gContext, 1u, 0u, 2u, 0u, 0u, &gDescriptorPool );
 
   //Create descriptor set
-  gDescriptorSet.descriptors_.resize(2);
-  gDescriptorSet.descriptors_[0].bufferDescriptor_ = gUbo.descriptor_;
-  gDescriptorSet.descriptors_[1].bufferDescriptor_ = gAnimator.buffer_.descriptor_;
-  render::descriptorSetCreate( gContext, gDescriptorPool, descriptorSetLayout, &gDescriptorSet );
+  std::array<render::descriptor_t, 2> descriptors = { render::getDescriptor(gUbo), render::getDescriptor(gAnimator.buffer_)};  
+  render::descriptorSetCreate( gContext, gDescriptorPool, descriptorSetLayout, &descriptors[0], &gDescriptorSet );
 
   //Load shaders
   bkk::render::shaderCreateFromGLSLSource(gContext, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &gVertexShader);
