@@ -88,17 +88,18 @@ void CreatePipeline(const bkk::render::context_t& context, const bkk::render::ve
                     const bkk::render::pipeline_layout_t& layout, bkk::render::graphics_pipeline_t* pipeline)
 {
   //Create pipeline
-  pipeline->viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-  pipeline->scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-  pipeline->blendState_.resize(1);
-  pipeline->blendState_[0].colorWriteMask = 0xF;
-  pipeline->blendState_[0].blendEnable = VK_FALSE;
-  pipeline->cullMode_ = VK_CULL_MODE_BACK_BIT;
-  pipeline->depthTestEnabled_ = false;
-  pipeline->depthWriteEnabled_ = false;
-  pipeline->vertexShader_ = vertexShader;
-  pipeline->fragmentShader_ = fragmentShader;
-  bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, vertexFormat, layout, pipeline);
+  bkk::render::graphics_pipeline_desc_t pipelineDesc;
+  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
+  pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
+  pipelineDesc.blendState_.resize(1);
+  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+  pipelineDesc.depthTestEnabled_ = false;
+  pipelineDesc.depthWriteEnabled_ = false;
+  pipelineDesc.vertexShader_ = vertexShader;
+  pipelineDesc.fragmentShader_ = fragmentShader;
+  bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, vertexFormat, layout, pipelineDesc, pipeline);
 }
 
 void BuildCommandBuffers(const bkk::render::context_t& context,const bkk::mesh::mesh_t& mesh,

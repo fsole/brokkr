@@ -277,10 +277,8 @@ namespace bkk
       type_e type_;
     };
 
-    struct graphics_pipeline_t
+    struct graphics_pipeline_desc_t
     {
-      VkPipeline handle_;
-
       VkViewport viewPort_;
       VkRect2D scissorRect_;
       std::vector<VkPipelineColorBlendAttachmentState> blendState_;
@@ -288,11 +286,16 @@ namespace bkk
       bool depthTestEnabled_;
       bool depthWriteEnabled_;
       VkCompareOp depthTestFunction_;
-      //@TODO Stencil
-      //@TODO Multisampling
-
       shader_t vertexShader_;
       shader_t fragmentShader_;
+      //@TODO Stencil
+      //@TODO Multisampling
+    };
+
+    struct graphics_pipeline_t
+    {
+      VkPipeline handle_;      
+      graphics_pipeline_desc_t desc_;      
     };
 
     struct compute_pipeline_t
@@ -382,7 +385,7 @@ namespace bkk
     void descriptorSetBindForGraphics(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount);
     void descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount);
 
-    void graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, const render::vertex_format_t& vertexFormat, const pipeline_layout_t& pipelineLayout, graphics_pipeline_t* pipeline);
+    void graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, const render::vertex_format_t& vertexFormat, const pipeline_layout_t& pipelineLayout, const graphics_pipeline_desc_t& pipelineDesc, graphics_pipeline_t* pipeline);
     void graphicsPipelineDestroy(const context_t& context, graphics_pipeline_t* pipeline);
     void graphicsPipelineBind( VkCommandBuffer commandBuffer, const graphics_pipeline_t& pipeline);
 

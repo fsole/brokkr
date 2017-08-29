@@ -1506,25 +1506,26 @@ void render::descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pi
 }
 
 
-void render::graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, const render::vertex_format_t& vertexFormat,
-  const pipeline_layout_t& layout, graphics_pipeline_t* pipeline)
+void render::graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, const render::vertex_format_t& vertexFormat, 
+  const pipeline_layout_t& pipelineLayout, const graphics_pipeline_desc_t& pipelineDesc, graphics_pipeline_t* pipeline)
 {
+  pipeline->desc_ = pipelineDesc;
   VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = {};
   pipelineViewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   pipelineViewportStateCreateInfo.viewportCount = 1;
-  pipelineViewportStateCreateInfo.pViewports = &pipeline->viewPort_;
+  pipelineViewportStateCreateInfo.pViewports = &pipeline->desc_.viewPort_;
   pipelineViewportStateCreateInfo.scissorCount = 1;
-  pipelineViewportStateCreateInfo.pScissors = &pipeline->scissorRect_;
+  pipelineViewportStateCreateInfo.pScissors = &pipeline->desc_.scissorRect_;
 
   VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = {};
   pipelineColorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-  pipelineColorBlendStateCreateInfo.attachmentCount = (uint32_t)pipeline->blendState_.size();
-  pipelineColorBlendStateCreateInfo.pAttachments = &pipeline->blendState_[0];
+  pipelineColorBlendStateCreateInfo.attachmentCount = (uint32_t)pipeline->desc_.blendState_.size();
+  pipelineColorBlendStateCreateInfo.pAttachments = &pipeline->desc_.blendState_[0];
 
   VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = {};
   pipelineRasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
   pipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
-  pipelineRasterizationStateCreateInfo.cullMode = pipeline->cullMode_;
+  pipelineRasterizationStateCreateInfo.cullMode = pipeline->desc_.cullMode_;
   pipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   pipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
   pipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;
@@ -1533,9 +1534,9 @@ void render::graphicsPipelineCreate(const context_t& context, VkRenderPass rende
 
   VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = {};
   pipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-  pipelineDepthStencilStateCreateInfo.depthTestEnable = pipeline->depthTestEnabled_;
-  pipelineDepthStencilStateCreateInfo.depthWriteEnable = pipeline->depthWriteEnabled_;
-  pipelineDepthStencilStateCreateInfo.depthCompareOp = pipeline->depthTestFunction_;;
+  pipelineDepthStencilStateCreateInfo.depthTestEnable = pipeline->desc_.depthTestEnabled_;
+  pipelineDepthStencilStateCreateInfo.depthWriteEnable = pipeline->desc_.depthWriteEnabled_;
+  pipelineDepthStencilStateCreateInfo.depthCompareOp = pipeline->desc_.depthTestFunction_;;
   pipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE;
   pipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP;
   pipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP;
@@ -1549,12 +1550,12 @@ void render::graphicsPipelineCreate(const context_t& context, VkRenderPass rende
 
   VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfos[2] = {};
   pipelineShaderStageCreateInfos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  pipelineShaderStageCreateInfos[0].module = pipeline->vertexShader_.handle_;
+  pipelineShaderStageCreateInfos[0].module = pipeline->desc_.vertexShader_.handle_;
   pipelineShaderStageCreateInfos[0].pName = "main";
   pipelineShaderStageCreateInfos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 
   pipelineShaderStageCreateInfos[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  pipelineShaderStageCreateInfos[1].module = pipeline->fragmentShader_.handle_;
+  pipelineShaderStageCreateInfos[1].module = pipeline->desc_.fragmentShader_.handle_;
   pipelineShaderStageCreateInfos[1].pName = "main";
   pipelineShaderStageCreateInfos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 
@@ -1568,7 +1569,7 @@ void render::graphicsPipelineCreate(const context_t& context, VkRenderPass rende
   dynamicState.pDynamicStates = dynamicStateEnables;
   dynamicState.dynamicStateCount = 2;
 
-  graphicsPipelineCreateInfo.layout = layout.handle_;
+  graphicsPipelineCreateInfo.layout = pipelineLayout.handle_;
   graphicsPipelineCreateInfo.pVertexInputState = &vertexFormat.vertexInputState_;
   graphicsPipelineCreateInfo.pInputAssemblyState = &vertexFormat.inputAssemblyState_;
   graphicsPipelineCreateInfo.renderPass = renderPass;

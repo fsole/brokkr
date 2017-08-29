@@ -206,18 +206,19 @@ struct scene_t
     //Create pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
-    pipeline_.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipeline_.scissorRect_ = { {0,0}, {context.swapChain_.imageWidth_,context.swapChain_.imageHeight_} };
-    pipeline_.blendState_.resize(1);
-    pipeline_.blendState_[0].colorWriteMask = 0xF;
-    pipeline_.blendState_[0].blendEnable = VK_FALSE;
-    pipeline_.cullMode_ = VK_CULL_MODE_BACK_BIT;
-    pipeline_.depthTestEnabled_ = true;
-    pipeline_.depthWriteEnabled_ = true;
-    pipeline_.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
-    pipeline_.vertexShader_ = vertexShader_;
-    pipeline_.fragmentShader_ = fragmentShader_;
-    render::graphicsPipelineCreate( context, context.swapChain_.renderPass_, vertexFormat_, pipelineLayout_, &pipeline_ );
+    bkk::render::graphics_pipeline_desc_t pipelineDesc;
+    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
+    pipelineDesc.scissorRect_ = { {0,0}, {context.swapChain_.imageWidth_,context.swapChain_.imageHeight_} };
+    pipelineDesc.blendState_.resize(1);
+    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+    pipelineDesc.depthTestEnabled_ = true;
+    pipelineDesc.depthWriteEnabled_ = true;
+    pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
+    pipelineDesc.vertexShader_ = vertexShader_;
+    pipelineDesc.fragmentShader_ = fragmentShader_;
+    render::graphicsPipelineCreate( context, context.swapChain_.renderPass_, vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_ );
 
     //Create descriptor pool
     descriptorPool_ = {};

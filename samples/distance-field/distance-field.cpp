@@ -356,17 +356,18 @@ void CreateGraphicsPipeline()
   render::shaderCreateFromGLSLSource(gContext, render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &gFragmentShader);
 
   //Create graphics pipeline
-  gPipeline.viewPort_ = { 0.0f, 0.0f, (float)gContext.swapChain_.imageWidth_, (float)gContext.swapChain_.imageHeight_, 0.0f, 1.0f };
-  gPipeline.scissorRect_ = { { 0,0 },{ gContext.swapChain_.imageWidth_,gContext.swapChain_.imageHeight_ } };
-  gPipeline.blendState_.resize(1);
-  gPipeline.blendState_[0].colorWriteMask = 0xF;
-  gPipeline.blendState_[0].blendEnable = VK_FALSE;
-  gPipeline.cullMode_ = VK_CULL_MODE_BACK_BIT;
-  gPipeline.depthTestEnabled_ = false;
-  gPipeline.depthWriteEnabled_ = false;
-  gPipeline.vertexShader_ = gVertexShader;
-  gPipeline.fragmentShader_ = gFragmentShader;
-  render::graphicsPipelineCreate(gContext, gContext.swapChain_.renderPass_, gFSQuad.vertexFormat_, gPipelineLayout, &gPipeline);
+  bkk::render::graphics_pipeline_desc_t pipelineDesc;
+  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)gContext.swapChain_.imageWidth_, (float)gContext.swapChain_.imageHeight_, 0.0f, 1.0f };
+  pipelineDesc.scissorRect_ = { { 0,0 },{ gContext.swapChain_.imageWidth_,gContext.swapChain_.imageHeight_ } };
+  pipelineDesc.blendState_.resize(1);
+  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+  pipelineDesc.depthTestEnabled_ = false;
+  pipelineDesc.depthWriteEnabled_ = false;
+  pipelineDesc.vertexShader_ = gVertexShader;
+  pipelineDesc.fragmentShader_ = gFragmentShader;
+  render::graphicsPipelineCreate(gContext, gContext.swapChain_.renderPass_, gFSQuad.vertexFormat_, gPipelineLayout, pipelineDesc, &gPipeline);
 }
 
 void CreateComputePipeline()
