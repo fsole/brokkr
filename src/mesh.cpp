@@ -275,13 +275,13 @@ void mesh::createFromFile( const render::context_t& context, const char* file, m
   u32 index(0);
   for( u32 vertex(0); vertex<vertexCount; ++vertex )
   {
-    aabbMin = vec3( maths::myMin( aimesh->mVertices[vertex].x, aabbMin.x ),
-                      maths::myMin( aimesh->mVertices[vertex].y, aabbMin.y ),
-                      maths::myMin( aimesh->mVertices[vertex].z, aabbMin.z ) );
+    aabbMin = vec3( maths::minValue( aimesh->mVertices[vertex].x, aabbMin.x ),
+                    maths::minValue( aimesh->mVertices[vertex].y, aabbMin.y ),
+                    maths::minValue( aimesh->mVertices[vertex].z, aabbMin.z ) );
 
-    aabbMax = vec3( maths::myMax( aimesh->mVertices[vertex].x, aabbMax.x ),
-                      maths::myMax( aimesh->mVertices[vertex].y, aabbMax.y ),
-                      maths::myMax( aimesh->mVertices[vertex].z, aabbMax.z ) );
+    aabbMax = vec3( maths::maxValue( aimesh->mVertices[vertex].x, aabbMax.x ),
+                    maths::maxValue( aimesh->mVertices[vertex].y, aabbMax.y ),
+                    maths::maxValue( aimesh->mVertices[vertex].z, aabbMax.z ) );
 
     vertexData[index++] = aimesh->mVertices[vertex].x;
     vertexData[index++] = aimesh->mVertices[vertex].y;
@@ -467,7 +467,7 @@ void mesh::animatorUpdate(const render::context_t& context, f32 time, skeletal_a
   //Find out frames between which we need to interpolate
   u32 frameCount = animator->animation_->frameCount_ - 1 ;
   u32 frame0 = (u32)floor( (frameCount) * animator->cursor_ );
-  u32 frame1 = maths::myMin( frame0 + 1, frameCount );
+  u32 frame1 = maths::minValue( frame0 + 1, frameCount );
 
   //Local cursor between frames
   f32 t = ( animator->cursor_ - ( (f32)frame0 / (f32)frameCount ) ) / ( ((f32)frame1 / (f32)frameCount ) - ( (f32)frame0 / (f32)frameCount ) );

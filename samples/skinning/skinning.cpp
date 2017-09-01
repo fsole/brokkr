@@ -80,7 +80,7 @@ bool CreateUniformBuffer()
   gCamera.Update();
 
   gProjection = computePerspectiveProjectionMatrix( 1.5f,(f32)gWindow.width_ / (f32)gWindow.height_,1.0f,1000.0f );
-  gModelTransform = computeTransform( VEC3_ZERO, vec3( 0.01f,0.01f,0.01f), quaternionFromAxisAngle( vec3(1.0f,0.0f,0.0f), -degreeToRadian(90.0f) ) );
+  gModelTransform = computeTransform( VEC3_ZERO, vec3( 0.01f,0.01f,0.01f), quaternionFromAxisAngle( vec3(1.0f,0.0f,0.0f), degreeToRadian(90.0f) ) );
 
   mat4 matrices[2];
   matrices[0] = gModelTransform * gCamera.view_;
@@ -124,7 +124,6 @@ void CreatePipeline()
   render::pipelineLayoutCreate( gContext, 1u, &descriptorSetLayout, &gPipelineLayout );
 
   //Create descriptor pool
-  gDescriptorPool = {};
   render::descriptorPoolCreate( gContext, 1u, 0u, 2u, 0u, 0u, &gDescriptorPool );
 
   //Create descriptor set
@@ -196,14 +195,14 @@ void OnKeyEvent( window::key_e key, bool pressed )
       case window::key_e::KEY_UP:
       case 'w':
       {
-        gCamera.Move( -.5f );
+        gCamera.Move( -1.0f );
         UpdateUniformBuffer();
         break;
       }
       case window::key_e::KEY_DOWN:
       case 's':
       {
-        gCamera.Move( .5f );
+        gCamera.Move( 1.0f );
         UpdateUniformBuffer();
         break;
       }

@@ -170,9 +170,9 @@ struct scene_t
     render::gpuAllocatorCreate( context, 100*1024*1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_ );
 
     //Create scene uniform buffer
-    camera_.position_ = vec3(0.0f,2.5f,7.0f);
+    camera_.position_ = vec3(0.0f,2.5f,8.0f);
     camera_.Update();
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.5f,(f32)size.x / (f32)size.y, 0.1f,100.0f );
+    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.2f,(f32)size.x / (f32)size.y, 0.1f,100.0f );
     uniforms_.viewMatrix_ = camera_.view_;
     uniforms_.lightDirection_ = vec4(0.0f,1.0f,1.0f,0.0f);
     uniforms_.lightColor_ = vec4(1.0f,1.0f,1.0f,1.0f);
@@ -219,7 +219,6 @@ struct scene_t
     render::graphicsPipelineCreate( context, context.swapChain_.renderPass_, vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_ );
 
     //Create descriptor pool
-    descriptorPool_ = {};
     render::descriptorPoolCreate( context, 100u, 0u, 100u, 0u, 0u, &descriptorPool_ );
 
     //Create global descriptor set (Scene uniforms)    
@@ -229,7 +228,7 @@ struct scene_t
 
   void Resize( render::context_t& context, uint32_t width, uint32_t height )
   {
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.5f, (f32)width / (f32)height,0.1f,100.0f );
+    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.2f, (f32)width / (f32)height,0.1f,100.0f );
     render::swapchainResize( &context, width, height );
     BuildCommandBuffers( context );
   }
@@ -367,13 +366,13 @@ void OnKeyEvent( window::key_e key, bool pressed, scene_t& scene )
       case window::key_e::KEY_LEFT:
       case 'a':
       {
-        scene.camera_.Move( 0.5f, 0.0f );
+        scene.camera_.Move( -0.5f, 0.0f );
         break;
       }
       case window::key_e::KEY_RIGHT:
       case 'd':
       {
-        scene.camera_.Move( -0.5f, 0.0f );
+        scene.camera_.Move( 0.5f, 0.0f );
         break;
       }
       default:

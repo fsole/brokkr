@@ -236,7 +236,6 @@ namespace bkk
       VkDescriptorSetLayout handle_;
       uint32_t bindingCount_;
       descriptor_binding_t* bindings_;
-      //std::vector<descriptor_binding_t> bindings_;
     };
 
     struct pipeline_layout_t
@@ -246,13 +245,6 @@ namespace bkk
       descriptor_set_layout_t* descriptorSetLayout_;      
     };
 
-    /*
-    struct descriptor_t
-    {
-      VkDescriptorImageInfo imageDescriptor_;
-      VkDescriptorBufferInfo bufferDescriptor_;
-    };
-    */
     struct descriptor_pool_t
     {
       VkDescriptorPool handle_;
@@ -268,7 +260,6 @@ namespace bkk
       VkDescriptorSet handle_;
       uint32_t descriptorCount_;
       descriptor_t* descriptors_;
-      //std::vector<descriptor_t> descriptors_;
       descriptor_pool_t pool_;
     };
 

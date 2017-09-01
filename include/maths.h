@@ -40,7 +40,7 @@ namespace bkk
     }
 
     template <typename T>
-    inline T myMin(T a, T b)
+    inline T minValue(T a, T b)
     {
       if (a <= b)
         return a; 
@@ -49,7 +49,7 @@ namespace bkk
     }
     
     template <typename T>
-    inline T myMax(T a, T b)
+    inline T maxValue(T a, T b)
     {
       if (a >= b)
         return a;
@@ -139,7 +139,7 @@ namespace bkk
 
       void normalize()
       {
-        f32 inverseLenght = 1.0f / Lenght(*this);
+        f32 inverseLenght = 1.0f / lenght(*this);
         x *= inverseLenght;
         y *= inverseLenght;
         z *= inverseLenght;
@@ -462,9 +462,9 @@ namespace bkk
       Quaternion(const Vector<T, 3>& axis, T angle)
       {
         Vector<T, 3> axisNormalized = axis;
-        axisNormalized.Normalize();
+        axisNormalized.normalize();
 
-        const f32 halfAngle = angle * 0.5f;
+        const f32 halfAngle = -angle * 0.5f;
         const f32 halfAngleSin = sinf(halfAngle);
 
         x = axisNormalized.x * halfAngleSin;
@@ -503,50 +503,27 @@ namespace bkk
 
     //////Quaternion functions
 
-    //Counter clock-wise rotation around the axis
+    ////Counterclockwise rotation around the axis
     template <typename T>
     inline Quaternion<T> quaternionFromAxisAngle(const Vector<T, 3>& axis, T angle)
     {
-      Quaternion<T> result;
-      Vector<T, 3> axisNormalized = normalize(axis);
-      const f32 halfAngle = angle * 0.5f;
-      const f32 halfAngleSin = sinf(halfAngle);
-
-      result.x = axisNormalized.x * halfAngleSin;
-      result.y = axisNormalized.y * halfAngleSin;
-      result.z = axisNormalized.z * halfAngleSin;
-      result.w = cosf(halfAngle);
-
-      return result;
+      return Quaternion<T>( axis, angle );
     }
 
-    template <typename T>
-    inline Quaternion<T> operator*=(Quaternion<T>& v0, const Quaternion<T>& v1)
-    {
-      Quaternion<T> result;
-
-      result.x = v0.y * v1.z - v0.z * v1.y + v0.w * v1.x + v0.x * v1.w;
-      result.y = v0.z * v1.x - v0.x * v1.z + v0.w * v1.y + v0.y * v1.w;
-      result.z = v0.x * v1.y - v0.y * v1.x + v0.w * v1.z + v0.z * v1.w;
-      result.w = v0.w * v1.w - (v0.x*v1.x + v0.y*v1.y + v0.z*v1.z);
-
-      v0 = result;
-      return result;
-    }
-
+    //Quaternion composition.
+    //Rotating a vector by the product of q0 * q1 is the same as applying q0 first and then q1
     template <typename T>
     inline Quaternion<T> operator*(const Quaternion<T>& v0, const Quaternion<T>& v1)
     {
       Quaternion<T> result;
-
-      result.x = v0.y * v1.z - v0.z * v1.y + v0.w * v1.x + v0.x * v1.w;
-      result.y = v0.z * v1.x - v0.x * v1.z + v0.w * v1.y + v0.y * v1.w;
-      result.z = v0.x * v1.y - v0.y * v1.x + v0.w * v1.z + v0.z * v1.w;
-      result.w = v0.w * v1.w - (v0.x*v1.x + v0.y*v1.y + v0.z*v1.z);
+      result.x = v1.y * v0.z - v1.z * v0.y + v1.w * v0.x + v1.x * v0.w;
+      result.y = v1.z * v0.x - v1.x * v0.z + v1.w * v0.y + v1.y * v0.w;
+      result.z = v1.x * v0.y - v1.y * v0.x + v1.w * v0.z + v1.z * v0.w;
+      result.w = v1.w * v0.w - v1.x * v0.x - v1.y * v0.y - v1.z * v0.z;
 
       return result;
     }
-
+    
     template <typename T>
     inline Quaternion<T> operator*(const Quaternion<T>& v0, f32 s)
     {
@@ -644,7 +621,7 @@ namespace bkk
     template <typename T>
     inline Vector<T, 4> rotate(const Vector<T, 4>& v, const Quaternion<T>& q)
     {
-      Quaternion<T> conjugate = Conjugate(q);
+      Quaternion<T> qConjugate = conjugate(q);
       Quaternion<T> result = q * Quaternion<T>(v.x, v.y, v.z, 0.0) * conjugate;
       return Vector<T, 4>(result.x, result.y, result.z, result.w);
     }
@@ -802,6 +779,11 @@ namespace bkk
             data[i + j * 4] = aux[j + i * 4];
           }
         }
+      }
+
+      Vector<T,4> row(unsigned int i)
+      {
+        return Vector<T,4>(data[4 * i], data[4 * i + 1], data[4 * i + 2], data[4 * i + 3]);
       }
 
       union

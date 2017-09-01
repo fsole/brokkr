@@ -259,12 +259,6 @@ void CreateGraphicsPipeline()
   render::pipelineLayoutCreate( gContext, 1u, &descriptorSetLayout, &gPipelineLayout );
 
   //Create descriptor pool
-  gDescriptorPool = {};
-  gDescriptorPool.combinedImageSamplers_ = 1;
-  gDescriptorPool.storageBuffers_ = 1;
-  gDescriptorPool.uniformBuffers_ = 1;
-  gDescriptorPool.storageImages_ = 1;
-  gDescriptorPool.descriptorSets_ = 2;
   render::descriptorPoolCreate(gContext, 2u, 1u, 1u, 1u, 1u, &gDescriptorPool);
 
   //Create descriptor set
@@ -452,14 +446,14 @@ void OnKeyEvent( window::key_e key, bool pressed )
       case window::key_e::KEY_LEFT:
       case 'a':
       {
-        gCamera.Move( 0.5f, 0.0f );
+        gCamera.Move( -0.5f, 0.0f );
         UpdateCameraTransform();
         break;
       }
       case window::key_e::KEY_RIGHT:
       case 'd':
       {
-        gCamera.Move( -0.5f, 0.0f );
+        gCamera.Move( 0.5f, 0.0f );
         UpdateCameraTransform();
         break;
       }

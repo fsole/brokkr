@@ -39,8 +39,8 @@ struct orbiting_camera_t
 
   void Rotate( f32 angleY, f32 angleZ )
   {
-    angle_.x =  angle_.x - angleY;
-    angleZ = angle_.y - angleZ;
+    angle_.x =  angle_.x + angleY;
+    angleZ = angle_.y + angleZ;
     if( angleZ < M_PI_2 && angleZ > -M_PI_2 )
     {
       angle_.y = angleZ;
@@ -51,8 +51,8 @@ struct orbiting_camera_t
 
   void Update()
   {
-    quat orientation =  quaternionFromAxisAngle( vec3(0.0f,1.0f,0.0f), angle_.x ) *
-                        quaternionFromAxisAngle( vec3(1.0f,0.0f,0.0f), angle_.y );
+    quat orientation =  quaternionFromAxisAngle( vec3(1.0f,0.0f,0.0f), angle_.y ) *
+                        quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), angle_.x);
 
     forward_ = maths::rotate( vec3(0.0f,0.0f,1.0f), orientation );
     right_ = cross( forward_, vec3(0.0f,1.0f,0.0f) );
@@ -87,17 +87,17 @@ struct free_camera_t
 
   void Move( f32 xAmount, f32 zAmount )
   {
-    position_ = position_ + ( zAmount * velocity_ * forward_ ) + ( xAmount * velocity_ * right_ );
+    position_ = position_ + (zAmount * velocity_ * tx_.row(2).xyz()) +(xAmount * velocity_ * tx_.row(0).xyz() );
     Update();
   }
 
   void Rotate( f32 angleX, f32 angleY )
-  {
-    angle_.x =  angle_.x - angleY;
-    angleY = angle_.y - angleX;
-    if( angleY < M_PI_2 && angleY > -M_PI_2 )
+  {    
+    angle_.y = angle_.y + angleY;
+    angleX = angle_.x + angleX;
+    if(angleX < M_PI_2 && angleX > -M_PI_2 )
     {
-      angle_.y = angleY;
+      angle_.x = angleX;
     }
 
     Update();
@@ -105,22 +105,14 @@ struct free_camera_t
 
   void Update()
   {
-    quat orientation =  quaternionFromAxisAngle( vec3(0.0f,1.0f,0.0f), angle_.x ) *
-                        quaternionFromAxisAngle( vec3(1.0f,0.0f,0.0f), angle_.y );
-
-    forward_ = normalize( maths::rotate( vec3(0.0f,0.0f,1.0f), orientation ) );
-    right_ = normalize( cross( forward_, vec3(0.0f,1.0f,0.0f) ) );
-
+    quat orientation = quaternionFromAxisAngle(vec3(1.0f, 0.0f, 0.0f), angle_.x) * quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), angle_.y);
     tx_ = computeTransform( position_, VEC3_ONE, orientation );
-    computeInverse( tx_, view_ );
+    computeInverse( tx_, view_ );    
   }
 
   mat4 tx_;
   mat4 view_;
-
-  vec3 position_;
-  vec3 forward_;
-  vec3 right_;
+  vec3 position_;  
   vec2 angle_;
   f32  velocity_; //Units per second
 };

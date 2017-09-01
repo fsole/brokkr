@@ -140,9 +140,7 @@ int main()
   bkk::render::pipelineLayoutCreate(context, 1u, &descriptorSetLayout, &pipelineLayout);
 
   //Create descriptor pool
-  bkk::render::descriptor_pool_t descriptorPool = {};
-  descriptorPool.combinedImageSamplers_ = 1u;
-  descriptorPool.descriptorSets_ = 1u;
+  bkk::render::descriptor_pool_t descriptorPool;
   bkk::render::descriptorPoolCreate(context, 1u, 1u, 0u, 0u, 0u, &descriptorPool);
 
   //Create descriptor set
