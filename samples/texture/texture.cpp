@@ -76,8 +76,7 @@ bkk::render::texture_t CreateTexture(const bkk::render::context_t& context)
     sampler.wrapU_ = bkk::render::wrap_mode_e::CLAMP_TO_EDGE;
     sampler.wrapV_ = bkk::render::wrap_mode_e::CLAMP_TO_EDGE;
     bkk::render::texture2DCreate(context, &image, 1, sampler, &texture);
-    bkk::render::textureChangeLayout(context, context.initializationCmdBuffer_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, &texture);
-    bkk::render::initResources(context);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &texture);    
     bkk::image::unload(&image);
   }
 

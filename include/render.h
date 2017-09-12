@@ -19,8 +19,8 @@ namespace bkk
   {
     struct import_table_t
     {
-      #define GET_INSTANCE_ENTRYPOINT(i, w) w = reinterpret_cast<PFN_##w>(vkGetInstanceProcAddr(i, #w))
-      #define GET_DEVICE_ENTRYPOINT(i, w) w = reinterpret_cast<PFN_##w>(vkGetDeviceProcAddr(i, #w))
+#define GET_INSTANCE_ENTRYPOINT(i, w) w = reinterpret_cast<PFN_##w>(vkGetInstanceProcAddr(i, #w))
+#define GET_DEVICE_ENTRYPOINT(i, w) w = reinterpret_cast<PFN_##w>(vkGetDeviceProcAddr(i, #w))
 
       void Initialize(VkInstance instance, VkDevice device)
       {
@@ -142,6 +142,7 @@ namespace bkk
       VkImageView imageView_;
       VkSampler sampler_;
       VkImageLayout layout_;
+      VkImageAspectFlags aspectFlags_;
       uint32_t mipLevels_;
       VkExtent3D extent_;
       VkDescriptorImageInfo descriptor_;
@@ -242,7 +243,7 @@ namespace bkk
     {
       VkPipelineLayout handle_;
       uint32_t descriptorSetLayoutCount_;
-      descriptor_set_layout_t* descriptorSetLayout_;      
+      descriptor_set_layout_t* descriptorSetLayout_;
     };
 
     struct descriptor_pool_t
@@ -294,8 +295,8 @@ namespace bkk
 
     struct graphics_pipeline_t
     {
-      VkPipeline handle_;      
-      graphics_pipeline_desc_t desc_;      
+      VkPipeline handle_;
+      graphics_pipeline_desc_t desc_;
     };
 
     struct compute_pipeline_t
@@ -337,6 +338,16 @@ namespace bkk
       uint32_t vertexSize_;
     };
 
+    struct frame_buffer_t
+    {
+      VkFramebuffer handle_;
+      uint32_t width_;
+      uint32_t height_;
+
+      std::vector<VkImageView> attachments_;
+      depth_stencil_buffer_t depthStencil_;
+    };
+
     void contextCreate(const char* applicationName, const char* engineName, const window::window_t& window, uint32_t swapChainImageCount, context_t* context);
     void contextDestroy(context_t* context);
     void contextFlush(const context_t& context);
@@ -360,9 +371,10 @@ namespace bkk
     void gpuAllocatorDestroy(const context_t& context, gpu_memory_allocator_t* allocator);
 
     void texture2DCreate(const context_t& context, const image::image2D_t* images, uint32_t imageCount, texture_sampler_t sampler, texture_t* texture);
-    void texture2DCreate(const context_t& context, uint32_t width, uint32_t height, uint32_t componentCount, uint32_t usageFlags, texture_sampler_t sampler, texture_t* texture);
+    void texture2DCreate(const context_t& context, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usageFlags, texture_sampler_t sampler, texture_t* texture);
     void textureDestroy(const context_t& context, texture_t* texture);
-    void textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, VkImageAspectFlags aspect, texture_t* texture);
+    void textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture);
+    void textureChangeLayoutNow(const context_t& context, VkImageLayout layout, texture_t* texture);
 
     void gpuBufferCreate(const context_t& context, gpu_buffer_usage_e usage, uint32_t memoryType, void* data, size_t size, gpu_buffer_t* buffer, gpu_memory_allocator_t* allocator = nullptr);
     void gpuBufferCreate(const context_t& context, gpu_buffer_usage_e usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
@@ -400,6 +412,10 @@ namespace bkk
 
     void vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attributeCount, vertex_format_t* format);
     void vertexFormatDestroy(vertex_format_t* format);
+
+
+    void frameBufferCreate(const context_t& context, uint32_t width, uint32_t height, uint32_t colorAttachmentCount, VkImageView* colorAttachments, depth_stencil_buffer_t* depthStencil, frame_buffer_t* frameBuffer);
+    void frameBufferDestroy(const context_t& context, frame_buffer_t* frameBuffer);
 
   } //namespace render
 

@@ -231,6 +231,7 @@ static VkBool32 GetDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat 
   return false;
 }
 
+
 static void CreateDepthStencilBuffer(context_t* context, uint32_t width, uint32_t height, VkFormat format, depth_stencil_buffer_t* depthStencilBuffer)
 {
   //Create the image
@@ -1096,21 +1097,23 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
   texture->layout_ = VK_IMAGE_LAYOUT_GENERAL;
   texture->extent_ = extents;
   texture->mipLevels_ = 1;
+  texture->aspectFlags_ = VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
 void render::texture2DCreate(const context_t& context,
-  uint32_t width, uint32_t height, uint32_t componentCount, uint32_t usage,
+  uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage,
   texture_sampler_t sampler, texture_t* texture)
 {
   VkExtent3D extents = { width, height, 1u };
-  VkFormat format = VK_FORMAT_UNDEFINED;
-  if (componentCount == 4)
+  
+  VkImageAspectFlags aspectFlags = 0;
+  if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
   {
-    format = VK_FORMAT_R8G8B8A8_UNORM;
+    aspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
   }
-  else if (componentCount == 1)
+  else
   {
-    format = VK_FORMAT_R32_SFLOAT;
+    aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
   }
 
   //Create the image
@@ -1141,7 +1144,7 @@ void render::texture2DCreate(const context_t& context,
   imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   imageViewCreateInfo.format = imageCreateInfo.format;
   imageViewCreateInfo.image = texture->image_;
-  imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  imageViewCreateInfo.subresourceRange.aspectMask = aspectFlags;
   imageViewCreateInfo.subresourceRange.levelCount = 1;
   imageViewCreateInfo.subresourceRange.layerCount = 1;
   imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -1168,6 +1171,7 @@ void render::texture2DCreate(const context_t& context,
   texture->descriptor_.sampler = texture->sampler_;
   texture->layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
   texture->mipLevels_ = 1;
+  texture->aspectFlags_ = aspectFlags;
 }
 
 void render::textureDestroy(const context_t& context, texture_t* texture)
@@ -1178,7 +1182,7 @@ void render::textureDestroy(const context_t& context, texture_t* texture)
   gpuMemoryDeallocate(context, texture->memory_);
 }
 
-void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, VkImageAspectFlags aspect, texture_t* texture)
+void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, texture_t* texture)
 {
   VkImageMemoryBarrier imageBarrier = {};
   imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1186,7 +1190,7 @@ void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBu
   imageBarrier.oldLayout = texture->layout_;
   imageBarrier.newLayout = newLayout;
   imageBarrier.image = texture->image_;
-  imageBarrier.subresourceRange.aspectMask = aspect;
+  imageBarrier.subresourceRange.aspectMask = texture->aspectFlags_;
 
   imageBarrier.subresourceRange.baseMipLevel = 0;
   imageBarrier.subresourceRange.levelCount = texture->mipLevels_;
@@ -1251,6 +1255,48 @@ void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBu
   texture->layout_ = newLayout;
   texture->descriptor_.imageLayout = newLayout;
 }
+
+
+void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, texture_t* texture)
+{
+  //Create command buffer
+  VkCommandBuffer commandBuffer;
+  VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
+  commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  commandBufferAllocateInfo.commandBufferCount = 1;
+  commandBufferAllocateInfo.commandPool = context.commandPool_;
+  commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, &commandBuffer); 
+
+  //Begin command buffer
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+  textureChangeLayout(context, commandBuffer, layout, texture);
+  vkEndCommandBuffer(commandBuffer);
+
+  ////Queue commandBuffer for execution
+  VkSubmitInfo submitInfo = {};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &commandBuffer;
+  VkFenceCreateInfo fenceCreateInfo = {};
+  fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+  VkFence fence;
+  vkCreateFence(context.device_, &fenceCreateInfo, nullptr, &fence);
+  vkResetFences(context.device_, 1u, &fence);
+  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, fence);
+
+
+  //Destroy command buffer
+  vkWaitForFences(context.device_, 1u, &fence, VK_TRUE, UINT64_MAX);
+  vkFreeCommandBuffers(context.device_, context.commandPool_, 1, &commandBuffer);
+  vkDestroyFence(context.device_, fence, nullptr);
+}
+
+
 
 void render::gpuBufferCreate(const context_t& context,
   gpu_buffer_usage_e usage, uint32_t memoryType, void* data,
@@ -1706,4 +1752,15 @@ void render::vertexFormatDestroy(vertex_format_t* format)
 {
   delete[] format->vertexInputState_.pVertexAttributeDescriptions;
   delete[] format->vertexInputState_.pVertexBindingDescriptions;
+}
+
+void render::frameBufferCreate(const context_t& context, uint32_t width, uint32_t height, 
+                                uint32_t colorAttachmentCount, VkImageView* colorAttachments, 
+                                depth_stencil_buffer_t* depthStencil, frame_buffer_t* frameBuffer)
+{
+
+}
+
+void render::frameBufferDestroy(const context_t& context, frame_buffer_t* frameBuffer)
+{
 }

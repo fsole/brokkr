@@ -279,9 +279,8 @@ bool CreateUniformBuffer()
   sampler.wrapU_ = render::wrap_mode_e::CLAMP_TO_EDGE;
   sampler.wrapV_ = render::wrap_mode_e::CLAMP_TO_EDGE;
 
-  render::texture2DCreate(gContext, gImageSize.x, gImageSize.y, 4, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, sampler, &gTexture);
-  render::textureChangeLayout(gContext, gContext.initializationCmdBuffer_, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT, &gTexture);
-  render::initResources(gContext);
+  render::texture2DCreate(gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, sampler, &gTexture);
+  render::textureChangeLayoutNow(gContext, VK_IMAGE_LAYOUT_GENERAL, &gTexture);
 
   //Create data to be passed to the gpu
   UniformBufferData data;
