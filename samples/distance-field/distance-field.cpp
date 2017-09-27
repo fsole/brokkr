@@ -48,7 +48,7 @@ static render::compute_pipeline_t gComputePipeline;
 static render::gpu_buffer_t gUbo;
 static render::gpu_buffer_t gDistanceField;
 
-static VkCommandBuffer gComputeCommandBuffer;
+static render::command_buffer_t gComputeCommandBuffer;
 static render::shader_t gVertexShader;
 static render::shader_t gFragmentShader;
 static render::shader_t gComputeShader;
@@ -453,19 +453,16 @@ void BuildCommandBuffers()
 void BuildComputeCommandBuffer()
 {
   //Build compute command buffer
-  render::commandBuffersAllocate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1, &gComputeCommandBuffer);
+  render::commandBufferCreate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0u, nullptr, nullptr, 0u, nullptr, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer);
 
-  VkCommandBufferBeginInfo beginInfo = {};
-  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  render::commandBufferBegin(gContext, nullptr, nullptr, gComputeCommandBuffer);
 
-  vkBeginCommandBuffer(gComputeCommandBuffer, &beginInfo);
+  bkk::render::computePipelineBind(gComputeCommandBuffer.handle_, gComputePipeline);
+  bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer.handle_, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
 
-  bkk::render::computePipelineBind(gComputeCommandBuffer, gComputePipeline);
-  bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
+  vkCmdDispatch(gComputeCommandBuffer.handle_, gImageSize.x / 16, gImageSize.y / 16, 1);
 
-  vkCmdDispatch(gComputeCommandBuffer, gImageSize.x / 16, gImageSize.y / 16, 1);
-
-  vkEndCommandBuffer(gComputeCommandBuffer);
+  render::commandBufferEnd(gContext, gComputeCommandBuffer);
 }
 
 void Exit()
@@ -474,7 +471,7 @@ void Exit()
   render::contextFlush(gContext);
 
   //Destroy all resources
-  render::commandBuffersFree(gContext, 1, &gComputeCommandBuffer);
+  render::commandBufferDestroy(gContext, &gComputeCommandBuffer);
 
   mesh::destroy(gContext, &gFSQuad);
   render::textureDestroy(gContext, &gTexture);
@@ -509,12 +506,7 @@ void Render()
   render::presentNextImage(&gContext);
 
   //Submit compute command buffer
-  VkSubmitInfo submitInfo = {};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.pNext = NULL;
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &gComputeCommandBuffer;
-  vkQueueSubmit(gContext.computeQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
+  render::commandBufferSubmit(gContext, gComputeCommandBuffer);
   vkQueueWaitIdle(gContext.computeQueue_.handle_);
 }
 

@@ -534,21 +534,7 @@ void render::contextCreate(const char* applicationName,
   vkGetPhysicalDeviceMemoryProperties(context->physicalDevice_, &context->memoryProperties_);
 
   context->commandPool_ = CreateCommandPool(context->device_, context->graphicsQueue_.queueIndex_);
-
-  //Create initialization command buffer
-  VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
-  commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  commandBufferAllocateInfo.commandBufferCount = 1;
-  commandBufferAllocateInfo.commandPool = context->commandPool_;
-  commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  vkAllocateCommandBuffers(context->device_, &commandBufferAllocateInfo, &context->initializationCmdBuffer_);
-
-  //Begin command buffer
-  VkCommandBufferBeginInfo beginInfo = {};
-  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  vkBeginCommandBuffer(context->initializationCmdBuffer_, &beginInfo);
-
-
+  
   ImportFunctions(context->instance_, context->device_, context);
 
 #ifdef VK_DEBUG_LAYERS
@@ -596,31 +582,6 @@ void render::contextDestroy(context_t* context)
   vkDestroyInstance(context->instance_, nullptr);
 }
 
-void render::initResources(const context_t& context)
-{
-  //Submit initialization command buffer
-  //End command buffer
-  vkEndCommandBuffer(context.initializationCmdBuffer_);
-
-  ////Queue uploadCommandBuffer for execution
-  VkSubmitInfo submitInfo = {};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &context.initializationCmdBuffer_;
-
-  VkFenceCreateInfo fenceCreateInfo = {};
-  fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-  VkFence fence;
-  vkCreateFence(context.device_, &fenceCreateInfo, nullptr, &fence);
-  vkResetFences(context.device_, 1u, &fence);
-
-  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, fence);
-
-  vkWaitForFences(context.device_, 1u, &fence, VK_TRUE, UINT64_MAX);
-  vkFreeCommandBuffers(context.device_, context.commandPool_, 1, &context.initializationCmdBuffer_);
-  vkDestroyFence(context.device_, fence, nullptr);
-}
 
 void render::swapchainResize(context_t* context, uint32_t width, uint32_t height)
 {
@@ -1866,77 +1827,121 @@ void render::frameBufferDestroy(const context_t& context, frame_buffer_t* frameB
 }
 
 
-void render::commandBuffersAllocate(const context_t& context, VkCommandBufferLevel level, uint32_t count, VkCommandBuffer* buffers)
+void render::commandBufferCreate(const context_t& context, VkCommandBufferLevel level, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t signalSemaphoreCount, VkSemaphore* signalSemaphore, command_buffer_t::type type, command_buffer_t* commandBuffer)
 {
+  commandBuffer->type_ = type;
+  commandBuffer->waitSemaphore_ = nullptr;
+  commandBuffer->signalSemaphore_ = nullptr;
+  commandBuffer->waitStages_ = nullptr;
+
+  commandBuffer->waitSemaphoreCount_ = waitSemaphoreCount;  
+  if(waitSemaphoreCount > 0)
+  {
+    commandBuffer->waitSemaphore_ = new VkSemaphore[waitSemaphoreCount];
+    memcpy(commandBuffer->waitSemaphore_, waitSemaphore, sizeof(VkSemaphore)*waitSemaphoreCount );
+    commandBuffer->waitStages_ = new VkPipelineStageFlags[waitSemaphoreCount];
+    memcpy(commandBuffer->waitStages_, waitStages, sizeof(VkPipelineStageFlags)*waitSemaphoreCount);
+  }
+  
+
+  commandBuffer->signalSemaphoreCount_ = signalSemaphoreCount;
+  if (signalSemaphoreCount > 0)
+  {
+    commandBuffer->signalSemaphore_ = new VkSemaphore[signalSemaphoreCount];
+    memcpy(commandBuffer->signalSemaphore_, signalSemaphore, sizeof(VkSemaphore)*signalSemaphoreCount);
+
+  }
+
   VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
   commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  commandBufferAllocateInfo.commandBufferCount = count;
+  commandBufferAllocateInfo.commandBufferCount = 1;
   commandBufferAllocateInfo.commandPool = context.commandPool_;
   commandBufferAllocateInfo.level = level;
-  vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, buffers);
+  vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, &commandBuffer->handle_ );
 }
 
-void render::commandBuffersFree(const context_t& context, uint32_t count, VkCommandBuffer* buffers)
+void render::commandBufferDestroy(const context_t& context, command_buffer_t* commandBuffer )
 {
-  vkFreeCommandBuffers(context.device_, context.commandPool_, count, buffers);
+  delete[] commandBuffer->waitSemaphore_;
+  delete[] commandBuffer->waitStages_;
+  delete[] commandBuffer->signalSemaphore_;
+
+  vkFreeCommandBuffers(context.device_, context.commandPool_, 1u, &commandBuffer->handle_ );
 }
 
-void render::commandBufferBegin(const context_t& context, VkCommandBuffer commandBuffer, frame_buffer_t frameBuffer, VkClearValue* clearValues)
+void render::commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, const command_buffer_t& commandBuffer)
 {
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-  VkRenderPassBeginInfo renderPassBeginInfo = {};
-  renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-
-  renderPassBeginInfo.renderArea.extent = { frameBuffer.width_ , frameBuffer.height_ };
-  renderPassBeginInfo.renderPass = frameBuffer.renderPass_.handle_;
-
-  if (clearValues)
-  {
-    renderPassBeginInfo.pClearValues = clearValues;
-  }
-  else
-  {
-    static VkClearValue clearValues[2];
-    clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-    clearValues[1].depthStencil = { 1.0f,0 };
-    renderPassBeginInfo.pClearValues = clearValues;
-  }
-  renderPassBeginInfo.clearValueCount = 2;
-
+  
   //Begin command buffer
-  vkBeginCommandBuffer( commandBuffer, &beginInfo);
+  vkBeginCommandBuffer(commandBuffer.handle_, &beginInfo);
 
-  //Begin render pass
-  renderPassBeginInfo.framebuffer = frameBuffer.handle_;
-  vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+  
+  if (commandBuffer.type_ == command_buffer_t::GRAPHICS)
+  {
+    //Begin render pass
+    VkRenderPassBeginInfo renderPassBeginInfo = {};
+    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 
-  //Set viewport and scissor rectangle
-  VkViewport viewPort = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-  VkRect2D scissorRect = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-  vkCmdSetViewport(commandBuffer, 0, 1, &viewPort);
-  vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
+    renderPassBeginInfo.renderArea.extent = { frameBuffer->width_ , frameBuffer->height_ };
+    renderPassBeginInfo.renderPass = frameBuffer->renderPass_.handle_;
+
+    if (clearValues)
+    {
+      renderPassBeginInfo.pClearValues = clearValues;
+    }
+    else
+    {
+      static VkClearValue clearValues[2];
+      clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+      clearValues[1].depthStencil = { 1.0f,0 };
+      renderPassBeginInfo.pClearValues = clearValues;
+    }
+    renderPassBeginInfo.clearValueCount = 2;
+
+    //Begin render pass
+    renderPassBeginInfo.framebuffer = frameBuffer->handle_;
+    vkCmdBeginRenderPass(commandBuffer.handle_, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    //Set viewport and scissor rectangle
+    VkViewport viewPort = { 0.0f, 0.0f, (float)frameBuffer->width_, (float)frameBuffer->height_, 0.0f, 1.0f };
+    VkRect2D scissorRect = { { 0,0 },{ frameBuffer->width_, frameBuffer->height_ } };
+    vkCmdSetViewport(commandBuffer.handle_, 0, 1, &viewPort);
+    vkCmdSetScissor(commandBuffer.handle_, 0, 1, &scissorRect);
+  }
 }
 
-void render::commandBufferEnd(const context_t& context, VkCommandBuffer commandBuffer)
+void render::commandBufferEnd(const context_t& context, const command_buffer_t& commandBuffer)
 {
-  vkCmdEndRenderPass(commandBuffer);
-  vkEndCommandBuffer(commandBuffer);
+  if (commandBuffer.type_ == command_buffer_t::GRAPHICS)
+  {
+    vkCmdEndRenderPass(commandBuffer.handle_);
+  }
+
+  vkEndCommandBuffer(commandBuffer.handle_);
 }
 
-void render::commandBufferSubmit(const context_t& context, VkCommandBuffer commandBuffer, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t signalSemaphoreCount, VkSemaphore* signalSemaphore)
+void render::commandBufferSubmit(const context_t& context, const command_buffer_t& commandBuffer )
 {
   //Submit current command buffer
   VkSubmitInfo submitInfo = {};
   const VkPipelineStageFlags waitDstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.waitSemaphoreCount = waitSemaphoreCount;
-  submitInfo.pWaitSemaphores = waitSemaphore;
-  submitInfo.signalSemaphoreCount = signalSemaphoreCount;
-  submitInfo.pSignalSemaphores = signalSemaphore;
-  submitInfo.pWaitDstStageMask = &waitDstStageMask;
+  submitInfo.waitSemaphoreCount = commandBuffer.waitSemaphoreCount_;
+  submitInfo.pWaitSemaphores = commandBuffer.waitSemaphore_;
+  submitInfo.signalSemaphoreCount = commandBuffer.signalSemaphoreCount_;
+  submitInfo.pSignalSemaphores = commandBuffer.signalSemaphore_;
+  submitInfo.pWaitDstStageMask = commandBuffer.waitStages_;
   submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &commandBuffer;
-  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
+  submitInfo.pCommandBuffers = &commandBuffer.handle_;
+  if (commandBuffer.type_ == command_buffer_t::GRAPHICS)
+  {
+    vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
+  }
+  else
+  {
+    vkQueueSubmit(context.computeQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
+  }
+
 }

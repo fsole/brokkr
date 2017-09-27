@@ -91,7 +91,6 @@ namespace bkk
       VkDevice device_;
       VkPhysicalDeviceMemoryProperties memoryProperties_;
       VkCommandPool commandPool_;
-      VkCommandBuffer initializationCmdBuffer_;
       queue_t graphicsQueue_;
       queue_t computeQueue_;
       surface_t surface_;
@@ -318,6 +317,24 @@ namespace bkk
       uint32_t vertexSize_;
     };
 
+    struct command_buffer_t
+    {
+      enum type
+      {
+        GRAPHICS = 0,
+        COMPUTE = 1
+      };
+
+      VkCommandBuffer handle_;
+      type type_;
+      uint32_t waitSemaphoreCount_; 
+      VkSemaphore* waitSemaphore_;
+      VkPipelineStageFlags* waitStages_;
+
+      uint32_t signalSemaphoreCount_;
+      VkSemaphore* signalSemaphore_;      
+    };
+
     struct render_pass_t
     {
       struct attachment_t
@@ -357,7 +374,6 @@ namespace bkk
     void contextCreate(const char* applicationName, const char* engineName, const window::window_t& window, uint32_t swapChainImageCount, context_t* context);
     void contextDestroy(context_t* context);
     void contextFlush(const context_t& context);
-    void initResources(const context_t& context);
     void swapchainResize(context_t* context, uint32_t width, uint32_t height);
     VkCommandBuffer beginPresentationCommandBuffer(const context_t& context, uint32_t index, VkClearValue* clearValues);
     void endPresentationCommandBuffer(const context_t& context, uint32_t index);
@@ -418,15 +434,16 @@ namespace bkk
     void computePipelineDestroy(const context_t& context, compute_pipeline_t* pipeline);
     void computePipelineBind( VkCommandBuffer commandBuffer, const compute_pipeline_t& pipeline);
 
+    //Vertex format
     void vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attributeCount, vertex_format_t* format);
     void vertexFormatDestroy(vertex_format_t* format);
 
     //Command buffers
-    void commandBuffersAllocate(const context_t& context, VkCommandBufferLevel level, uint32_t count, VkCommandBuffer* buffers);
-    void commandBuffersFree(const context_t& context, uint32_t count, VkCommandBuffer* buffers);
-    void commandBufferBegin(const context_t& context, VkCommandBuffer commandBuffer, frame_buffer_t frameBufer, VkClearValue* clearValues);
-    void commandBufferEnd(const context_t& context, VkCommandBuffer commandBuffer);
-    void commandBufferSubmit(const context_t& context, VkCommandBuffer commandBuffer, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t signalSemaphoreCount, VkSemaphore* signalSemaphore);
+    void commandBufferCreate(const context_t& context, VkCommandBufferLevel level, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t signalSemaphoreCount, VkSemaphore* signalSemaphore, command_buffer_t::type type, command_buffer_t* commandBuffer);
+    void commandBufferDestroy(const context_t& context, command_buffer_t* commandBuffer );
+    void commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, const command_buffer_t& commandBuffer);
+    void commandBufferEnd(const context_t& context, const command_buffer_t& commandBuffer);
+    void commandBufferSubmit(const context_t& context, const command_buffer_t& commandBuffer );
 
     //Renderpass
     void renderPassCreate(const context_t& context,
