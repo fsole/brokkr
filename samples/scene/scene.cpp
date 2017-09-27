@@ -115,8 +115,8 @@ struct scene_t
     static const uint32_t indices[] = {0,1,2,1,3,2};
 
     static render::vertex_attribute_t attributes[2];
-    attributes[0] = { render::attribute_format_e::VEC3, 0, sizeof(Vertex) };
-    attributes[1] = { render::attribute_format_e::VEC3, offsetof(Vertex, normal), sizeof(Vertex) };
+    attributes[0] = { render::vertex_attribute_t::format::VEC3, 0, sizeof(Vertex) };
+    attributes[1] = { render::vertex_attribute_t::format::VEC3, offsetof(Vertex, normal), sizeof(Vertex) };
 
     mesh::mesh_t mesh;
     mesh::create( context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &mesh, &allocator_ );
@@ -138,7 +138,7 @@ struct scene_t
     material.uniforms_.F0_ = F0;
     material.uniforms_.roughness_ = roughness;
     render::gpu_buffer_t ubo;
-    render::gpuBufferCreate(  context, render::gpu_buffer_usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate(  context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                               &material.uniforms_, sizeof(material_t::material_uniforms_t),
                               &allocator_, &ubo );
 
@@ -154,7 +154,7 @@ struct scene_t
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
-    render::gpuBufferCreate( context, render::gpu_buffer_usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate( context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                              nullptr, sizeof(mat4),
                              &allocator_, &ubo );
 
@@ -166,6 +166,37 @@ struct scene_t
 
   void Initialize( render::context_t& context, const uvec2& size )
   {
+    //Create render pass
+    geometryPass_ = {};
+    render::texture_sampler_t sampler = {};
+    sampler.minification_ = render::texture_sampler_t::filter_mode::LINEAR;
+    sampler.magnification_ = render::texture_sampler_t::filter_mode::LINEAR;
+    sampler.wrapU_ = render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
+    sampler.wrapV_ = render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, sampler, &geometryBuffer_);
+    render::depthStencilBufferCreate(context, 100, 100, &depthStencilBuffer_);
+    
+    render::render_pass_t::attachment_t attachments[2];
+    attachments[0].format_ = geometryBuffer_.format_;
+    attachments[0].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachments[0].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[0].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[0].samples_ = VK_SAMPLE_COUNT_1_BIT;
+
+    attachments[1].format_ = depthStencilBuffer_.format_;
+    attachments[1].initialLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    attachments[1].finallLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    attachments[1].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[1].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[1].samples_ = VK_SAMPLE_COUNT_1_BIT;
+
+    render::renderPassCreate(context, 2u, &attachments[0], 0, 0, &geometryPass_);
+
+    //Create frame buffer
+    VkImageView fbAttachment[2] = { geometryBuffer_.imageView_, depthStencilBuffer_.imageView_ };
+    render::frameBufferCreate(context, size.x, size.y, geometryPass_, &fbAttachment[0], &frameBuffer_);
+
     //Create allocator for uniform buffers and meshes
     render::gpuAllocatorCreate( context, 100*1024*1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_ );
 
@@ -176,18 +207,18 @@ struct scene_t
     uniforms_.viewMatrix_ = camera_.view_;
     uniforms_.lightDirection_ = vec4(0.0f,1.0f,1.0f,0.0f);
     uniforms_.lightColor_ = vec4(1.0f,1.0f,1.0f,1.0f);
-    render::gpuBufferCreate( context, render::gpu_buffer_usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate( context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                              (void*)&uniforms_, sizeof(scene_uniforms_t),
                              &allocator_, &ubo_ );
 
     //Create descriptorSets layouts
-    render::descriptor_binding_t binding = { render::descriptor_type_e::UNIFORM_BUFFER, 0, render::descriptor_stage_e::VERTEX | render::descriptor_stage_e::FRAGMENT };
+    render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
     render::descriptorSetLayoutCreate( context, 1u, &binding, &descriptorSetLayout_ );
 
-    binding = { render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::VERTEX };
+    binding = { render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::VERTEX };
     render::descriptorSetLayoutCreate( context, 1u, &binding, &instanceDescriptorSetLayout_ );
 
-    binding = { render::descriptor_type_e::UNIFORM_BUFFER, 2, render::descriptor_stage_e::FRAGMENT };
+    binding = { render::descriptor_t::type::UNIFORM_BUFFER, 2, render::descriptor_t::stage::FRAGMENT };
     render::descriptorSetLayoutCreate( context, 1u, &binding, &materialDescriptorSetLayout_ );
 
     //Create pipeline layout
@@ -197,14 +228,14 @@ struct scene_t
     //Create vertex format (position + normal)
     uint32_t vertexSize = 2 * sizeof(maths::vec3);
     render::vertex_attribute_t attributes[2];
-    attributes[0] = { render::attribute_format_e::VEC3, 0, vertexSize  };
-    attributes[1] = { render::attribute_format_e::VEC3, sizeof(maths::vec3), vertexSize  };
+    attributes[0] = { render::vertex_attribute_t::format::VEC3, 0, vertexSize  };
+    attributes[1] = { render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize  };
     render::vertexFormatCreate( attributes, 2u, &vertexFormat_ );
 
     //Create pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
-    bkk::render::graphics_pipeline_desc_t pipelineDesc;
+    bkk::render::graphics_pipeline_t::description_t pipelineDesc;
     pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     pipelineDesc.scissorRect_ = { {0,0}, {context.swapChain_.imageWidth_,context.swapChain_.imageHeight_} };
     pipelineDesc.blendState_.resize(1);
@@ -317,6 +348,8 @@ struct scene_t
     render::gpuBufferDestroy( context, &ubo_, &allocator_ );
 
     render::gpuAllocatorDestroy( context, &allocator_ );
+
+    render::depthStencilBufferDestroy(context, &depthStencilBuffer_);
   }
 
 public:
@@ -343,6 +376,11 @@ private:
   packed_freelist_t<instance_t> instance_;
 
   render::gpu_memory_allocator_t allocator_;
+
+  render::render_pass_t geometryPass_;
+  render::texture_t geometryBuffer_;
+  render::depth_stencil_buffer_t depthStencilBuffer_;
+  render::frame_buffer_t frameBuffer_;
 };
 
 void OnKeyEvent( window::key_e key, bool pressed, scene_t& scene )

@@ -87,7 +87,7 @@ bool CreateUniformBuffer()
   matrices[1] = matrices[0] * gProjection;
 
   //Create uniform buffer
-  render::gpuBufferCreate( gContext, render::gpu_buffer_usage_e::UNIFORM_BUFFER,
+  render::gpuBufferCreate( gContext, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                            render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                            (void*)&matrices, 2*sizeof(mat4),
                            &gUbo );
@@ -114,8 +114,8 @@ void CreatePipeline()
   //Create descriptor layout
   render::descriptor_set_layout_t descriptorSetLayout;
   std::array< render::descriptor_binding_t, 2> bindings{ 
-    render::descriptor_binding_t{ render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::VERTEX },
-    render::descriptor_binding_t{ render::descriptor_type_e::UNIFORM_BUFFER, 2, render::descriptor_stage_e::VERTEX } 
+    render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::VERTEX },
+    render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 2, render::descriptor_t::stage::VERTEX }
   };
  
   render::descriptorSetLayoutCreate( gContext, bindings.size(), &bindings[0], &descriptorSetLayout );
@@ -135,7 +135,7 @@ void CreatePipeline()
   bkk::render::shaderCreateFromGLSLSource(gContext, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &gFragmentShader);
 
   //Create pipeline
-  bkk::render::graphics_pipeline_desc_t pipelineDesc;
+  bkk::render::graphics_pipeline_t::description_t pipelineDesc;
   pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)gContext.swapChain_.imageWidth_, (float)gContext.swapChain_.imageHeight_, 0.0f, 1.0f};
   pipelineDesc.scissorRect_ = { {0,0}, {gContext.swapChain_.imageWidth_,gContext.swapChain_.imageHeight_} };
   pipelineDesc.blendState_.resize(1);

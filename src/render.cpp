@@ -232,8 +232,10 @@ static VkBool32 GetDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat 
 }
 
 
-static void CreateDepthStencilBuffer(context_t* context, uint32_t width, uint32_t height, VkFormat format, depth_stencil_buffer_t* depthStencilBuffer)
+static void CreateDepthStencilBuffer(const context_t* context, uint32_t width, uint32_t height, VkFormat format, depth_stencil_buffer_t* depthStencilBuffer)
 {
+  depthStencilBuffer->format_ = format;
+
   //Create the image
   VkImageCreateInfo imageCreateInfo = {};
   imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -324,7 +326,7 @@ static void CreateDepthStencilBuffer(context_t* context, uint32_t width, uint32_
 }
 
 
-static void CreateSurface(VkInstance instance, VkPhysicalDevice physicalDevice, const window::window_t& window, surface_t* surface, import_table_t* importTable)
+static void CreateSurface(VkInstance instance, VkPhysicalDevice physicalDevice, const window::window_t& window, const context_t& context, surface_t* surface)
 {
 #ifdef WIN32
   VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
@@ -343,12 +345,12 @@ static void CreateSurface(VkInstance instance, VkPhysicalDevice physicalDevice, 
 
   //Check if presentation is supported by the surface
   VkBool32 presentSupported;
-  importTable->vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, 0, surface->handle_, &presentSupported);
+  context.vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, 0, surface->handle_, &presentSupported);
   assert(presentSupported);
 
   //Get surface capabilities
   VkSurfaceCapabilitiesKHR surfaceCapabilities;
-  importTable->vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface->handle_, &surfaceCapabilities);
+  context.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface->handle_, &surfaceCapabilities);
 
   if (surfaceCapabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
   {
@@ -361,10 +363,10 @@ static void CreateSurface(VkInstance instance, VkPhysicalDevice physicalDevice, 
 
   //Get surface format and color space
   uint32_t surfaceFormatCount = 0;
-  importTable->vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface->handle_, &surfaceFormatCount, nullptr);
+  context.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface->handle_, &surfaceFormatCount, nullptr);
   assert(surfaceFormatCount > 0);
   std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
-  importTable->vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface->handle_, &surfaceFormatCount, surfaceFormats.data());
+  context.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface->handle_, &surfaceFormatCount, surfaceFormats.data());
 
   surface->imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
   if (surfaceFormats[0].format != VK_FORMAT_UNDEFINED)
@@ -403,16 +405,16 @@ static void CreateSwapChain(context_t* context,
   swapchainCreateInfo.imageExtent = swapChainSize;
   swapchainCreateInfo.imageArrayLayers = 1;
   swapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
-  context->importTable_.vkCreateSwapchainKHR(context->device_, &swapchainCreateInfo, nullptr, &context->swapChain_.handle_);
+  context->vkCreateSwapchainKHR(context->device_, &swapchainCreateInfo, nullptr, &context->swapChain_.handle_);
 
   //Get the maximum number of images supported by the swapchain
   uint32_t maxImageCount = 0;
-  context->importTable_.vkGetSwapchainImagesKHR(context->device_, context->swapChain_.handle_, &maxImageCount, nullptr);
+  context->vkGetSwapchainImagesKHR(context->device_, context->swapChain_.handle_, &maxImageCount, nullptr);
 
   //Create the swapchain images
   assert(imageCount <= maxImageCount);
   context->swapChain_.image_.resize(imageCount);
-  context->importTable_.vkGetSwapchainImagesKHR(context->device_, context->swapChain_.handle_, &maxImageCount, context->swapChain_.image_.data());
+  context->vkGetSwapchainImagesKHR(context->device_, context->swapChain_.handle_, &maxImageCount, context->swapChain_.image_.data());
 
   //Create an imageview for each image
   context->swapChain_.imageView_.resize(imageCount);
@@ -498,6 +500,23 @@ static VkCommandPool CreateCommandPool(VkDevice device, uint32_t queueIndex)
   return pool;
 }
 
+
+static void ImportFunctions(VkInstance instance, VkDevice device, context_t* context )
+{
+  context->vkGetPhysicalDeviceSurfaceSupportKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceSupportKHR>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceSurfaceSupportKHR"));
+  context->vkGetPhysicalDeviceSurfaceCapabilitiesKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"));
+  context->vkGetPhysicalDeviceSurfaceFormatsKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceFormatsKHR>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceSurfaceFormatsKHR"));
+  context->vkGetPhysicalDeviceSurfacePresentModesKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfacePresentModesKHR>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceSurfacePresentModesKHR"));
+  context->vkCreateDebugReportCallbackEXT = reinterpret_cast<PFN_vkCreateDebugReportCallbackEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT"));
+  context->vkDestroyDebugReportCallbackEXT = reinterpret_cast<PFN_vkDestroyDebugReportCallbackEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT"));
+
+  context->vkCreateSwapchainKHR = reinterpret_cast<PFN_vkCreateSwapchainKHR>(vkGetDeviceProcAddr(device, "vkCreateSwapchainKHR"));
+  context->vkDestroySwapchainKHR = reinterpret_cast<PFN_vkDestroySwapchainKHR>(vkGetDeviceProcAddr(device, "vkDestroySwapchainKHR"));
+  context->vkGetSwapchainImagesKHR = reinterpret_cast<PFN_vkGetSwapchainImagesKHR>(vkGetDeviceProcAddr(device, "vkGetSwapchainImagesKHR"));
+  context->vkAcquireNextImageKHR = reinterpret_cast<PFN_vkAcquireNextImageKHR>(vkGetDeviceProcAddr(device, "vkAcquireNextImageKHR"));
+  context->vkQueuePresentKHR = reinterpret_cast<PFN_vkQueuePresentKHR>(vkGetDeviceProcAddr(device, "vkQueuePresentKHR"));
+}
+
 /*********************
 * API Implementation
 **********************/
@@ -529,17 +548,18 @@ void render::contextCreate(const char* applicationName,
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   vkBeginCommandBuffer(context->initializationCmdBuffer_, &beginInfo);
 
-  context->importTable_.Initialize(context->instance_, context->device_);
+
+  ImportFunctions(context->instance_, context->device_, context);
 
 #ifdef VK_DEBUG_LAYERS
   VkDebugReportCallbackCreateInfoEXT createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
   createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
   createInfo.pfnCallback = debugCallback;
-  context->importTable_.vkCreateDebugReportCallbackEXT(context->instance_, &createInfo, nullptr, &context->debugCallback_);
+  context->vkCreateDebugReportCallbackEXT(context->instance_, &createInfo, nullptr, &context->debugCallback_);
 #endif
 
-  CreateSurface(context->instance_, context->physicalDevice_, window, &context->surface_, &context->importTable_);
+  CreateSurface(context->instance_, context->physicalDevice_, window, *context, &context->surface_);
 
   CreateSwapChain(context, window.width_, window.height_, swapChainImageCount);
 
@@ -569,7 +589,7 @@ void render::contextDestroy(context_t* context)
   vkDestroySurfaceKHR(context->instance_, context->surface_.handle_, nullptr);
 
 #ifdef VK_DEBUG_LAYERS
-  context->importTable_.vkDestroyDebugReportCallbackEXT(context->instance_, context->debugCallback_, nullptr);
+  context->vkDestroyDebugReportCallbackEXT(context->instance_, context->debugCallback_, nullptr);
 #endif
 
   vkDestroyDevice(context->device_, nullptr);
@@ -682,7 +702,7 @@ void render::endPresentationCommandBuffer(const context_t& context, uint32_t ind
 void render::presentNextImage(context_t* context)
 {
   //Aquire next image in the swapchain
-  context->importTable_.vkAcquireNextImageKHR(context->device_,
+  context->vkAcquireNextImageKHR(context->device_,
     context->swapChain_.handle_,
     UINT64_MAX, context->swapChain_.imageAcquired_,
     VK_NULL_HANDLE, &context->swapChain_.currentImage_);
@@ -714,14 +734,14 @@ void render::presentNextImage(context_t* context)
   presentInfo.swapchainCount = 1;
   presentInfo.pSwapchains = &context->swapChain_.handle_;
   presentInfo.pImageIndices = &currentImage;
-  context->importTable_.vkQueuePresentKHR(context->graphicsQueue_.handle_, &presentInfo);
+  context->vkQueuePresentKHR(context->graphicsQueue_.handle_, &presentInfo);
 
   //Submit presentation and place a fence so next time we try to update currentImage_ image
   //we know that previous submited image has already been presented
   vkQueueSubmit(context->graphicsQueue_.handle_, 0, nullptr, context->swapChain_.frameFence_[currentImage]);
 }
 
-bool render::shaderCreateFromSPIRV(const context_t& context, shader_t::type_e type, const char* file, shader_t* shader)
+bool render::shaderCreateFromSPIRV(const context_t& context, shader_t::type type, const char* file, shader_t* shader)
 {
   shader->handle_ = VK_NULL_HANDLE;
   shader->type_ = type;
@@ -756,7 +776,7 @@ bool render::shaderCreateFromSPIRV(const context_t& context, shader_t::type_e ty
   return result == VK_SUCCESS;
 }
 
-bool render::shaderCreateFromGLSL(const context_t& context, shader_t::type_e type, const char* file, shader_t* shader)
+bool render::shaderCreateFromGLSL(const context_t& context, shader_t::type type, const char* file, shader_t* shader)
 {
   std::string spirv_file_path = "temp.spv";
   std::string glslangvalidator_params = "arg0 -V -o \"" + spirv_file_path + "\" \"" + file + "\"";
@@ -787,7 +807,7 @@ bool render::shaderCreateFromGLSL(const context_t& context, shader_t::type_e typ
   return false;
 }
 
-bool render::shaderCreateFromGLSLSource(const context_t& context, shader_t::type_e type, const char* glslSource, shader_t* shader)
+bool render::shaderCreateFromGLSLSource(const context_t& context, shader_t::type type, const char* glslSource, shader_t* shader)
 {
   std::string glslTempFile;
   switch (type)
@@ -1098,6 +1118,7 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
   texture->extent_ = extents;
   texture->mipLevels_ = 1;
   texture->aspectFlags_ = VK_IMAGE_ASPECT_COLOR_BIT;
+  texture->format_ = format;
 }
 
 void render::texture2DCreate(const context_t& context,
@@ -1172,6 +1193,7 @@ void render::texture2DCreate(const context_t& context,
   texture->layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
   texture->mipLevels_ = 1;
   texture->aspectFlags_ = aspectFlags;
+  texture->format_ = format;
 }
 
 void render::textureDestroy(const context_t& context, texture_t* texture)
@@ -1256,7 +1278,6 @@ void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBu
   texture->descriptor_.imageLayout = newLayout;
 }
 
-
 void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, texture_t* texture)
 {
   //Create command buffer
@@ -1299,7 +1320,7 @@ void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layo
 
 
 void render::gpuBufferCreate(const context_t& context,
-  gpu_buffer_usage_e usage, uint32_t memoryType, void* data,
+  gpu_buffer_t::usage usage, uint32_t memoryType, void* data,
   size_t size, gpu_buffer_t* buffer, gpu_memory_allocator_t* allocator)
 {
   //Create the buffer
@@ -1337,7 +1358,7 @@ void render::gpuBufferCreate(const context_t& context,
   buffer->usage_ = usage;
 }
 
-void render::gpuBufferCreate(const context_t& context, gpu_buffer_usage_e usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
+void render::gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
 {
   return gpuBufferCreate(context, usage, HOST_VISIBLE, data, size, buffer, allocator);
 }
@@ -1522,22 +1543,22 @@ void render::descriptorSetUpdate(const context_t& context, const descriptor_set_
 
     switch (descriptorSetLayout.bindings_[i].type_)
     {
-    case descriptor_type_e::SAMPLER:
-    case descriptor_type_e::COMBINED_IMAGE_SAMPLER:
-    case descriptor_type_e::SAMPLED_IMAGE:
-    case descriptor_type_e::STORAGE_IMAGE:
+    case descriptor_t::type::SAMPLER:
+    case descriptor_t::type::COMBINED_IMAGE_SAMPLER:
+    case descriptor_t::type::SAMPLED_IMAGE:
+    case descriptor_t::type::STORAGE_IMAGE:
     {
       writeDescriptorSets[i].pImageInfo = &descriptorSet->descriptors_[i].imageDescriptor_;
       break;
     }
 
-    case descriptor_type_e::UNIFORM_TEXEL_BUFFER:
-    case descriptor_type_e::STORAGE_TEXEL_BUFFER:
-    case descriptor_type_e::UNIFORM_BUFFER:
-    case descriptor_type_e::STORAGE_BUFFER:
-    case descriptor_type_e::UNIFORM_BUFFER_DYNAMIC:
-    case descriptor_type_e::STORAGE_BUFFER_DYNAMIC:
-    case descriptor_type_e::INPUT_ATTACHMENT:
+    case descriptor_t::type::UNIFORM_TEXEL_BUFFER:
+    case descriptor_t::type::STORAGE_TEXEL_BUFFER:
+    case descriptor_t::type::UNIFORM_BUFFER:
+    case descriptor_t::type::STORAGE_BUFFER:
+    case descriptor_t::type::UNIFORM_BUFFER_DYNAMIC:
+    case descriptor_t::type::STORAGE_BUFFER_DYNAMIC:
+    case descriptor_t::type::INPUT_ATTACHMENT:
     {
       writeDescriptorSets[i].pBufferInfo = &descriptorSet->descriptors_[i].bufferDescriptor_;
       break;
@@ -1572,7 +1593,7 @@ void render::descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pi
 
 
 void render::graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, const render::vertex_format_t& vertexFormat, 
-  const pipeline_layout_t& pipelineLayout, const graphics_pipeline_desc_t& pipelineDesc, graphics_pipeline_t* pipeline)
+  const pipeline_layout_t& pipelineLayout, const graphics_pipeline_t::description_t& pipelineDesc, graphics_pipeline_t* pipeline)
 {
   pipeline->desc_ = pipelineDesc;
   VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = {};
@@ -1687,23 +1708,6 @@ void render::computePipelineBind( VkCommandBuffer commandBuffer, const compute_p
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.handle_);
 }
 
-void render::allocateCommandBuffers(const context_t& context, VkCommandBufferLevel level, uint32_t count, VkCommandBuffer* buffers)
-{
-  VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
-  commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  commandBufferAllocateInfo.commandBufferCount = count;
-  commandBufferAllocateInfo.commandPool = context.commandPool_;
-  commandBufferAllocateInfo.level = level;
-  vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, buffers);
-}
-
-void render::freeCommandBuffers(const context_t& context, uint32_t count, VkCommandBuffer* buffers)
-{
-  vkFreeCommandBuffers(context.device_, context.commandPool_, count, buffers);
-}
-
-
-
 static const VkFormat AttributeFormatLUT[] = { VK_FORMAT_R32_SINT, VK_FORMAT_R32_UINT, VK_FORMAT_R32_SFLOAT,
                                                VK_FORMAT_R32G32_SINT, VK_FORMAT_R32G32_UINT, VK_FORMAT_R32G32_SFLOAT,
                                                VK_FORMAT_R32G32B32_SINT, VK_FORMAT_R32G32B32_UINT, VK_FORMAT_R32G32B32_SFLOAT,
@@ -1754,13 +1758,185 @@ void render::vertexFormatDestroy(vertex_format_t* format)
   delete[] format->vertexInputState_.pVertexBindingDescriptions;
 }
 
-void render::frameBufferCreate(const context_t& context, uint32_t width, uint32_t height, 
-                                uint32_t colorAttachmentCount, VkImageView* colorAttachments, 
-                                depth_stencil_buffer_t* depthStencil, frame_buffer_t* frameBuffer)
-{
 
+
+void render::depthStencilBufferCreate(const context_t& context, uint32_t width, uint32_t height, depth_stencil_buffer_t* depthStencilBuffer)
+{
+  CreateDepthStencilBuffer(&context, width, height, context.swapChain_.depthStencil_.format_, depthStencilBuffer);
 }
+
+void render::depthStencilBufferDestroy(const context_t& context, depth_stencil_buffer_t* depthStencilBuffer)
+{
+  vkDestroyImageView(context.device_, depthStencilBuffer->imageView_, nullptr);
+  vkDestroyImage(context.device_, depthStencilBuffer->image_, nullptr);
+  gpuMemoryDeallocate(context, depthStencilBuffer->memory_);
+}
+
+
+
+
+void render::renderPassCreate(const context_t& context,
+  int attachmentCount, render_pass_t::attachment_t* attachments,
+  int subpassCount, render_pass_t::subpass_t* subpasses,
+  render_pass_t* renderPass)
+{
+  renderPass->attachment_ = new render_pass_t::attachment_t[attachmentCount];
+  renderPass->attachmentCount_ = attachmentCount;
+  memcpy(renderPass->attachment_, attachments, sizeof(render_pass_t::attachment_t)*attachmentCount);
+
+
+  std::vector<VkAttachmentDescription> attachmentDescription(attachmentCount);
+  VkAttachmentReference attachmentDepthStencilReference = {};
+  renderPass->depthStencilAttachment_ = -1;
+  std::vector<VkAttachmentReference> attachmentColorReference;
+  for (uint32_t i(0); i < attachmentCount; ++i)
+  {
+    attachmentDescription[i].samples = attachments[i].samples_;
+    attachmentDescription[i].format = attachments[i].format_;
+    attachmentDescription[i].loadOp = attachments[i].loadOp_;
+    attachmentDescription[i].storeOp = attachments[i].storeOp_;
+    attachmentDescription[i].initialLayout = attachments[i].initialLayout_;
+    attachmentDescription[i].finalLayout = attachments[i].finallLayout_;
+
+    if (attachments[i].format_ == context.swapChain_.depthStencil_.format_)
+    {
+      renderPass->depthStencilAttachment_ = i;
+      attachmentDepthStencilReference.attachment = i;
+      attachmentDepthStencilReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    }
+    else
+    {
+      VkAttachmentReference attachmentRef = {};
+      attachmentRef.attachment = i;
+      attachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      attachmentColorReference.push_back(attachmentRef);
+    }
+  }
+
+
+  VkSubpassDescription subpassDescription = {};
+  subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+  subpassDescription.inputAttachmentCount = 0;
+  subpassDescription.pColorAttachments = attachmentColorReference.data();
+  subpassDescription.colorAttachmentCount = attachmentColorReference.size();
+
+  if(renderPass->depthStencilAttachment_ != -1)
+  {
+    subpassDescription.pDepthStencilAttachment = &attachmentDepthStencilReference;
+  }
+   
+
+  VkRenderPassCreateInfo renderPassCreateInfo = {};
+  renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+  renderPassCreateInfo.attachmentCount = attachmentCount;
+  renderPassCreateInfo.subpassCount = 1;
+  renderPassCreateInfo.pSubpasses = &subpassDescription;
+  renderPassCreateInfo.pAttachments = attachmentDescription.data();
+
+  vkCreateRenderPass(context.device_, &renderPassCreateInfo, nullptr, &renderPass->handle_);
+}
+
+void render::renderPassDestroy(const context_t& context, render_pass_t* renderPass)
+{
+  //@TODO
+}
+
+void render::frameBufferCreate(const context_t& context, uint32_t width, uint32_t height, const render_pass_t& renderPass, VkImageView* imageViews, frame_buffer_t* frameBuffer)
+{ 
+  VkFramebufferCreateInfo framebufferCreateInfo = {};
+  framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+  framebufferCreateInfo.attachmentCount = renderPass.attachmentCount_;
+  framebufferCreateInfo.pAttachments = imageViews;
+  framebufferCreateInfo.width = width;
+  framebufferCreateInfo.height = height;
+  framebufferCreateInfo.layers = 1;
+  framebufferCreateInfo.renderPass = renderPass.handle_;
+
+  vkCreateFramebuffer(context.device_, &framebufferCreateInfo, nullptr, &frameBuffer->handle_);
+
+  frameBuffer->renderPass_ = renderPass;
+  frameBuffer->width_ = width;
+  frameBuffer->height_ = height;
+}
+
 
 void render::frameBufferDestroy(const context_t& context, frame_buffer_t* frameBuffer)
 {
+    //@TODO
+}
+
+
+void render::commandBuffersAllocate(const context_t& context, VkCommandBufferLevel level, uint32_t count, VkCommandBuffer* buffers)
+{
+  VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
+  commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  commandBufferAllocateInfo.commandBufferCount = count;
+  commandBufferAllocateInfo.commandPool = context.commandPool_;
+  commandBufferAllocateInfo.level = level;
+  vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, buffers);
+}
+
+void render::commandBuffersFree(const context_t& context, uint32_t count, VkCommandBuffer* buffers)
+{
+  vkFreeCommandBuffers(context.device_, context.commandPool_, count, buffers);
+}
+
+void render::commandBufferBegin(const context_t& context, VkCommandBuffer commandBuffer, frame_buffer_t frameBuffer, VkClearValue* clearValues)
+{
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+  VkRenderPassBeginInfo renderPassBeginInfo = {};
+  renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+
+  renderPassBeginInfo.renderArea.extent = { frameBuffer.width_ , frameBuffer.height_ };
+  renderPassBeginInfo.renderPass = frameBuffer.renderPass_.handle_;
+
+  if (clearValues)
+  {
+    renderPassBeginInfo.pClearValues = clearValues;
+  }
+  else
+  {
+    static VkClearValue clearValues[2];
+    clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+    clearValues[1].depthStencil = { 1.0f,0 };
+    renderPassBeginInfo.pClearValues = clearValues;
+  }
+  renderPassBeginInfo.clearValueCount = 2;
+
+  //Begin command buffer
+  vkBeginCommandBuffer( commandBuffer, &beginInfo);
+
+  //Begin render pass
+  renderPassBeginInfo.framebuffer = frameBuffer.handle_;
+  vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+  //Set viewport and scissor rectangle
+  VkViewport viewPort = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
+  VkRect2D scissorRect = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
+  vkCmdSetViewport(commandBuffer, 0, 1, &viewPort);
+  vkCmdSetScissor(commandBuffer, 0, 1, &scissorRect);
+}
+
+void render::commandBufferEnd(const context_t& context, VkCommandBuffer commandBuffer)
+{
+  vkCmdEndRenderPass(commandBuffer);
+  vkEndCommandBuffer(commandBuffer);
+}
+
+void render::commandBufferSubmit(const context_t& context, VkCommandBuffer commandBuffer, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t signalSemaphoreCount, VkSemaphore* signalSemaphore)
+{
+  //Submit current command buffer
+  VkSubmitInfo submitInfo = {};
+  const VkPipelineStageFlags waitDstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.waitSemaphoreCount = waitSemaphoreCount;
+  submitInfo.pWaitSemaphores = waitSemaphore;
+  submitInfo.signalSemaphoreCount = signalSemaphoreCount;
+  submitInfo.pSignalSemaphores = signalSemaphore;
+  submitInfo.pWaitDstStageMask = &waitDstStageMask;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &commandBuffer;
+  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
 }

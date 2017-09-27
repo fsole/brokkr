@@ -42,10 +42,10 @@ bkk::mesh::mesh_t CreateTriangleGeometry(const bkk::render::context_t& context )
   static const uint32_t indices[3] = {0,1,2};
 
   static bkk::render::vertex_attribute_t attributes[2];
-  attributes[0].format_ = bkk::render::attribute_format_e::VEC3;
+  attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
-  attributes[1].format_ = bkk::render::attribute_format_e::VEC2;;
+  attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC2;;
   attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
 
@@ -62,7 +62,7 @@ void CreatePipeline(const bkk::render::context_t& context, const bkk::mesh::mesh
   bkk::render::pipelineLayoutCreate( context, 0u, nullptr, layout );
 
   //Create pipeline
-  bkk::render::graphics_pipeline_desc_t pipelineDesc;
+  bkk::render::graphics_pipeline_t::description_t pipelineDesc;
   pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f};
   pipelineDesc.scissorRect_ = { {0,0}, {context.swapChain_.imageWidth_,context.swapChain_.imageHeight_} };
   pipelineDesc.blendState_.resize(1);

@@ -99,7 +99,7 @@ static bkk::mesh::mesh_t CreateCube(const render::context_t& context, u32 width,
 
 
   static bkk::render::vertex_attribute_t attributes[1];
-  attributes[0].format_ = bkk::render::attribute_format_e::VEC3;
+  attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(vec3);
 
@@ -255,7 +255,7 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
   field.aabbMin = maths::vec4(aabbMinScaled.x, aabbMinScaled.y, aabbMinScaled.z, 0.0f);
   field.aabbMax = maths::vec4(aabbMaxScaled.x, aabbMaxScaled.y, aabbMaxScaled.z, 0.0f);
 
-  render::gpuBufferCreate(gContext, render::gpu_buffer_usage_e::STORAGE_BUFFER,
+  render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage::STORAGE_BUFFER,
     render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
     nullptr, sizeof(DistanceFieldBufferData) + sizeof(float) * width * height * depth,
     buffer);
@@ -274,10 +274,10 @@ bool CreateUniformBuffer()
 {
   //Create the texture
   render::texture_sampler_t sampler = {};
-  sampler.minification_ = render::filter_mode_e::LINEAR;
-  sampler.magnification_ = render::filter_mode_e::LINEAR;
-  sampler.wrapU_ = render::wrap_mode_e::CLAMP_TO_EDGE;
-  sampler.wrapV_ = render::wrap_mode_e::CLAMP_TO_EDGE;
+  sampler.minification_ = render::texture_sampler_t::filter_mode::LINEAR;
+  sampler.magnification_ = render::texture_sampler_t::filter_mode::LINEAR;
+  sampler.wrapU_ = render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
+  sampler.wrapV_ = render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
 
   render::texture2DCreate(gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, sampler, &gTexture);
   render::textureChangeLayoutNow(gContext, VK_IMAGE_LAYOUT_GENERAL, &gTexture);
@@ -293,7 +293,7 @@ bool CreateUniformBuffer()
   data.camera.aperture = 0.05f;
  
   //Create uniform buffer
-  render::gpuBufferCreate(gContext, render::gpu_buffer_usage_e::UNIFORM_BUFFER,
+  render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
     render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
     (void*)&data, sizeof(data),
     &gUbo);
@@ -321,10 +321,10 @@ void CreateFullscreenQuad( mesh::mesh_t* quad )
 
 
   static render::vertex_attribute_t attributes[2];
-  attributes[0].format_ = render::attribute_format_e::VEC3;
+  attributes[0].format_ = render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
-  attributes[1].format_ = render::attribute_format_e::VEC2;;
+  attributes[1].format_ = render::vertex_attribute_t::format::VEC2;;
   attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
 
@@ -335,7 +335,7 @@ void CreateGraphicsPipeline()
 {
   //Create descriptor layout
   render::descriptor_set_layout_t descriptorSetLayout;
-  render::descriptor_binding_t binding = { render::descriptor_type_e::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_stage_e::FRAGMENT };
+  render::descriptor_binding_t binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
   render::descriptorSetLayoutCreate(gContext,1u, &binding,  &descriptorSetLayout);
 
   //Create pipeline layout
@@ -353,7 +353,7 @@ void CreateGraphicsPipeline()
   render::shaderCreateFromGLSLSource(gContext, render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &gFragmentShader);
 
   //Create graphics pipeline
-  bkk::render::graphics_pipeline_desc_t pipelineDesc;
+  bkk::render::graphics_pipeline_t::description_t pipelineDesc;
   pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)gContext.swapChain_.imageWidth_, (float)gContext.swapChain_.imageHeight_, 0.0f, 1.0f };
   pipelineDesc.scissorRect_ = { { 0,0 },{ gContext.swapChain_.imageWidth_,gContext.swapChain_.imageHeight_ } };
   pipelineDesc.blendState_.resize(1);
@@ -373,9 +373,9 @@ void CreateComputePipeline()
   render::descriptor_set_layout_t descriptorSetLayout;
 
   std::array< render::descriptor_binding_t, 3> bindings{
-    render::descriptor_binding_t{ render::descriptor_type_e::STORAGE_IMAGE,  0, render::descriptor_stage_e::COMPUTE },
-    render::descriptor_binding_t{ render::descriptor_type_e::UNIFORM_BUFFER, 1, render::descriptor_stage_e::COMPUTE },
-    render::descriptor_binding_t{ render::descriptor_type_e::STORAGE_BUFFER, 2, render::descriptor_stage_e::COMPUTE }
+    render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_IMAGE,  0, render::descriptor_t::stage::COMPUTE },
+    render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::COMPUTE },
+    render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_BUFFER, 2, render::descriptor_t::stage::COMPUTE }
   };
 
   render::descriptorSetLayoutCreate(gContext, bindings.size(), &bindings[0], &descriptorSetLayout);
@@ -453,7 +453,7 @@ void BuildCommandBuffers()
 void BuildComputeCommandBuffer()
 {
   //Build compute command buffer
-  render::allocateCommandBuffers(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1, &gComputeCommandBuffer);
+  render::commandBuffersAllocate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1, &gComputeCommandBuffer);
 
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -474,7 +474,7 @@ void Exit()
   render::contextFlush(gContext);
 
   //Destroy all resources
-  render::freeCommandBuffers(gContext, 1, &gComputeCommandBuffer);
+  render::commandBuffersFree(gContext, 1, &gComputeCommandBuffer);
 
   mesh::destroy(gContext, &gFSQuad);
   render::textureDestroy(gContext, &gTexture);

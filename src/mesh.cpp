@@ -31,8 +31,8 @@ void mesh::create( const render::context_t& context,
   mesh->indexCount_ = (u32)indexDataSize / sizeof(uint32_t);
   mesh->vertexCount_ = (u32)vertexDataSize / mesh->vertexFormat_.vertexSize_;
 
-  render::gpuBufferCreate(context, render::gpu_buffer_usage_e::INDEX_BUFFER, (void*)indexData, (size_t)indexDataSize, allocator, &mesh->indexBuffer_);
-  render::gpuBufferCreate(context, render::gpu_buffer_usage_e::VERTEX_BUFFER, (void*)vertexData, (size_t)vertexDataSize, allocator, &mesh->vertexBuffer_);
+  render::gpuBufferCreate(context, render::gpu_buffer_t::usage::INDEX_BUFFER, (void*)indexData, (size_t)indexDataSize, allocator, &mesh->indexBuffer_);
+  render::gpuBufferCreate(context, render::gpu_buffer_t::usage::VERTEX_BUFFER, (void*)vertexData, (size_t)vertexDataSize, allocator, &mesh->vertexBuffer_);
 
   /*
   //Create index buffer
@@ -230,7 +230,7 @@ void mesh::createFromFile( const render::context_t& context, const char* file, m
   std::vector<render::vertex_attribute_t> attributes(attributeCount);
 
   //First attribute is position
-  attributes[0].format_ = render::attribute_format_e::VEC3;
+  attributes[0].format_ = render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = vertexSize * sizeof(f32);
 
@@ -238,7 +238,7 @@ void mesh::createFromFile( const render::context_t& context, const char* file, m
   u32 attributeOffset = 3;
   if( bHasNormal )
   {
-    attributes[attribute].format_ = render::attribute_format_e::VEC3;
+    attributes[attribute].format_ = render::vertex_attribute_t::format::VEC3;
     attributes[attribute].offset_ = sizeof(f32)*attributeOffset;
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
     ++attribute;
@@ -246,7 +246,7 @@ void mesh::createFromFile( const render::context_t& context, const char* file, m
   }
   if( bHasUV )
   {
-    attributes[attribute].format_ = render::attribute_format_e::VEC2;
+    attributes[attribute].format_ = render::vertex_attribute_t::format::VEC2;
     attributes[attribute].offset_ = sizeof(f32)*attributeOffset;
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
     ++attribute;
@@ -256,14 +256,14 @@ void mesh::createFromFile( const render::context_t& context, const char* file, m
   u32 boneWeightOffset = attributeOffset;
   if( boneCount > 0 )
   {
-    attributes[attribute].format_ = render::attribute_format_e::VEC4;
+    attributes[attribute].format_ = render::vertex_attribute_t::format::VEC4;
     attributes[attribute].offset_ = sizeof(f32)*attributeOffset;
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
 
     ++attribute;
     attributeOffset += 4;
 
-    attributes[attribute].format_ = render::attribute_format_e::VEC4;
+    attributes[attribute].format_ = render::vertex_attribute_t::format::VEC4;
     attributes[attribute].offset_ = sizeof(f32)*attributeOffset;
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
   }
@@ -448,7 +448,7 @@ void mesh::animatorCreate( const render::context_t& context, const mesh_t& mesh,
   animator->boneTransform_ = new maths::mat4[mesh.skeleton_->boneCount_];
 
   //Create an uninitialized uniform buffer
-  render::gpuBufferCreate( context, render::gpu_buffer_usage_e::UNIFORM_BUFFER,
+  render::gpuBufferCreate( context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                            render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                            nullptr, sizeof(maths::mat4) * mesh.skeleton_->boneCount_,
                            &animator->buffer_ );

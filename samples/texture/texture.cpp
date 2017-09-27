@@ -47,10 +47,10 @@ bkk::mesh::mesh_t CreateQuadGeometry(const bkk::render::context_t& context)
 
 
   static bkk::render::vertex_attribute_t attributes[2];
-  attributes[0].format_ = bkk::render::attribute_format_e::VEC3;
+  attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
-  attributes[1].format_ = bkk::render::attribute_format_e::VEC2;;
+  attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC2;;
   attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
 
@@ -71,10 +71,10 @@ bkk::render::texture_t CreateTexture(const bkk::render::context_t& context)
   {
     //Create the texture
     bkk::render::texture_sampler_t sampler = {};
-    sampler.minification_ = bkk::render::filter_mode_e::LINEAR;
-    sampler.magnification_ = bkk::render::filter_mode_e::LINEAR;
-    sampler.wrapU_ = bkk::render::wrap_mode_e::CLAMP_TO_EDGE;
-    sampler.wrapV_ = bkk::render::wrap_mode_e::CLAMP_TO_EDGE;
+    sampler.minification_ = bkk::render::texture_sampler_t::filter_mode::LINEAR;
+    sampler.magnification_ = bkk::render::texture_sampler_t::filter_mode::LINEAR;
+    sampler.wrapU_ = bkk::render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
+    sampler.wrapV_ = bkk::render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
     bkk::render::texture2DCreate(context, &image, 1, sampler, &texture);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &texture);    
     bkk::image::unload(&image);
@@ -87,7 +87,7 @@ void CreatePipeline(const bkk::render::context_t& context, const bkk::render::ve
                     const bkk::render::pipeline_layout_t& layout, bkk::render::graphics_pipeline_t* pipeline)
 {
   //Create pipeline
-  bkk::render::graphics_pipeline_desc_t pipelineDesc;
+  bkk::render::graphics_pipeline_t::description_t pipelineDesc;
   pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
   pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
   pipelineDesc.blendState_.resize(1);
@@ -131,7 +131,7 @@ int main()
 
   //Create descriptor layout
   bkk::render::descriptor_set_layout_t descriptorSetLayout;
-  bkk::render::descriptor_binding_t binding = { bkk::render::descriptor_type_e::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_stage_e::FRAGMENT };
+  bkk::render::descriptor_binding_t binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
   bkk::render::descriptorSetLayoutCreate(context, 1u, &binding, &descriptorSetLayout);
 
   //Create pipeline layout
