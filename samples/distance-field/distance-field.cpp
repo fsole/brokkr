@@ -378,7 +378,7 @@ void CreateComputePipeline()
     render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_BUFFER, 2, render::descriptor_t::stage::COMPUTE }
   };
 
-  render::descriptorSetLayoutCreate(gContext, bindings.size(), &bindings[0], &descriptorSetLayout);
+  render::descriptorSetLayoutCreate(gContext, (uint32_t)bindings.size(), &bindings[0], &descriptorSetLayout);
 
   //Create pipeline layout
   render::pipelineLayoutCreate(gContext, 1u, &descriptorSetLayout, &gComputePipelineLayout);

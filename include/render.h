@@ -377,7 +377,7 @@ namespace bkk
     void swapchainResize(context_t* context, uint32_t width, uint32_t height);
     VkCommandBuffer beginPresentationCommandBuffer(const context_t& context, uint32_t index, VkClearValue* clearValues);
     void endPresentationCommandBuffer(const context_t& context, uint32_t index);
-    void presentNextImage(context_t* context);
+    void presentNextImage(context_t* context, uint32_t waitSemaphoreCount = 0u, VkSemaphore* waitSemaphore = nullptr);
 
     //Shaders
     bool shaderCreateFromSPIRV(const context_t& context, shader_t::type type, const char* file, shader_t* shader);
@@ -447,8 +447,8 @@ namespace bkk
 
     //Renderpass
     void renderPassCreate(const context_t& context,
-      int attachmentCount, render_pass_t::attachment_t* attachments,
-      int subpassCount, render_pass_t::subpass_t* subpasses,
+      uint32_t attachmentCount, render_pass_t::attachment_t* attachments,
+      uint32_t subpassCount, render_pass_t::subpass_t* subpasses,
       render_pass_t* renderPass);
 
     void renderPassDestroy(const context_t& context, render_pass_t* renderPass);

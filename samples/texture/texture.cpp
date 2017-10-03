@@ -2,6 +2,7 @@
 #include "render.h"
 #include "window.h"
 #include "mesh.h"
+#include "../utility.h"
 
 #include "mesh.h"
 
@@ -28,36 +29,6 @@ static const char* gFragmentShaderSource = {
   }\n"
 };
 
-bkk::mesh::mesh_t CreateQuadGeometry(const bkk::render::context_t& context)
-{
-  struct Vertex
-  {
-    float position[3];
-    float uv[2];
-  };
-
-  //WARNING: IN Vulkan, Y is pointing down in NDC!
-  static const Vertex vertices[] = { { { -1.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
-                                     { { 1.0f,  1.0f, 0.0f },{ 1.0f, 0.0f } },
-                                     { { 1.0f, -1.0f, 0.0f },{ 1.0f, 1.0f } },
-                                     { { -1.0f,-1.0f, 1.0f },{ 0.0f, 1.0f } }
-  };
-
-  static const uint32_t indices[] = { 0,1,2,0,2,3 };
-
-
-  static bkk::render::vertex_attribute_t attributes[2];
-  attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
-  attributes[0].offset_ = 0;
-  attributes[0].stride_ = sizeof(Vertex);
-  attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC2;;
-  attributes[1].offset_ = offsetof(Vertex, uv);
-  attributes[1].stride_ = sizeof(Vertex);
-
-  bkk::mesh::mesh_t mesh;
-  bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &mesh);
-  return mesh;
-}
 
 bkk::render::texture_t CreateTexture(const bkk::render::context_t& context)
 {
@@ -126,7 +97,7 @@ int main()
   bkk::render::contextCreate("Textured Quad", "", window, 3, &context);
 
   //Create a quad and a texture
-  bkk::mesh::mesh_t mesh = CreateQuadGeometry(context);
+  bkk::mesh::mesh_t mesh = sample_utils::FullScreenQuad(context);
   bkk::render::texture_t texture = CreateTexture(context);
 
   //Create descriptor layout

@@ -118,7 +118,7 @@ void CreatePipeline()
     render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 2, render::descriptor_t::stage::VERTEX }
   };
  
-  render::descriptorSetLayoutCreate( gContext, bindings.size(), &bindings[0], &descriptorSetLayout );
+  render::descriptorSetLayoutCreate( gContext, (uint32_t)bindings.size(), &bindings[0], &descriptorSetLayout );
 
   //Create pipeline layout
   render::pipelineLayoutCreate( gContext, 1u, &descriptorSetLayout, &gPipelineLayout );

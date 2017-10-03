@@ -12,7 +12,7 @@
 using namespace bkk;
 using namespace maths;
 
-static const char* gVertexShaderSource = {
+static const char* gGeometryPassVertexShaderSource = {
   "#version 440 core\n \
   layout(location = 0) in vec3 aPosition;\n \
   layout(location = 1) in vec3 aNormal;\n \
@@ -39,7 +39,7 @@ static const char* gVertexShaderSource = {
 };
 
 
-static const char* gFragmentShaderSource = {
+static const char* gGeometrPassFragmentShaderSource = {
   "#version 440 core\n \
   layout (set = 0, binding = 0) uniform SCENE\n \
   {\n \
@@ -61,6 +61,30 @@ static const char* gFragmentShaderSource = {
   {\n \
     float diffuse = max(0.0, dot(normalViewSpace, lightDirectionViewSpace));\n \
     color = vec4(diffuse*scene.lightColor.rgb, 1.0) * material.albedo;\n \
+  }\n"
+};
+
+
+static const char* gVertexShaderSource = {
+  "#version 440 core\n \
+  layout(location = 0) in vec3 aPosition;\n \
+  layout(location = 1) in vec2 aTexCoord;\n \
+  out vec2 uv;\n \
+  void main(void)\n \
+  {\n \
+    gl_Position = vec4(aPosition,1.0);\n \
+    uv = aTexCoord;\n \
+  }\n"
+};
+
+static const char* gFragmentShaderSource = {
+  "#version 440 core\n \
+  in vec2 uv;\n  \
+  layout (binding = 0) uniform sampler2D uTexture;\n \
+  layout(location = 0) out vec4 color;\n \
+  void main(void)\n \
+  {\n \
+    color = texture(uTexture, uv);\n \
   }\n"
 };
 
@@ -164,20 +188,26 @@ struct scene_t
     return instance_.add( instance );
   }
 
-  void Initialize( render::context_t& context, const uvec2& size )
+
+  void InitializeOffscreenPass(render::context_t& context, const uvec2& size)
   {
+    //Semaphore to indicate offscreen pass has completed
+    VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &offscreenRenderComplete);
+
+
+    //Create frame buffer attachments (Color and DepthStencil)
+    render::texture_sampler_t sampler = { render::texture_sampler_t::filter_mode::LINEAR, render::texture_sampler_t::filter_mode::LINEAR,render::texture_sampler_t::filter_mode::LINEAR,
+                                          render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE, render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE };
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, sampler, &gBuffer_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBuffer_);
+    render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
+
     //Create render pass
     geometryPass_ = {};
-    render::texture_sampler_t sampler = {};
-    sampler.minification_ = render::texture_sampler_t::filter_mode::LINEAR;
-    sampler.magnification_ = render::texture_sampler_t::filter_mode::LINEAR;
-    sampler.wrapU_ = render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
-    sampler.wrapV_ = render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, sampler, &geometryBuffer_);
-    render::depthStencilBufferCreate(context, 100, 100, &depthStencilBuffer_);
-    
     render::render_pass_t::attachment_t attachments[2];
-    attachments[0].format_ = geometryBuffer_.format_;
+    attachments[0].format_ = VK_FORMAT_B8G8R8A8_UNORM;
     attachments[0].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[0].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     attachments[0].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
@@ -194,50 +224,54 @@ struct scene_t
     render::renderPassCreate(context, 2u, &attachments[0], 0, 0, &geometryPass_);
 
     //Create frame buffer
-    VkImageView fbAttachment[2] = { geometryBuffer_.imageView_, depthStencilBuffer_.imageView_ };
+    VkImageView fbAttachment[2] = { gBuffer_.imageView_, depthStencilBuffer_.imageView_ };
     render::frameBufferCreate(context, size.x, size.y, geometryPass_, &fbAttachment[0], &frameBuffer_);
 
+
     //Create allocator for uniform buffers and meshes
-    render::gpuAllocatorCreate( context, 100*1024*1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_ );
+    render::gpuAllocatorCreate(context, 100 * 1024 * 1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_);
 
     //Create scene uniform buffer
-    camera_.position_ = vec3(0.0f,2.5f,8.0f);
+    camera_.position_ = vec3(0.0f, 2.5f, 8.0f);
     camera_.Update();
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.2f,(f32)size.x / (f32)size.y, 0.1f,100.0f );
+    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
     uniforms_.viewMatrix_ = camera_.view_;
-    uniforms_.lightDirection_ = vec4(0.0f,1.0f,1.0f,0.0f);
-    uniforms_.lightColor_ = vec4(1.0f,1.0f,1.0f,1.0f);
-    render::gpuBufferCreate( context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
-                             (void*)&uniforms_, sizeof(scene_uniforms_t),
-                             &allocator_, &ubo_ );
+    uniforms_.lightDirection_ = vec4(0.0f, 1.0f, 1.0f, 0.0f);
+    uniforms_.lightColor_ = vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+      (void*)&uniforms_, sizeof(scene_uniforms_t),
+      &allocator_, &ubo_);
 
     //Create descriptorSets layouts
     render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
-    render::descriptorSetLayoutCreate( context, 1u, &binding, &descriptorSetLayout_ );
+    render::descriptorSetLayoutCreate(context, 1u, &binding, &descriptorSetLayout_);
 
     binding = { render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::VERTEX };
-    render::descriptorSetLayoutCreate( context, 1u, &binding, &instanceDescriptorSetLayout_ );
+    render::descriptorSetLayoutCreate(context, 1u, &binding, &instanceDescriptorSetLayout_);
 
     binding = { render::descriptor_t::type::UNIFORM_BUFFER, 2, render::descriptor_t::stage::FRAGMENT };
-    render::descriptorSetLayoutCreate( context, 1u, &binding, &materialDescriptorSetLayout_ );
+    render::descriptorSetLayoutCreate(context, 1u, &binding, &materialDescriptorSetLayout_);
 
     //Create pipeline layout
-    std::array<render::descriptor_set_layout_t, 3> descriptorSetLayouts = { descriptorSetLayout_, instanceDescriptorSetLayout_, materialDescriptorSetLayout_ };
-    render::pipelineLayoutCreate( context, descriptorSetLayouts.size(), &descriptorSetLayouts[0], &pipelineLayout_ );
+    render::descriptor_set_layout_t descriptorSetLayouts[3] = { descriptorSetLayout_, instanceDescriptorSetLayout_, materialDescriptorSetLayout_ };
+    render::pipelineLayoutCreate(context, 3, &descriptorSetLayouts[0], &gBufferPipelineLayout_);
 
     //Create vertex format (position + normal)
     uint32_t vertexSize = 2 * sizeof(maths::vec3);
-    render::vertex_attribute_t attributes[2];
-    attributes[0] = { render::vertex_attribute_t::format::VEC3, 0, vertexSize  };
-    attributes[1] = { render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize  };
-    render::vertexFormatCreate( attributes, 2u, &vertexFormat_ );
+    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize }, { render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize } };
+    render::vertexFormatCreate(attributes, 2u, &vertexFormat_);
+
+    //Create global descriptor set (Scene uniforms)    
+    render::descriptor_t descriptor = render::getDescriptor(ubo_);
+    render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, &descriptor, &gBufferDescriptorSet_);
+    
 
     //Create pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gGeometryPassVertexShaderSource, &gBuffervertexShader_);
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gGeometrPassFragmentShaderSource, &gBufferfragmentShader_);
     bkk::render::graphics_pipeline_t::description_t pipelineDesc;
     pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipelineDesc.scissorRect_ = { {0,0}, {context.swapChain_.imageWidth_,context.swapChain_.imageHeight_} };
+    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
     pipelineDesc.blendState_.resize(1);
     pipelineDesc.blendState_[0].colorWriteMask = 0xF;
     pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
@@ -245,16 +279,51 @@ struct scene_t
     pipelineDesc.depthTestEnabled_ = true;
     pipelineDesc.depthWriteEnabled_ = true;
     pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
+    pipelineDesc.vertexShader_ = gBuffervertexShader_;
+    pipelineDesc.fragmentShader_ = gBufferfragmentShader_;
+    render::graphicsPipelineCreate(context, geometryPass_.handle_, vertexFormat_, gBufferPipelineLayout_, pipelineDesc, &gBufferPipeline_);
+
+
+  }
+  void Initialize( render::context_t& context, const uvec2& size )
+  {   
+    //Create descriptor pool
+    render::descriptorPoolCreate(context, 100u, 100u, 100u, 0u, 0u, &descriptorPool_);
+
+    //Initialize off-screen render pass
+    InitializeOffscreenPass(context, size);
+
+
+    //Initialize on-screen pass (Presents image genereated by offscreen pass) 
+    fullScreenQuad_ = sample_utils::FullScreenQuad(context);
+    
+    //Descriptor set layout and pipeline layout
+    render::descriptor_binding_t binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
+    bkk::render::descriptor_set_layout_t descriptorSetLayout;
+    bkk::render::descriptorSetLayoutCreate(context, 1u, &binding, &descriptorSetLayout);
+    bkk::render::pipelineLayoutCreate(context, 1u, &descriptorSetLayout, &pipelineLayout_);
+
+    //Descriptor set
+    render::descriptor_t descriptor = bkk::render::getDescriptor(gBuffer_);
+    bkk::render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout, &descriptor, &descriptorSet_);
+    
+
+    //Create pipeline
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
+    render::graphics_pipeline_t::description_t pipelineDesc = {};
+    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
+    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
+    pipelineDesc.blendState_.resize(1);
+    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+    pipelineDesc.depthTestEnabled_ = false;
+    pipelineDesc.depthWriteEnabled_ = false;
     pipelineDesc.vertexShader_ = vertexShader_;
     pipelineDesc.fragmentShader_ = fragmentShader_;
-    render::graphicsPipelineCreate( context, context.swapChain_.renderPass_, vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_ );
-
-    //Create descriptor pool
-    render::descriptorPoolCreate( context, 100u, 0u, 100u, 0u, 0u, &descriptorPool_ );
-
-    //Create global descriptor set (Scene uniforms)    
-    render::descriptor_t descriptor = render::getDescriptor(ubo_);
-    render::descriptorSetCreate( context, descriptorPool_, descriptorSetLayout_, &descriptor, &descriptorSet_ );
+    bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, fullScreenQuad_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
+    
   }
 
   void Resize( render::context_t& context, uint32_t width, uint32_t height )
@@ -279,34 +348,105 @@ struct scene_t
       render::gpuBufferUpdate( context, modelTx, 0, sizeof(mat4), &instance[i].ubo_ );
     }
 
+    render::commandBufferSubmit(context, commandBuffer_);
+    
+
     //Render
-    render::presentNextImage( &context );
+    render::presentNextImage( &context, 1, &offscreenRenderComplete);
+    
   }
 
   void BuildCommandBuffers( render::context_t& context )
   {
-    for( unsigned i(0); i<3; ++i )
+    //Offscreen command buffer
+    render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0,  nullptr, nullptr, 1, &offscreenRenderComplete, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+    render::commandBufferBegin(context, &frameBuffer_, nullptr, commandBuffer_);
+    bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
+
+    packed_freelist_iterator_t<instance_t> instanceIter = instance_.begin();
+    while (instanceIter != instance_.end())
     {
-      VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer( context, i, nullptr );
+      //Bind descriptor set
+      std::vector<render::descriptor_set_t> descriptorSets(3);
+      descriptorSets[0] = gBufferDescriptorSet_;
+      descriptorSets[1] = instanceIter.get().descriptorSet_;
+      descriptorSets[2] = material_.get(instanceIter.get().material_)->descriptorSet_;
+      bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets.data(), (uint32_t)descriptorSets.size());
+
+      //Draw call
+      mesh::mesh_t* mesh = mesh_.get(instanceIter.get().mesh_);
+      mesh::draw(commandBuffer_.handle_, *mesh);
+      ++instanceIter;
+    }
+
+    render::commandBufferEnd(context, commandBuffer_);
+
+
+    //Presentation command buffers
+    for (unsigned i(0); i<3; ++i)
+    {
+      VkCommandBuffer cmdBuffer = bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
       bkk::render::graphicsPipelineBind(cmdBuffer, pipeline_);
+      bkk::render::descriptorSetBindForGraphics(cmdBuffer, pipelineLayout_, 0, &descriptorSet_, 1u);
+      bkk::mesh::draw(cmdBuffer, fullScreenQuad_);
+      bkk::render::endPresentationCommandBuffer(context, i);
+    }
 
-      packed_freelist_iterator_t<instance_t> instanceIter = instance_.begin();
-      while( instanceIter != instance_.end() )
+  }
+
+
+  void OnKeyEvent(window::key_e key, bool pressed, scene_t& scene)
+  {
+    if (pressed)
+    {
+      switch (key)
       {
-        //Bind descriptor set
-        std::vector<render::descriptor_set_t> descriptorSets(3);
-        descriptorSets[0] = descriptorSet_;
-        descriptorSets[1] = instanceIter.get().descriptorSet_;
-        descriptorSets[2] = material_.get( instanceIter.get().material_ )->descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(cmdBuffer, pipelineLayout_, 0, descriptorSets.data(), (uint32_t)descriptorSets.size());
-
-        //Draw call
-        mesh::mesh_t* mesh = mesh_.get( instanceIter.get().mesh_ );
-        mesh::draw(cmdBuffer, *mesh );
-        ++instanceIter;
+      case window::key_e::KEY_UP:
+      case 'w':
+      {
+        camera_.Move(0.0f, -0.5f);
+        break;
       }
+      case window::key_e::KEY_DOWN:
+      case 's':
+      {
+        camera_.Move(0.0f, 0.5f);
+        break;
+      }
+      case window::key_e::KEY_LEFT:
+      case 'a':
+      {
+        camera_.Move(-0.5f, 0.0f);
+        break;
+      }
+      case window::key_e::KEY_RIGHT:
+      case 'd':
+      {
+        camera_.Move(0.5f, 0.0f);
+        break;
+      }
+      default:
+        break;
+      }
+    }
+  }
 
-      render::endPresentationCommandBuffer( context, i );
+  void OnMouseButton( bool pressed, uint32_t x, uint32_t y )
+  {
+    mouseButtonPressed_ = pressed;
+    mousePosition_.x = (f32)x;
+    mousePosition_.y = (f32)y;
+  }
+
+  void OnMouseMove(uint32_t x, uint32_t y)
+  {
+    if (mouseButtonPressed_)
+    {
+      f32 angleY = ((f32)x - mousePosition_.x) * 0.01f;
+      f32 angleX = ((f32)y - mousePosition_.y) * 0.01f;
+      mousePosition_.x = (f32)x;
+      mousePosition_.y = (f32)y;
+      camera_.Rotate(angleX, angleY);
     }
   }
 
@@ -339,85 +479,74 @@ struct scene_t
     }
 
     //Destroy global resources
-    render::shaderDestroy(context, &vertexShader_);
-    render::shaderDestroy(context, &fragmentShader_);
-    render::graphicsPipelineDestroy( context, &pipeline_ );
-    render::descriptorSetDestroy( context, &descriptorSet_ );
+    render::shaderDestroy(context, &gBuffervertexShader_);
+    render::shaderDestroy(context, &gBufferfragmentShader_);
+    render::graphicsPipelineDestroy( context, &gBufferPipeline_);
+    render::descriptorSetDestroy( context, &gBufferDescriptorSet_ );
     render::descriptorPoolDestroy( context, &descriptorPool_ );
-    render::pipelineLayoutDestroy( context, &pipelineLayout_ );
+    render::pipelineLayoutDestroy( context, &gBufferPipelineLayout_);
     render::gpuBufferDestroy( context, &ubo_, &allocator_ );
 
     render::gpuAllocatorDestroy( context, &allocator_ );
 
+    render::textureDestroy( context, &gBuffer_ );
     render::depthStencilBufferDestroy(context, &depthStencilBuffer_);
+
+    render::commandBufferDestroy(context, &commandBuffer_);
+    render::graphicsPipelineDestroy(context, &pipeline_);
+    render::descriptorSetDestroy( context, &descriptorSet_);
+    render::shaderDestroy(context, &vertexShader_);
+    render::shaderDestroy(context, &fragmentShader_);
+    render::pipelineLayoutDestroy(context, &pipelineLayout_);
+    mesh::destroy(context, &fullScreenQuad_);
   }
 
 public:
   sample_utils::free_camera_t camera_;
 
 private:
+    
   bkk::transform_manager_t transformManager_;
+  render::descriptor_pool_t descriptorPool_;
+
   render::descriptor_set_layout_t descriptorSetLayout_;
   render::descriptor_set_layout_t materialDescriptorSetLayout_;
   render::descriptor_set_layout_t instanceDescriptorSetLayout_;
-  render::descriptor_set_t descriptorSet_;
+  render::descriptor_set_t gBufferDescriptorSet_;
+  
+  render::gpu_memory_allocator_t allocator_;
   render::gpu_buffer_t ubo_;
-
+  
   render::vertex_format_t vertexFormat_;
-  render::pipeline_layout_t pipelineLayout_;
-  render::graphics_pipeline_t pipeline_;
-  render::descriptor_pool_t descriptorPool_;
-  render::shader_t vertexShader_;
-  render::shader_t fragmentShader_;
-  scene_uniforms_t uniforms_;
+  render::pipeline_layout_t gBufferPipelineLayout_;
+  render::graphics_pipeline_t gBufferPipeline_;
+  
+  render::shader_t gBuffervertexShader_;
+  render::shader_t gBufferfragmentShader_;
+  scene_uniforms_t uniforms_;  
 
   packed_freelist_t<material_t> material_;
   packed_freelist_t<mesh::mesh_t> mesh_;
   packed_freelist_t<instance_t> instance_;
 
-  render::gpu_memory_allocator_t allocator_;
-
+  VkSemaphore offscreenRenderComplete;
+  render::command_buffer_t commandBuffer_;
   render::render_pass_t geometryPass_;
-  render::texture_t geometryBuffer_;
+  render::texture_t gBuffer_;
   render::depth_stencil_buffer_t depthStencilBuffer_;
   render::frame_buffer_t frameBuffer_;
-};
 
-void OnKeyEvent( window::key_e key, bool pressed, scene_t& scene )
-{
-  if( pressed )
-  {
-    switch( key )
-    {
-      case window::key_e::KEY_UP:
-      case 'w':
-      {
-        scene.camera_.Move( 0.0f, -0.5f );
-        break;
-      }
-      case window::key_e::KEY_DOWN:
-      case 's':
-      {
-        scene.camera_.Move( 0.0f, 0.5f );
-        break;
-      }
-      case window::key_e::KEY_LEFT:
-      case 'a':
-      {
-        scene.camera_.Move( -0.5f, 0.0f );
-        break;
-      }
-      case window::key_e::KEY_RIGHT:
-      case 'd':
-      {
-        scene.camera_.Move( 0.5f, 0.0f );
-        break;
-      }
-      default:
-        break;
-    }
-  }
-}
+  render::graphics_pipeline_t pipeline_;
+  render::pipeline_layout_t pipelineLayout_;
+  render::shader_t vertexShader_;
+  render::shader_t fragmentShader_;
+  render::descriptor_set_t descriptorSet_;
+  mesh::mesh_t fullScreenQuad_;
+
+  maths::vec2 mousePosition_ = vec2(0.0f, 0.0f);
+  bool mouseButtonPressed_ = false;
+  
+};
 
 int main()
 {
@@ -453,8 +582,7 @@ int main()
   scene.AddInstance( context, quad,  material0, maths::computeTransform( maths::vec3(0.0f, 0.35f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
   scene.BuildCommandBuffers( context );
 
-  maths::vec2 mousePosition = vec2(0.0f,0.0f);
-  bool mouseButtonPressed = false;
+  
   bool quit = false;
   while( !quit )
   {
@@ -477,28 +605,19 @@ int main()
         case window::EVENT_KEY:
         {
           window::event_key_t* keyEvent = (window::event_key_t*)event;
-          OnKeyEvent( keyEvent->keyCode_, keyEvent->pressed_, scene );
+          scene.OnKeyEvent( keyEvent->keyCode_, keyEvent->pressed_, scene );
           break;
         }
         case window::EVENT_MOUSE_BUTTON:
         {
           window::event_mouse_button_t* buttonEvent = (window::event_mouse_button_t*)event;
-          mouseButtonPressed = buttonEvent->pressed_;
-          mousePosition.x = (f32)buttonEvent->x_;
-          mousePosition.y = (f32)buttonEvent->y_;
+          scene.OnMouseButton(buttonEvent->pressed_, buttonEvent->x_, buttonEvent->y_);
           break;
         }
         case window::EVENT_MOUSE_MOVE:
         {
           window::event_mouse_move_t* moveEvent = (window::event_mouse_move_t*)event;
-          if( mouseButtonPressed )
-          {
-            f32 angleY = (moveEvent->x_ - mousePosition.x) * 0.01f;
-            f32 angleX = (moveEvent->y_ - mousePosition.y) * 0.01f;
-            mousePosition.x = (f32)moveEvent->x_;
-            mousePosition.y = (f32)moveEvent->y_;
-            scene.camera_.Rotate( angleX,angleY );
-          }
+          scene.OnMouseMove( moveEvent->x_, moveEvent->y_);
           break;
         }
         default:

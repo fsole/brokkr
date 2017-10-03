@@ -117,6 +117,37 @@ struct free_camera_t
   f32  velocity_; //Units per second
 };
 
+bkk::mesh::mesh_t FullScreenQuad(const bkk::render::context_t& context)
+{
+  struct Vertex
+  {
+    float position[3];
+    float uv[2];
+  };
+
+  //WARNING: IN Vulkan, Y is pointing down in NDC!
+  static const Vertex vertices[] = { { { -1.0f, 1.0f, 0.0f },{ 0.0f, 1.0f } },
+  { { 1.0f,  1.0f, 0.0f },{ 1.0f, 1.0f } },
+  { { 1.0f, -1.0f, 0.0f },{ 1.0f, 0.0f } },
+  { { -1.0f,-1.0f, 1.0f },{ 0.0f, 0.0f } }
+  };
+
+  static const uint32_t indices[] = { 0,1,2,0,2,3 };
+
+
+  static bkk::render::vertex_attribute_t attributes[2];
+  attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
+  attributes[0].offset_ = 0;
+  attributes[0].stride_ = sizeof(Vertex);
+  attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC2;;
+  attributes[1].offset_ = offsetof(Vertex, uv);
+  attributes[1].stride_ = sizeof(Vertex);
+
+  bkk::mesh::mesh_t mesh;
+  bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &mesh);
+  return mesh;
+}
+
 }
 
 #endif  /*UTILITY_H*/

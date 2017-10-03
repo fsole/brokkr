@@ -612,6 +612,8 @@ void render::swapchainResize(context_t* context, uint32_t width, uint32_t height
 void render::contextFlush(const context_t& context)
 {
   vkWaitForFences(context.device_, context.swapChain_.imageCount_, context.swapChain_.frameFence_.data(), VK_TRUE, UINT64_MAX);
+  vkQueueWaitIdle(context.graphicsQueue_.handle_);
+  vkQueueWaitIdle(context.computeQueue_.handle_);
 }
 
 VkCommandBuffer render::beginPresentationCommandBuffer(const context_t& context, uint32_t index, VkClearValue* clearValues)
@@ -660,7 +662,7 @@ void render::endPresentationCommandBuffer(const context_t& context, uint32_t ind
   vkEndCommandBuffer(context.swapChain_.commandBuffer_[index]);
 }
 
-void render::presentNextImage(context_t* context)
+void render::presentNextImage(context_t* context, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore)
 {
   //Aquire next image in the swapchain
   context->vkAcquireNextImageKHR(context->device_,
@@ -675,14 +677,24 @@ void render::presentNextImage(context_t* context)
   uint32_t currentImage = context->swapChain_.currentImage_;
 
   //Submit current command buffer
+
+  std::vector<VkSemaphore> waitSemaphoreList(1 + waitSemaphoreCount);
+  std::vector<VkPipelineStageFlags> waitStageList(1 + waitSemaphoreCount);
+  waitSemaphoreList[0] = context->swapChain_.renderingComplete_;
+  waitStageList[0] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  for (size_t i(0); i < waitSemaphoreCount; ++i)
+  {
+    waitSemaphoreList[i+1] = waitSemaphore[i];
+    waitStageList[i+1] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  }
   VkSubmitInfo submitInfo = {};
-  const VkPipelineStageFlags waitDstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.waitSemaphoreCount = 1;
   submitInfo.pWaitSemaphores = &context->swapChain_.imageAcquired_;	      //Wait until image is aquired
-  submitInfo.signalSemaphoreCount = 1;
-  submitInfo.pSignalSemaphores = &context->swapChain_.renderingComplete_;	//When command buffer has finished will signal renderingCompleteSemaphore
-  submitInfo.pWaitDstStageMask = &waitDstStageMask;
+  submitInfo.signalSemaphoreCount = (uint32_t)waitSemaphoreList.size();
+  submitInfo.pSignalSemaphores = waitSemaphoreList.data();	//When command buffer has finished will signal renderingCompleteSemaphore
+  submitInfo.pWaitDstStageMask = waitStageList.data();
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &context->swapChain_.commandBuffer_[currentImage];
   vkQueueSubmit(context->graphicsQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
@@ -1737,8 +1749,8 @@ void render::depthStencilBufferDestroy(const context_t& context, depth_stencil_b
 
 
 void render::renderPassCreate(const context_t& context,
-  int attachmentCount, render_pass_t::attachment_t* attachments,
-  int subpassCount, render_pass_t::subpass_t* subpasses,
+  uint32_t attachmentCount, render_pass_t::attachment_t* attachments,
+  uint32_t subpassCount, render_pass_t::subpass_t* subpasses,
   render_pass_t* renderPass)
 {
   renderPass->attachment_ = new render_pass_t::attachment_t[attachmentCount];
@@ -1779,20 +1791,20 @@ void render::renderPassCreate(const context_t& context,
   subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
   subpassDescription.inputAttachmentCount = 0;
   subpassDescription.pColorAttachments = attachmentColorReference.data();
-  subpassDescription.colorAttachmentCount = attachmentColorReference.size();
+  subpassDescription.colorAttachmentCount = (uint32_t)attachmentColorReference.size();
 
   if(renderPass->depthStencilAttachment_ != -1)
   {
     subpassDescription.pDepthStencilAttachment = &attachmentDepthStencilReference;
   }
    
-
   VkRenderPassCreateInfo renderPassCreateInfo = {};
   renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
   renderPassCreateInfo.attachmentCount = attachmentCount;
   renderPassCreateInfo.subpassCount = 1;
   renderPassCreateInfo.pSubpasses = &subpassDescription;
-  renderPassCreateInfo.pAttachments = attachmentDescription.data();
+  renderPassCreateInfo.pAttachments = attachmentDescription.data();  
+
 
   vkCreateRenderPass(context.device_, &renderPassCreateInfo, nullptr, &renderPass->handle_);
 }
@@ -1926,7 +1938,6 @@ void render::commandBufferSubmit(const context_t& context, const command_buffer_
 {
   //Submit current command buffer
   VkSubmitInfo submitInfo = {};
-  const VkPipelineStageFlags waitDstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.waitSemaphoreCount = commandBuffer.waitSemaphoreCount_;
   submitInfo.pWaitSemaphores = commandBuffer.waitSemaphore_;
@@ -1935,7 +1946,8 @@ void render::commandBufferSubmit(const context_t& context, const command_buffer_
   submitInfo.pWaitDstStageMask = commandBuffer.waitStages_;
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &commandBuffer.handle_;
-  if (commandBuffer.type_ == command_buffer_t::GRAPHICS)
+
+  if(commandBuffer.type_ == command_buffer_t::GRAPHICS)
   {
     vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
   }
