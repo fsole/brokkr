@@ -183,13 +183,7 @@ void GenerateScene( u32 sphereCount, const maths::vec3& extents, Scene* scene )
 bool CreateResources()
 {
   //Create the texture
-  render::texture_sampler_t sampler = {};
-  sampler.minification_ = render::texture_sampler_t::filter_mode::LINEAR;
-  sampler.magnification_ = render::texture_sampler_t::filter_mode::LINEAR;
-  sampler.wrapU_ = render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
-  sampler.wrapV_ = render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
-
-  render::texture2DCreate( gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, sampler, &gTexture );
+  render::texture2DCreate( gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &gTexture );
   render::textureChangeLayoutNow(gContext, VK_IMAGE_LAYOUT_GENERAL, &gTexture);
 
   //Create data to be passed to the gpu

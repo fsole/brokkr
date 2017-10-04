@@ -273,13 +273,7 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
 bool CreateUniformBuffer()
 {
   //Create the texture
-  render::texture_sampler_t sampler = {};
-  sampler.minification_ = render::texture_sampler_t::filter_mode::LINEAR;
-  sampler.magnification_ = render::texture_sampler_t::filter_mode::LINEAR;
-  sampler.wrapU_ = render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
-  sampler.wrapV_ = render::texture_sampler_t::wrap_mode::CLAMP_TO_EDGE;
-
-  render::texture2DCreate(gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, sampler, &gTexture);
+  render::texture2DCreate(gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &gTexture);
   render::textureChangeLayoutNow(gContext, VK_IMAGE_LAYOUT_GENERAL, &gTexture);
 
   //Create data to be passed to the gpu

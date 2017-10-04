@@ -1881,7 +1881,7 @@ void render::commandBufferDestroy(const context_t& context, command_buffer_t* co
   vkFreeCommandBuffers(context.device_, context.commandPool_, 1u, &commandBuffer->handle_ );
 }
 
-void render::commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, const command_buffer_t& commandBuffer)
+void render::commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer)
 {
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1899,18 +1899,8 @@ void render::commandBufferBegin(const context_t& context, const frame_buffer_t* 
     renderPassBeginInfo.renderArea.extent = { frameBuffer->width_ , frameBuffer->height_ };
     renderPassBeginInfo.renderPass = frameBuffer->renderPass_.handle_;
 
-    if (clearValues)
-    {
-      renderPassBeginInfo.pClearValues = clearValues;
-    }
-    else
-    {
-      static VkClearValue clearValues[2];
-      clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-      clearValues[1].depthStencil = { 1.0f,0 };
-      renderPassBeginInfo.pClearValues = clearValues;
-    }
-    renderPassBeginInfo.clearValueCount = 2;
+    renderPassBeginInfo.pClearValues = clearValues;
+    renderPassBeginInfo.clearValueCount = clearValuesCount;
 
     //Begin render pass
     renderPassBeginInfo.framebuffer = frameBuffer->handle_;

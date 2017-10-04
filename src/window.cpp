@@ -1,6 +1,6 @@
 #include "window.h"
 #include <cassert>
-
+#include <iostream>
 using namespace bkk;
 using namespace bkk::window;
 
@@ -31,6 +31,30 @@ static window::key_e KeyFromKeyCode(WPARAM keycode)
       return KEY_Z;
     case 0x58:
       return KEY_X;
+
+    case 48:
+      return KEY_0;
+    case 49:
+      return KEY_1;
+    case 50:
+      return KEY_2;
+    case 51:
+      return KEY_3;
+    case 52:
+      return KEY_4;
+    case 53:
+      return KEY_5;
+    case 54:
+      return KEY_6;
+    case 55:
+      return KEY_7;
+    case 56:
+      return KEY_8;
+    case 57:
+      return KEY_9;
+
+    default:
+      std::cout << keycode << std::endl;
   }
 
   return KEY_COUNT;

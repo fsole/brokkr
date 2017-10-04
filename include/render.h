@@ -142,12 +142,12 @@ namespace bkk
         MIRROR_CLAMP_TO_EDGE = 4
       };
 
-      filter_mode minification_;   //Minification filter (NEAREST,LINEAR)
-      filter_mode magnification_;  //Magnification filter(NEAREST,LINEAR)
-      filter_mode mipmap_;         //For trilinear interpolation (NEAREST,LINEAR)
-      wrap_mode wrapU_;
-      wrap_mode wrapV_;
-      wrap_mode wrapW_;
+      filter_mode minification_ = filter_mode::LINEAR;   //Minification filter (NEAREST,LINEAR)
+      filter_mode magnification_ = filter_mode::LINEAR;  //Magnification filter(NEAREST,LINEAR)
+      filter_mode mipmap_ = filter_mode::LINEAR;         //For trilinear interpolation (NEAREST,LINEAR)
+      wrap_mode wrapU_ = wrap_mode::CLAMP_TO_EDGE;
+      wrap_mode wrapV_ = wrap_mode::CLAMP_TO_EDGE;
+      wrap_mode wrapW_ = wrap_mode::CLAMP_TO_EDGE;
     };    
 
     struct gpu_buffer_t
@@ -325,7 +325,7 @@ namespace bkk
         COMPUTE = 1
       };
 
-      VkCommandBuffer handle_;
+      VkCommandBuffer handle_ = VK_NULL_HANDLE;
       type type_;
       uint32_t waitSemaphoreCount_; 
       VkSemaphore* waitSemaphore_;
@@ -441,7 +441,7 @@ namespace bkk
     //Command buffers
     void commandBufferCreate(const context_t& context, VkCommandBufferLevel level, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t signalSemaphoreCount, VkSemaphore* signalSemaphore, command_buffer_t::type type, command_buffer_t* commandBuffer);
     void commandBufferDestroy(const context_t& context, command_buffer_t* commandBuffer );
-    void commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, const command_buffer_t& commandBuffer);
+    void commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer);
     void commandBufferEnd(const context_t& context, const command_buffer_t& commandBuffer);
     void commandBufferSubmit(const context_t& context, const command_buffer_t& commandBuffer );
 
