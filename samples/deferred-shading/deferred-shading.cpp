@@ -197,7 +197,7 @@ struct scene_t
     vec2 imageSize_;
   };
 
-  bkk::handle_t AddQuadMesh( render::context_t& context )
+  bkk::handle_t AddQuadMesh()
   {
     struct Vertex
     {
@@ -218,18 +218,18 @@ struct scene_t
     attributes[1] = { render::vertex_attribute_t::format::VEC3, offsetof(Vertex, normal), sizeof(Vertex) };
 
     mesh::mesh_t mesh;
-    mesh::create( context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &mesh, &allocator_ );
+    mesh::create( *context_, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &mesh, &allocator_ );
     return mesh_.add( mesh );
   }
 
-  bkk::handle_t AddMesh( render::context_t& context, const char* url )
+  bkk::handle_t AddMesh(const char* url )
   {
     mesh::mesh_t mesh;
-    mesh::createFromFile( context, url, &mesh, &allocator_ );
+    mesh::createFromFile( *context_, url, &mesh, &allocator_ );
     return mesh_.add( mesh );
   }
 
-  bkk::handle_t AddMaterial( render::context_t& context, const vec3& albedo, const vec3& F0, float roughness )
+  bkk::handle_t AddMaterial( const vec3& albedo, const vec3& F0, float roughness )
   {
     //Create uniform buffer and descriptor set
     material_t material = {};
@@ -237,33 +237,33 @@ struct scene_t
     material.uniforms_.F0_ = F0;
     material.uniforms_.roughness_ = roughness;
     render::gpu_buffer_t ubo;
-    render::gpuBufferCreate(  context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(  *context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                               &material.uniforms_, sizeof(material_t::material_uniforms_t),
                               &allocator_, &ubo );
 
     material.ubo_ = ubo;
     render::descriptor_t descriptor = render::getDescriptor(material.ubo_);
-    render::descriptorSetCreate( context, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_ );
+    render::descriptorSetCreate( *context_, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_ );
     return material_.add( material );
   }
 
-  bkk::handle_t AddInstance( render::context_t& context, bkk::handle_t meshId, bkk::handle_t materialId, const maths::mat4& transform )
+  bkk::handle_t AddInstance( bkk::handle_t meshId, bkk::handle_t materialId, const maths::mat4& transform )
   {
     bkk::handle_t transformId = transformManager_.createTransform( transform );
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
-    render::gpuBufferCreate( context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate( *context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                              nullptr, sizeof(mat4),
                              &allocator_, &ubo );
 
     instance_t instance = { meshId, materialId, transformId, ubo };
     render::descriptor_t descriptor = render::getDescriptor(instance.ubo_);
-    render::descriptorSetCreate( context, descriptorPool_, instanceDescriptorSetLayout_, &descriptor, &instance.descriptorSet_ );
+    render::descriptorSetCreate(*context_, descriptorPool_, instanceDescriptorSetLayout_, &descriptor, &instance.descriptorSet_ );
     return instance_.add( instance );
   }
 
-  bkk::handle_t AddLight(render::context_t& context, const maths::vec3& position,float radius, const maths::vec3& color )
+  bkk::handle_t AddLight(const maths::vec3& position,float radius, const maths::vec3& color )
   {
     light_t light;
 
@@ -278,13 +278,13 @@ struct scene_t
 
     //Create uniform buffer and descriptor set
     
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(*context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
       &light.uniforms_, sizeof(light_t::light_uniforms_t),
       &allocator_, &light.ubo_);
 
     
     render::descriptor_t descriptor = render::getDescriptor(light.ubo_);
-    render::descriptorSetCreate(context, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &light.descriptorSet_);
+    render::descriptorSetCreate(*context_, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &light.descriptorSet_);
     return light_.add(light);
   }
 
@@ -389,8 +389,6 @@ struct scene_t
     pipelineDesc.vertexShader_ = gBuffervertexShader_;
     pipelineDesc.fragmentShader_ = gBufferfragmentShader_;
     render::graphicsPipelineCreate(context, geometryPass_.handle_, vertexFormat_, gBufferPipelineLayout_, pipelineDesc, &gBufferPipeline_);
-
-
 
     ////Light pass
 
@@ -573,9 +571,9 @@ struct scene_t
     }
     
     VkClearValue clearValues[4];
-    clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-    clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-    clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
+    clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+    clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+    clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[3].depthStencil = { 1.0f,0 };
 
     render::commandBufferBegin(*context_, &geometryFrameBuffer_, 4u, clearValues, geometryCommandBuffer_);
@@ -875,7 +873,7 @@ int main()
 {
   //Create a window
   window::window_t window;
-  window::create( "Scene", 400u, 400u, &window );
+  window::create( "Scene", 800u, 600u, &window );
 
   //Initialize context
   render::context_t context;
@@ -883,39 +881,38 @@ int main()
 
   //Initialize scene
   scene_t scene;
-  scene.Initialize( context, maths::uvec2(400u,400u) );
+  scene.Initialize( context, maths::uvec2(800u,600u) );
 
   //Add some materials
-  bkk::handle_t material0 = scene.AddMaterial( context, vec3(1.0f,1.0f,1.0f), vec3(0.1f,0.1f,0.1f), 1.0f);
-  bkk::handle_t material1 = scene.AddMaterial( context, vec3(1.0f,1.0f,1.0f), vec3(0.4f,0.4f,0.4f), 1.0f);
-  bkk::handle_t material2 = scene.AddMaterial( context, vec3(1.0f,1.0f,1.0f), vec3(0.8f,0.8f,0.8f), 1.0f);
-  bkk::handle_t material3 = scene.AddMaterial( context, vec3(1.0f,1.0f,1.0f), vec3(0.2f,0.2f,0.2f), 1.0f);
-  bkk::handle_t material4 = scene.AddMaterial( context, vec3(1.0f,1.0f,1.0f), vec3(0.5f,0.5f,0.5f), 1.0f);
+  bkk::handle_t material0 = scene.AddMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.1f,0.1f,0.1f), 1.0f);
+  bkk::handle_t material1 = scene.AddMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.4f,0.4f,0.4f), 1.0f);
+  bkk::handle_t material2 = scene.AddMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.8f,0.8f,0.8f), 1.0f);
+  bkk::handle_t material3 = scene.AddMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.2f,0.2f,0.2f), 1.0f);
+  bkk::handle_t material4 = scene.AddMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.5f,0.5f,0.5f), 1.0f);
 
   //Add some meshes
-  bkk::handle_t bunny = scene.AddMesh( context, "../resources/bunny.ply" );
-  bkk::handle_t sphere = scene.AddMesh(context, "../resources/sphere.obj");
-  bkk::handle_t quad = scene.AddQuadMesh( context );
+  bkk::handle_t bunny = scene.AddMesh( "../resources/bunny.ply" );
+  bkk::handle_t sphere = scene.AddMesh("../resources/sphere.obj");
+  bkk::handle_t quad = scene.AddQuadMesh();
 
   //Add instances
-  scene.AddInstance( context, bunny, material0, maths::computeTransform( maths::vec3(-3.0f, 0.0f, -1.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.AddInstance( context, bunny, material1, maths::computeTransform( maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.AddInstance( context, bunny, material2, maths::computeTransform( maths::vec3(4.0f, 0.0f, -4.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.AddInstance( context, bunny, material3, maths::computeTransform( maths::vec3(-1.5f, 0.0f, 3.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.AddInstance( context, bunny, material4, maths::computeTransform( maths::vec3(2.5f, 0.0f, 3.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.AddInstance( context, quad,  material0, maths::computeTransform( maths::vec3(0.0f, 0.35f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
+  scene.AddInstance( bunny, material0, maths::computeTransform( maths::vec3(-3.0f, 0.0f, -1.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.AddInstance( bunny, material1, maths::computeTransform( maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.AddInstance( bunny, material2, maths::computeTransform( maths::vec3(4.0f, 0.0f, -4.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.AddInstance( bunny, material3, maths::computeTransform( maths::vec3(-1.5f, 0.0f, 3.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.AddInstance( bunny, material4, maths::computeTransform( maths::vec3(2.5f, 0.0f, 3.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.AddInstance( quad,  material0, maths::computeTransform( maths::vec3(0.0f, 0.35f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
   //scene.AddInstance( context, sphere, material2, maths::computeTransform(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(2.0f, 2.0f, 2.0f), maths::QUAT_UNIT));
     
   //Add lights
   std::vector < bkk::handle_t > lights;
-  lights.push_back( scene.AddLight(context, vec3(0.0f,0.0f,0.0f),   10.0f, vec3(1.0f,0.0f,0.0f) ) );
-  lights.push_back( scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 1.0f, 0.0f)) );
-  lights.push_back( scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 1.0f)) );
-  lights.push_back(scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(1.0f, 0.0f, 0.0f)));
-  lights.push_back(scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 1.0f, 0.0f)));
-  lights.push_back(scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 1.0f)));
+  lights.push_back( scene.AddLight(vec3(0.0f,0.0f,0.0f),   5.0f, vec3(1.0f,0.0f,0.0f) ) );
+  lights.push_back( scene.AddLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 1.0f, 0.0f)) );
+  lights.push_back( scene.AddLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 0.0f, 1.0f)) );
+  lights.push_back(scene.AddLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(1.0f, 0.0f, 0.0f)));
+  lights.push_back(scene.AddLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 1.0f, 0.0f)));
+  lights.push_back(scene.AddLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 0.0f, 1.0f)));
   
-
   auto timePrev = bkk::time::getCurrent();
   auto currentTime = timePrev;
 
