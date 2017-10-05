@@ -1251,6 +1251,7 @@ void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBu
   texture->descriptor_.imageLayout = newLayout;
 }
 
+
 void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, texture_t* texture)
 {
   //Create command buffer
@@ -1371,6 +1372,13 @@ descriptor_t render::getDescriptor(const texture_t& texture)
 {
   descriptor_t descriptor;
   descriptor.imageDescriptor_ = texture.descriptor_;
+  return descriptor;
+}
+
+descriptor_t render::getDescriptor(const depth_stencil_buffer_t& depthStencilBuffer)
+{
+  descriptor_t descriptor;
+  descriptor.imageDescriptor_ = depthStencilBuffer.descriptor_;
   return descriptor;
 }
 
@@ -1736,6 +1744,30 @@ void render::vertexFormatDestroy(vertex_format_t* format)
 void render::depthStencilBufferCreate(const context_t& context, uint32_t width, uint32_t height, depth_stencil_buffer_t* depthStencilBuffer)
 {
   CreateDepthStencilBuffer(&context, width, height, context.swapChain_.depthStencil_.format_, depthStencilBuffer);
+  
+  
+  //Create sampler
+  texture_sampler_t defaultSampler;
+  VkSampler sampler;
+  VkSamplerCreateInfo samplerCreateInfo = {};
+  samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerCreateInfo.magFilter = (VkFilter)defaultSampler.magnification_;
+  samplerCreateInfo.minFilter = (VkFilter)defaultSampler.minification_;
+  samplerCreateInfo.mipmapMode = (VkSamplerMipmapMode)defaultSampler.mipmap_;
+  samplerCreateInfo.addressModeU = (VkSamplerAddressMode)defaultSampler.wrapU_;
+  samplerCreateInfo.addressModeV = (VkSamplerAddressMode)defaultSampler.wrapV_;
+  samplerCreateInfo.addressModeW = (VkSamplerAddressMode)defaultSampler.wrapW_;
+  samplerCreateInfo.mipLodBias = 0.0f;
+  samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+  samplerCreateInfo.minLod = 0.0f;
+  samplerCreateInfo.maxLod = 0.0;
+  vkCreateSampler(context.device_, &samplerCreateInfo, nullptr, &sampler);
+
+  depthStencilBuffer->descriptor_.sampler = sampler;
+  depthStencilBuffer->descriptor_.imageView = depthStencilBuffer->imageView_;
+  depthStencilBuffer->descriptor_.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+  depthStencilBuffer->aspectFlags_ = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+  depthStencilBuffer->layout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 }
 
 void render::depthStencilBufferDestroy(const context_t& context, depth_stencil_buffer_t* depthStencilBuffer)
@@ -1746,6 +1778,79 @@ void render::depthStencilBufferDestroy(const context_t& context, depth_stencil_b
 }
 
 
+void render::depthStencilBufferChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, depth_stencil_buffer_t* depthStencilBuffer)
+{
+  VkImageMemoryBarrier imageBarrier = {};
+  imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  imageBarrier.pNext = nullptr;
+  imageBarrier.oldLayout = depthStencilBuffer->layout_;
+  imageBarrier.newLayout = newLayout;
+  imageBarrier.image = depthStencilBuffer->image_;
+  imageBarrier.subresourceRange.aspectMask = depthStencilBuffer->aspectFlags_;
+
+  imageBarrier.subresourceRange.baseMipLevel = 0;
+  imageBarrier.subresourceRange.levelCount = 0;
+  imageBarrier.subresourceRange.baseArrayLayer = 0;
+  imageBarrier.subresourceRange.layerCount = 1;
+  imageBarrier.subresourceRange.layerCount = 1;
+  imageBarrier.subresourceRange.levelCount = 1;
+
+  switch (imageBarrier.oldLayout)
+  {
+  case VK_IMAGE_LAYOUT_PREINITIALIZED:
+    imageBarrier.srcAccessMask =
+      VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+    break;
+  case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+    imageBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    break;
+  case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+    imageBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    break;
+  case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+    imageBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    break;
+  case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+    imageBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    break;
+  }
+
+  switch (imageBarrier.newLayout)
+  {
+  case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+    imageBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    break;
+  case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+    imageBarrier.srcAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+    imageBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    break;
+  case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+    imageBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    imageBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    break;
+  case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+    imageBarrier.dstAccessMask |=
+      VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    break;
+  case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+    imageBarrier.srcAccessMask =
+      VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+    imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    break;
+  }
+
+
+
+  vkCmdPipelineBarrier(cmdBuffer,
+    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    0, 0, nullptr, 0, nullptr,
+    1, &imageBarrier);
+
+
+  depthStencilBuffer->layout_ = newLayout;
+  depthStencilBuffer->descriptor_.imageLayout = newLayout;
+}
 
 
 void render::renderPassCreate(const context_t& context,

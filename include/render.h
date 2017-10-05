@@ -48,9 +48,12 @@ namespace bkk
     struct depth_stencil_buffer_t
     {
       VkFormat format_;
+      VkImageLayout layout_;
+      VkImageAspectFlags aspectFlags_;
       VkImage image_;
       gpu_memory_t memory_;
       VkImageView imageView_;
+      VkDescriptorImageInfo descriptor_;
     };
 
     struct surface_t
@@ -411,6 +414,7 @@ namespace bkk
     //Descriptors
     descriptor_t getDescriptor(const gpu_buffer_t& buffer);
     descriptor_t getDescriptor(const texture_t& texture);
+    descriptor_t getDescriptor(const depth_stencil_buffer_t& depthStencilBuffer);
 
     void descriptorPoolCreate(const context_t& context, uint32_t descriptorSetsCount, uint32_t combinedImageSamplersCount, uint32_t uniformBuffersCount, uint32_t storageBuffersCount, uint32_t storageImagesCount, descriptor_pool_t* descriptorPool);
     void descriptorPoolDestroy(const context_t& context, descriptor_pool_t* descriptorPool);
@@ -422,7 +426,7 @@ namespace bkk
     void descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount);
     void descriptorSetLayoutCreate(const context_t& context, uint32_t bindingCount, descriptor_binding_t* bindings, descriptor_set_layout_t* desriptorSetLayout);
     
-    //Pipeline    
+    //Pipelines
     void pipelineLayoutCreate(const context_t& context, uint32_t descriptorSetLayoutCount, descriptor_set_layout_t* descriptorSetLayouts, pipeline_layout_t* pipelineLayout);
     void pipelineLayoutDestroy(const context_t& context, pipeline_layout_t* pipelineLayout);
 
@@ -434,7 +438,7 @@ namespace bkk
     void computePipelineDestroy(const context_t& context, compute_pipeline_t* pipeline);
     void computePipelineBind( VkCommandBuffer commandBuffer, const compute_pipeline_t& pipeline);
 
-    //Vertex format
+    //Vertex formats
     void vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attributeCount, vertex_format_t* format);
     void vertexFormatDestroy(vertex_format_t* format);
 
@@ -454,12 +458,11 @@ namespace bkk
     void renderPassDestroy(const context_t& context, render_pass_t* renderPass);
 
     //FrameBuffers
-    void depthStencilBufferCreate(const context_t& context, uint32_t width, uint32_t height, depth_stencil_buffer_t* depthStencilBuffer);
-    void depthStencilBufferDestroy(const context_t& context, depth_stencil_buffer_t* depthStencilBuffer);
     void frameBufferCreate(const context_t& context, uint32_t width, uint32_t height, const render_pass_t& renderPass, VkImageView* imageViews, frame_buffer_t* frameBuffer);
     void frameBufferDestroy(const context_t& context, frame_buffer_t* frameBuffer);
-
-   
+    void depthStencilBufferCreate(const context_t& context, uint32_t width, uint32_t height, depth_stencil_buffer_t* depthStencilBuffer);
+    void depthStencilBufferDestroy(const context_t& context, depth_stencil_buffer_t* depthStencilBuffer);   
+    void depthStencilBufferChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, depth_stencil_buffer_t* depthStencilBuffer);
 
   } //namespace render
 

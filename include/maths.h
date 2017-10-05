@@ -769,6 +769,11 @@ namespace bkk
         data[14] = translation.z;
       }
 
+      vec4 getTranslation()
+      {
+        return vec4(data[12], data[13], data[14], 1.0);
+      }
+
       void transpose()
       {
         Matrix<T, 4, 4> aux = *this;

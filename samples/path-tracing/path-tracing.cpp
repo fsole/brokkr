@@ -161,7 +161,7 @@ void GenerateScene( u32 sphereCount, const maths::vec3& extents, Scene* scene )
     do
     {
       ok = true;
-      radius = (Random()+0.3f) * 1.5f;
+      radius = Random() + 0.4f;
       center = vec3( (2.0f * Random() - 1.0f) * extents.x, radius - 1.0001f, (2.0f * Random() - 1.0f ) * extents.z);
       for( u32 j(0); j<i; ++j )
       {
@@ -195,7 +195,7 @@ bool CreateResources()
   data.camera.verticalFov = (f32)M_PI_2;
   data.camera.focalDistance = 5.0f;
   data.camera.aperture = 0.05f;
-  GenerateScene( 30u, vec3(10.0f,0.0f,10.0f), &data.scene );
+  GenerateScene( 45u, vec3(15.0f,0.0f,15.0f), &data.scene );
 
   //Create uniform buffer
   render::gpuBufferCreate( gContext, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
@@ -347,7 +347,7 @@ void BuildComputeCommandBuffer()
   //Build compute command buffer
   render::commandBufferCreate( gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0u, nullptr, nullptr, 0u, nullptr, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer );
 
-  render::commandBufferBegin(gContext, nullptr, nullptr, gComputeCommandBuffer);
+  render::commandBufferBegin(gContext, nullptr, 0u, nullptr, gComputeCommandBuffer);
   
   bkk::render::computePipelineBind(gComputeCommandBuffer.handle_, gComputePipeline);
   bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer.handle_, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);

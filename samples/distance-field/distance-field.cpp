@@ -449,7 +449,7 @@ void BuildComputeCommandBuffer()
   //Build compute command buffer
   render::commandBufferCreate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0u, nullptr, nullptr, 0u, nullptr, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer);
 
-  render::commandBufferBegin(gContext, nullptr, nullptr, gComputeCommandBuffer);
+  render::commandBufferBegin(gContext, nullptr, 0u, nullptr, gComputeCommandBuffer);
 
   bkk::render::computePipelineBind(gComputeCommandBuffer.handle_, gComputePipeline);
   bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer.handle_, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);

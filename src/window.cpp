@@ -112,6 +112,12 @@ static long __stdcall WindowProcedure(HWND hWnd, unsigned int msg, WPARAM wp, LP
       window->activeEvent_ = &window->keyEvent_;
       break;
     }
+    case WM_SIZE:
+    {
+      window->resizeEvent_.width_ = LOWORD(lp);
+      window->resizeEvent_.height_ = HIWORD(lp);
+      window->activeEvent_ = &window->resizeEvent_;
+    }
     default:
       return (long)DefWindowProc(hWnd, msg, wp, lp);
   }

@@ -30,6 +30,7 @@ bool transform_manager_t::destroyTransform( bkk::handle_t id )
   if( transform_.getIndexFromId( id, &index ) && index < lastTransform )
   {
     std::swap( parent_[index], parent_[lastTransform] );
+    std::swap(world_[index], world_[lastTransform]);
   }
 
   return transform_.remove( id );
