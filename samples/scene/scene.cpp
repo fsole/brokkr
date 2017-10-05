@@ -121,9 +121,9 @@ static const char* gLightPassFragmentShaderSource = {
     vec3 lightPositionViewSpace = (scene.view * light.position).xyz;\n\
     vec3 lightVector = lightPositionViewSpace-GBufferPosition;\n\
     vec3 GBufferNormal = normalize( texture(RT1, uv).xyz );\n \
-    float attenuation =  ( light.radius - length(lightVector) ) / light.radius;\n\
+    float attenuation = clamp(  ( light.radius - length(lightVector) ) / light.radius, 0.0, 1.0);\n\
     float NdotL =  attenuation * max( 0.0, dot( GBufferNormal, -normalize(lightVector) ) );\n \
-    result = attenuation * ( NdotL * vec4(light.color,1.0) ) * vec4(albedo.xyz,1.0);\n \
+    result =  attenuation * ( NdotL * vec4(light.color,1.0) * vec4(albedo.xyz,1.0) );\n \
   }\n"
 };
 
@@ -908,10 +908,12 @@ int main()
     
   //Add lights
   std::vector < bkk::handle_t > lights;
-  lights.push_back( scene.AddLight(context, vec3(0.0f,0.0f,2.0f),   15.0f, vec3(1.0f,0.0f,0.0f) ) );
-  lights.push_back( scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 15.0f, vec3(0.0f, 1.0f, 0.0f)) );
-  lights.push_back( scene.AddLight(context, vec3(0.0f, 0.0f, 5.0f), 15.0f, vec3(0.0f, 0.0f, 1.0f)) );
-
+  lights.push_back( scene.AddLight(context, vec3(0.0f,0.0f,0.0f),   10.0f, vec3(1.0f,0.0f,0.0f) ) );
+  lights.push_back( scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 1.0f, 0.0f)) );
+  lights.push_back( scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 1.0f)) );
+  lights.push_back(scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(1.0f, 0.0f, 0.0f)));
+  lights.push_back(scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 1.0f, 0.0f)));
+  lights.push_back(scene.AddLight(context, vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 1.0f)));
   
 
   auto timePrev = bkk::time::getCurrent();
