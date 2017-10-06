@@ -76,10 +76,12 @@ static const char* gLightPassVertexShaderSource = {
    vec3 color;\n \
    float radius;\n \
   }light;\n \
+  out vec3 lightPositionVS;\n\
   void main(void)\n \
   {\n \
     mat4 viewProjection = scene.projection * scene.view;\n \
     gl_Position = viewProjection * vec4( aPosition*light.radius+light.position.xyz, 1.0 );\n\
+    lightPositionVS = (scene.view * light.position).xyz;\n\
   }\n"
 };
 
@@ -102,10 +104,11 @@ static const char* gLightPassFragmentShaderSource = {
   layout(set = 1, binding = 0) uniform sampler2D RT0;\n \
   layout(set = 1, binding = 1) uniform sampler2D RT1;\n \
   layout(set = 1, binding = 2) uniform sampler2D RT2;\n \
+  in vec3 lightPositionVS;\n\
   layout(location = 0) out vec4 result;\n \
   vec3 ViewSpacePositionFromDepth(vec2 uv, float depth)\n\
   {\n\
-    vec3 clipSpacePosition = vec3(uv, depth) * 2.0 - vec3(1.0);\n\
+    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);\n\
     vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
     return(viewSpacePosition.xyz / viewSpacePosition.w);\n\
   }\n\
@@ -114,16 +117,12 @@ static const char* gLightPassFragmentShaderSource = {
     vec2 uv = gl_FragCoord.xy / scene.imageSize;\n\
     vec4 albedo = texture(RT0, uv);\n \
     float depth = albedo.w;\n\
-    //float n = 0.1;\n\
-    //float f = 100.0;\n\
-    //float linearDepth = (2 * n) / (f + n - depth * (f - n));\n\
-    vec3 GBufferPosition = ViewSpacePositionFromDepth( uv,depth );\n\
-    vec3 lightPositionViewSpace = (scene.view * light.position).xyz;\n\
-    vec3 lightVector = lightPositionViewSpace-GBufferPosition;\n\
+    vec3 GBufferPositionVS = ViewSpacePositionFromDepth( uv,depth );\n\
+    vec3 lightVector = lightPositionVS-GBufferPositionVS;\n\
     vec3 GBufferNormal = normalize( texture(RT1, uv).xyz );\n \
-    float attenuation = clamp(  ( light.radius - length(lightVector) ) / light.radius, 0.0, 1.0);\n\
-    float NdotL =  attenuation * max( 0.0, dot( GBufferNormal, -normalize(lightVector) ) );\n \
-    result =  attenuation * ( NdotL * vec4(light.color,1.0) * vec4(albedo.xyz,1.0) );\n \
+    float attenuation = max( 0, ( light.radius - length(lightVector) ) / light.radius);\n\
+    float NdotL =  max( 0.0, dot( GBufferNormal, normalize(lightVector) ) );\n \
+    result =  vec4( attenuation * NdotL * light.color * albedo.xyz,1.0);\n \
   }\n"
 };
 
@@ -469,7 +468,7 @@ struct scene_t
     uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.5f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
     computeInverse(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
     uniforms_.viewMatrix_ = camera_.view_;
-    uniforms_.imageSize_ = vec2(size.x, size.y);
+    uniforms_.imageSize_ = vec2((f32)size.x, (f32)size.y);
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
       (void*)&uniforms_, sizeof(scene_uniforms_t),
       &allocator_, &ubo_);
@@ -842,11 +841,11 @@ void AnimateLights(f32 timeDelta, std::vector< bkk::handle_t >& lights, scene_t&
 {
   static const vec3 light_path[] =
   {
-    vec3(-3.0f,  0.0f, 5.0f),
-    vec3(-3.0f,  1.0f, -5.0f),
-    vec3(3.0f,   0.0f, -5.0f),
-    vec3(3.0f,   1.0f, 5.0f),
-    vec3(-3.0f,  0.0f, 5.0f)
+    vec3(-4.0f,  1.0f, 5.0f),
+    vec3(-4.0f,  1.0f, -5.0f),
+    vec3(4.0f,   1.0f, 5.0f),
+    vec3(4.0f,   1.0f, -5.0f),
+    vec3(-4.0f,  1.0f, 5.0f)
   };
 
   static f32 totalTime = 0.0f;
