@@ -1,14 +1,12 @@
 
 #include "render.h"
 #include "window.h"
-#include "image.h"
 #include "mesh.h"
 #include "maths.h"
 #include "timer.h"
 #include "../utility.h"
 #include "transform-manager.h"
 #include "packed-freelist.h"
-#include <array>
 
 using namespace bkk;
 using namespace maths;
@@ -179,7 +177,7 @@ struct scene_t
     render::descriptor_set_t descriptorSet_;
   };
 
-  struct instance_t
+  struct object_t
   {
     bkk::handle_t mesh_;
     bkk::handle_t material_;
@@ -196,7 +194,7 @@ struct scene_t
     vec2 imageSize_;
   };
 
-  bkk::handle_t AddQuadMesh()
+  bkk::handle_t addQuadMesh()
   {
     struct Vertex
     {
@@ -221,32 +219,30 @@ struct scene_t
     return mesh_.add( mesh );
   }
 
-  bkk::handle_t AddMesh(const char* url )
+  bkk::handle_t addMesh(const char* url )
   {
     mesh::mesh_t mesh;
     mesh::createFromFile( *context_, url, &mesh, &allocator_ );
     return mesh_.add( mesh );
   }
 
-  bkk::handle_t AddMaterial( const vec3& albedo, const vec3& F0, float roughness )
+  bkk::handle_t addMaterial( const vec3& albedo, const vec3& F0, float roughness )
   {
     //Create uniform buffer and descriptor set
     material_t material = {};
     material.uniforms_.albedo_ = vec4(albedo,1.0);
     material.uniforms_.F0_ = F0;
     material.uniforms_.roughness_ = roughness;
-    render::gpu_buffer_t ubo;
     render::gpuBufferCreate(  *context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                               &material.uniforms_, sizeof(material_t::material_uniforms_t),
-                              &allocator_, &ubo );
+                              &allocator_, &material.ubo_);
 
-    material.ubo_ = ubo;
     render::descriptor_t descriptor = render::getDescriptor(material.ubo_);
     render::descriptorSetCreate( *context_, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_ );
     return material_.add( material );
   }
 
-  bkk::handle_t AddInstance( bkk::handle_t meshId, bkk::handle_t materialId, const maths::mat4& transform )
+  bkk::handle_t addObject( bkk::handle_t meshId, bkk::handle_t materialId, const maths::mat4& transform )
   {
     bkk::handle_t transformId = transformManager_.createTransform( transform );
 
@@ -256,27 +252,21 @@ struct scene_t
                              nullptr, sizeof(mat4),
                              &allocator_, &ubo );
 
-    instance_t instance = { meshId, materialId, transformId, ubo };
-    render::descriptor_t descriptor = render::getDescriptor(instance.ubo_);
-    render::descriptorSetCreate(*context_, descriptorPool_, instanceDescriptorSetLayout_, &descriptor, &instance.descriptorSet_ );
-    return instance_.add( instance );
+    object_t object = { meshId, materialId, transformId, ubo };
+    render::descriptor_t descriptor = render::getDescriptor(object.ubo_);
+    render::descriptorSetCreate(*context_, descriptorPool_, objectDescriptorSetLayout_, &descriptor, &object.descriptorSet_ );
+    return object_.add( object );
   }
 
-  bkk::handle_t AddLight(const maths::vec3& position,float radius, const maths::vec3& color )
+  bkk::handle_t addLight(const maths::vec3& position,float radius, const maths::vec3& color )
   {
     light_t light;
-
-    maths::mat4 transform;
-    transform.setIdentity();
-    transform.setScale(1.0, 1.0,1.0);
-    transform.setTranslation(position);
 
     light.uniforms_.position_ = maths::vec4(position,1.0);
     light.uniforms_.color_ = color;    
     light.uniforms_.radius_ = radius;
 
     //Create uniform buffer and descriptor set
-    
     render::gpuBufferCreate(*context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
       &light.uniforms_, sizeof(light_t::light_uniforms_t),
       &allocator_, &light.ubo_);
@@ -287,22 +277,21 @@ struct scene_t
     return light_.add(light);
   }
 
-  void setLightPosition(bkk::handle_t light, const vec3& position)
+  light_t* getLight(bkk::handle_t light)
   {
-    light_.get(light)->uniforms_.position_ = vec4(position,1.0);
+    return light_.get(light);
   }
 
-  void InitializeOffscreenPasses(render::context_t& context, const uvec2& size)
+  void initializeOffscreenPasses(render::context_t& context, const uvec2& size)
   {
     ////Geometry pass
 
-    //Semaphore to indicate geometr pass pass has completed
+    //Semaphore to indicate geometry pass has completed
     VkSemaphoreCreateInfo semaphoreCreateInfo = {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &geometryRenderComplete_);
 
-
-    //Create frame buffer attachments (Color and DepthStencil)
+    //Create geometry pass
     render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, render::texture_sampler_t(), &gBufferRT0_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT0_);
     render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, render::texture_sampler_t(), &gBufferRT1_);
@@ -311,8 +300,6 @@ struct scene_t
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT2_);
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
 
-
-    //Create render pass
     geometryPass_ = {};
     render::render_pass_t::attachment_t attachments[4];
     attachments[0].format_ = VK_FORMAT_R32G32B32A32_SFLOAT;
@@ -345,7 +332,7 @@ struct scene_t
 
     render::renderPassCreate(context, 4u, attachments, 0, 0, &geometryPass_);
 
-    //Create frame buffer
+    //Create geometry pass frame buffer
     VkImageView fbAttachment[4] = { gBufferRT0_.imageView_, gBufferRT1_.imageView_, gBufferRT2_.imageView_, depthStencilBuffer_.imageView_ };
     render::frameBufferCreate(context, size.x, size.y, geometryPass_, fbAttachment, &geometryFrameBuffer_);
     
@@ -354,13 +341,13 @@ struct scene_t
     render::descriptorSetLayoutCreate(context, 1u, &binding, &globalsDescriptorSetLayout_);
 
     binding = { render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::VERTEX };
-    render::descriptorSetLayoutCreate(context, 1u, &binding, &instanceDescriptorSetLayout_);
+    render::descriptorSetLayoutCreate(context, 1u, &binding, &objectDescriptorSetLayout_);
 
     binding = { render::descriptor_t::type::UNIFORM_BUFFER, 2, render::descriptor_t::stage::FRAGMENT };
     render::descriptorSetLayoutCreate(context, 1u, &binding, &materialDescriptorSetLayout_);
 
     //Create pipeline layout
-    render::descriptor_set_layout_t descriptorSetLayouts[3] = { globalsDescriptorSetLayout_, instanceDescriptorSetLayout_, materialDescriptorSetLayout_ };
+    render::descriptor_set_layout_t descriptorSetLayouts[3] = { globalsDescriptorSetLayout_, objectDescriptorSetLayout_, materialDescriptorSetLayout_ };
     render::pipelineLayoutCreate(context, 3, descriptorSetLayouts, &gBufferPipelineLayout_);
 
     //Create vertex format (position + normal)
@@ -413,7 +400,7 @@ struct scene_t
     render::frameBufferCreate(context, size.x, size.y, lightPass_, &finalImage_.imageView_, &lightFrameBuffer_);
 
     //Create descriptorSet layouts
-    render::descriptor_binding_t bindings[4];
+    render::descriptor_binding_t bindings[3];
     bindings[0] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
     bindings[1] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 1, render::descriptor_t::stage::FRAGMENT };
     bindings[2] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2, render::descriptor_t::stage::FRAGMENT };
@@ -449,9 +436,10 @@ struct scene_t
     render::graphicsPipelineCreate(context, lightPass_.handle_, vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
   }
 
-  void Initialize( render::context_t& context, const uvec2& size )
+  void initialize( render::context_t& context )
   {   
     context_ = &context;
+    uvec2 size = uvec2(context.swapChain_.imageWidth_, context.swapChain_.imageHeight_);
 
     //Create allocator for uniform buffers and meshes
     render::gpuAllocatorCreate(context, 100 * 1024 * 1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_);
@@ -460,7 +448,7 @@ struct scene_t
     render::descriptorPoolCreate(context, 100u, 100u, 100u, 0u, 0u, &descriptorPool_);
 
     //Initialize off-screen render passes
-    InitializeOffscreenPasses(context, size);
+    initializeOffscreenPasses(context, size);
 
     //Create scene uniform buffer
     camera_.position_ = vec3(0.0f, 2.5f, 8.0f);
@@ -486,9 +474,11 @@ struct scene_t
     render::descriptorSetCreate(context, descriptorPool_, lightPassTexturesDescriptorSetLayout_, descriptors, &lightPassTexturesDescriptorSet_);
 
 
-    //Initialize on-screen pass (Presents image genereated by offscreen pass) 
+    //Create full screen quad and sphere meshes
     fullScreenQuad_ = sample_utils::FullScreenQuad(context);
-    mesh::createFromFile(context, "../resources/sphere.obj", &sphereMesh_ );
+    mesh::createFromFile(context, "../resources/sphere.obj", &sphereMesh_);
+
+    //Initialize presentation pass (Presents image genereated by offscreen pass) 
 
     //Descriptor set layout and pipeline layout
     render::descriptor_binding_t binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
@@ -506,8 +496,6 @@ struct scene_t
     descriptor = bkk::render::getDescriptor(gBufferRT2_);
     bkk::render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout, &descriptor, &descriptorSet_[3]);
     
-
-
     //Create presentation pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
@@ -540,11 +528,11 @@ struct scene_t
     render::gpuBufferUpdate(*context_, (void*)&uniforms_, 0u, sizeof(scene_uniforms_t), &ubo_ );
 
     //Update modelview matrices
-    std::vector<instance_t>& instance( instance_.getData() );
-    for( u32 i(0); i<instance.size(); ++i )
+    std::vector<object_t>& object( object_.getData() );
+    for( u32 i(0); i<object.size(); ++i )
     {
-      maths::mat4* modelTx = transformManager_.getWorldMatrix( instance[i].transform_ );
-      render::gpuBufferUpdate(*context_, modelTx, 0, sizeof(mat4), &instance[i].ubo_ );
+      maths::mat4* modelTx = transformManager_.getWorldMatrix( object[i].transform_ );
+      render::gpuBufferUpdate(*context_, modelTx, 0, sizeof(mat4), &object[i].ubo_ );
     }
 
     std::vector<light_t>& light(light_.getData());
@@ -579,20 +567,20 @@ struct scene_t
     {
       bkk::render::graphicsPipelineBind(geometryCommandBuffer_.handle_, gBufferPipeline_);
 
-      packed_freelist_iterator_t<instance_t> instanceIter = instance_.begin();
-      while (instanceIter != instance_.end())
+      packed_freelist_iterator_t<object_t> objectIter = object_.begin();
+      while (objectIter != object_.end())
       {
         //Bind descriptor set
         std::vector<render::descriptor_set_t> descriptorSets(3);
         descriptorSets[0] = globalsDescriptorSet_;
-        descriptorSets[1] = instanceIter.get().descriptorSet_;
-        descriptorSets[2] = material_.get(instanceIter.get().material_)->descriptorSet_;
+        descriptorSets[1] = objectIter.get().descriptorSet_;
+        descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
         bkk::render::descriptorSetBindForGraphics(geometryCommandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets.data(), (uint32_t)descriptorSets.size());
 
         //Draw call
-        mesh::mesh_t* mesh = mesh_.get(instanceIter.get().mesh_);
+        mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
         mesh::draw(geometryCommandBuffer_.handle_, *mesh);
-        ++instanceIter;
+        ++objectIter;
       }
     }
     render::commandBufferEnd(*context_, geometryCommandBuffer_);
@@ -732,13 +720,13 @@ struct scene_t
       ++materialIter;
     }
 
-    //Destroy instance resources
-    packed_freelist_iterator_t<instance_t> instanceIter = instance_.begin();
-    while( instanceIter != instance_.end() )
+    //Destroy object resources
+    packed_freelist_iterator_t<object_t> objectIter = object_.begin();
+    while( objectIter != object_.end() )
     {
-      render::gpuBufferDestroy(*context_, &instanceIter.get().ubo_, &allocator_ );
-      render::descriptorSetDestroy(*context_, &instanceIter.get().descriptorSet_ );
-      ++instanceIter;
+      render::gpuBufferDestroy(*context_, &objectIter.get().ubo_, &allocator_ );
+      render::descriptorSetDestroy(*context_, &objectIter.get().descriptorSet_ );
+      ++objectIter;
     }
 
     //Destroy global resources
@@ -776,7 +764,7 @@ private:
   render::descriptor_set_t globalsDescriptorSet_;
 
   render::descriptor_set_layout_t materialDescriptorSetLayout_;
-  render::descriptor_set_layout_t instanceDescriptorSetLayout_;
+  render::descriptor_set_layout_t objectDescriptorSetLayout_;
   render::descriptor_set_layout_t lightDescriptorSetLayout_;
 
     
@@ -818,7 +806,7 @@ private:
 
   packed_freelist_t<material_t> material_;
   packed_freelist_t<mesh::mesh_t> mesh_;
-  packed_freelist_t<instance_t> instance_;
+  packed_freelist_t<object_t> object_;
   packed_freelist_t<light_t> light_;
 
   
@@ -837,7 +825,7 @@ private:
   bool mouseButtonPressed_ = false;  
 };
 
-void AnimateLights(f32 timeDelta, std::vector< bkk::handle_t >& lights, scene_t& scene )
+void animateLights(f32 timeDelta, std::vector< bkk::handle_t >& lights, scene_t& scene )
 {
   static const vec3 light_path[] =
   {
@@ -862,8 +850,7 @@ void AnimateLights(f32 timeDelta, std::vector< bkk::handle_t >& lights, scene_t&
     vec3 p2 = light_path[(baseFrame + 2) % 5];
     vec3 p3 = light_path[(baseFrame + 3) % 5];
 
-    vec3 position = maths::cubicInterpolation(p0, p1, p2, p3, f);
-    scene.setLightPosition(lights[i], position);
+    scene.getLight(lights[i])->uniforms_.position_ = vec4(maths::cubicInterpolation(p0, p1, p2, p3, f),1.0);
   }
 }
 
@@ -880,37 +867,36 @@ int main()
 
   //Initialize scene
   scene_t scene;
-  scene.Initialize( context, maths::uvec2(800u,600u) );
+  scene.initialize( context );
 
   //Add some materials
-  bkk::handle_t material0 = scene.AddMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.1f,0.1f,0.1f), 1.0f);
-  bkk::handle_t material1 = scene.AddMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.4f,0.4f,0.4f), 1.0f);
-  bkk::handle_t material2 = scene.AddMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.8f,0.8f,0.8f), 1.0f);
-  bkk::handle_t material3 = scene.AddMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.2f,0.2f,0.2f), 1.0f);
-  bkk::handle_t material4 = scene.AddMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.5f,0.5f,0.5f), 1.0f);
+  bkk::handle_t material0 = scene.addMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.1f,0.1f,0.1f), 1.0f);
+  bkk::handle_t material1 = scene.addMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.4f,0.4f,0.4f), 1.0f);
+  bkk::handle_t material2 = scene.addMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.8f,0.8f,0.8f), 1.0f);
+  bkk::handle_t material3 = scene.addMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.2f,0.2f,0.2f), 1.0f);
+  bkk::handle_t material4 = scene.addMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.5f,0.5f,0.5f), 1.0f);
 
   //Add some meshes
-  bkk::handle_t bunny = scene.AddMesh( "../resources/bunny.ply" );
-  bkk::handle_t sphere = scene.AddMesh("../resources/sphere.obj");
-  bkk::handle_t quad = scene.AddQuadMesh();
+  bkk::handle_t bunny = scene.addMesh( "../resources/bunny.ply" );
+  bkk::handle_t sphere = scene.addMesh("../resources/sphere.obj");
+  bkk::handle_t quad = scene.addQuadMesh();
 
-  //Add instances
-  scene.AddInstance( bunny, material0, maths::computeTransform( maths::vec3(-3.0f, 0.0f, -1.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.AddInstance( bunny, material1, maths::computeTransform( maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.AddInstance( bunny, material2, maths::computeTransform( maths::vec3(4.0f, 0.0f, -4.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.AddInstance( bunny, material3, maths::computeTransform( maths::vec3(-1.5f, 0.0f, 3.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.AddInstance( bunny, material4, maths::computeTransform( maths::vec3(2.5f, 0.0f, 3.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.AddInstance( quad,  material0, maths::computeTransform( maths::vec3(0.0f, 0.35f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
-  //scene.AddInstance( context, sphere, material2, maths::computeTransform(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(2.0f, 2.0f, 2.0f), maths::QUAT_UNIT));
+  //Add objects
+  scene.addObject( bunny, material0, maths::computeTransform( maths::vec3(-3.0f, 0.0f, -1.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.addObject( bunny, material1, maths::computeTransform( maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.addObject( bunny, material2, maths::computeTransform( maths::vec3(4.0f, 0.0f, -4.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.addObject( bunny, material3, maths::computeTransform( maths::vec3(-1.5f, 0.0f, 3.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.addObject( bunny, material4, maths::computeTransform( maths::vec3(2.5f, 0.0f, 3.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.addObject( quad,  material0, maths::computeTransform( maths::vec3(0.0f, 0.35f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
     
   //Add lights
   std::vector < bkk::handle_t > lights;
-  lights.push_back( scene.AddLight(vec3(0.0f,0.0f,0.0f),   5.0f, vec3(1.0f,0.0f,0.0f) ) );
-  lights.push_back( scene.AddLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 1.0f, 0.0f)) );
-  lights.push_back( scene.AddLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 0.0f, 1.0f)) );
-  lights.push_back(scene.AddLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(1.0f, 0.0f, 0.0f)));
-  lights.push_back(scene.AddLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 1.0f, 0.0f)));
-  lights.push_back(scene.AddLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 0.0f, 1.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f,0.0f,0.0f),   5.0f, vec3(1.0f,0.0f,0.0f) ) );
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 1.0f, 0.0f)) );
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 0.0f, 1.0f)) );
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(1.0f, 0.0f, 0.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 1.0f, 0.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 0.0f, 1.0f)));
   
   auto timePrev = bkk::time::getCurrent();
   auto currentTime = timePrev;
@@ -958,7 +944,7 @@ int main()
     }
     currentTime = bkk::time::getCurrent();
     f32 delta = bkk::time::getDifference(timePrev, currentTime);// *0.001f;
-    AnimateLights(delta, lights, scene);
+    animateLights(delta, lights, scene);
     timePrev = currentTime;
 
     
