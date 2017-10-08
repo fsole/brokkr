@@ -878,15 +878,17 @@ int main()
 
   //Add some meshes
   bkk::handle_t bunny = scene.addMesh( "../resources/bunny.ply" );
-  bkk::handle_t sphere = scene.addMesh("../resources/sphere.obj");
+  bkk::handle_t dragon = scene.addMesh("../resources/dragon.obj");
+  bkk::handle_t buddha = scene.addMesh("../resources/buddha.obj");
+  bkk::handle_t armadillo = scene.addMesh("../resources/armadillo.obj");
   bkk::handle_t quad = scene.addQuadMesh();
 
   //Add objects
   scene.addObject( bunny, material0, maths::computeTransform( maths::vec3(-3.0f, 0.0f, -1.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
   scene.addObject( bunny, material1, maths::computeTransform( maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.addObject( bunny, material2, maths::computeTransform( maths::vec3(4.0f, 0.0f, -4.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.addObject( bunny, material3, maths::computeTransform( maths::vec3(-1.5f, 0.0f, 3.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.addObject( bunny, material4, maths::computeTransform( maths::vec3(2.5f, 0.0f, 3.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
+  scene.addObject( dragon, material2, maths::computeTransform( maths::vec3(3.5f, 1.4f, -3.0f), maths::vec3(1.5f, 1.5f, 1.5f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))));
+  scene.addObject( buddha, material3, maths::computeTransform( maths::vec3(-1.5f, 1.75f, 3.5f), maths::vec3(1.5f, 1.5f, 1.5f), maths::quaternionFromAxisAngle(vec3(1,0,0), maths::degreeToRadian(90.0f) )));
+  scene.addObject( armadillo, material4, maths::computeTransform( maths::vec3(2.5f, 1.2f, 3.0f), maths::vec3(0.7f, 0.7f, 0.7f), maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(180.0f))));
   scene.addObject( quad,  material0, maths::computeTransform( maths::vec3(0.0f, 0.35f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
     
   //Add lights
