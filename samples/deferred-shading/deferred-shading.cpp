@@ -170,12 +170,10 @@ static const char* gLightPassFragmentShaderSource = {
     vec3 nominator = NDF * G * F;\n\
     float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;\n\
     vec3 specular = nominator / denominator;\n\
-    float distance    = length(lightPositionVS - positionVS);\n\
-    float attenuation = 1.0 / (distance * distance);\n\
+    float lightDistance    = length(lightPositionVS - positionVS);\n\
+    float attenuation = 1.0 / (lightDistance * lightDistance);\n\
     float NdotL =  max( 0.0, dot( N, L ) );\n \
-    vec3 Lo = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;\n\
-    vec3 ambient = vec3(0.03) * albedo;\n\
-    vec3 color = Lo;\n\
+    vec3 color = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;\n\
     color = color / (color + vec3(1.0));\n\
     color = pow(color, vec3(1.0 / 2.2));\n\
     result = vec4(color,1.0);\n\
@@ -625,16 +623,15 @@ struct scene_t
     render::commandBufferBegin(*context_, &geometryFrameBuffer_, 4u, clearValues, geometryCommandBuffer_);
     {
       bkk::render::graphicsPipelineBind(geometryCommandBuffer_.handle_, gBufferPipeline_);
-
+      render::descriptor_set_t descriptorSets[3];
+      descriptorSets[0] = globalsDescriptorSet_;
       packed_freelist_iterator_t<object_t> objectIter = object_.begin();
       while (objectIter != object_.end())
       {
         //Bind descriptor set
-        std::vector<render::descriptor_set_t> descriptorSets(3);
-        descriptorSets[0] = globalsDescriptorSet_;
         descriptorSets[1] = objectIter.get().descriptorSet_;
         descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(geometryCommandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets.data(), (uint32_t)descriptorSets.size());
+        bkk::render::descriptorSetBindForGraphics(geometryCommandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
 
         //Draw call
         mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
@@ -656,15 +653,15 @@ struct scene_t
     {
       bkk::render::graphicsPipelineBind(lightCommandBuffer_.handle_, lightPipeline_);
 
+      render::descriptor_set_t descriptorSets[3];
+      descriptorSets[0] = globalsDescriptorSet_;
+      descriptorSets[1] = lightPassTexturesDescriptorSet_;
       packed_freelist_iterator_t<light_t> lightIter = light_.begin();
       while (lightIter != light_.end())
       {
-        //Bind descriptor set
-        std::vector<render::descriptor_set_t> descriptorSets(3);
-        descriptorSets[0] = globalsDescriptorSet_;
-        descriptorSets[1] = lightPassTexturesDescriptorSet_;
+        //Bind descriptor set        
         descriptorSets[2] = lightIter.get().descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(lightCommandBuffer_.handle_,lightPipelineLayout_, 0u, descriptorSets.data(), (uint32_t)descriptorSets.size());
+        bkk::render::descriptorSetBindForGraphics(lightCommandBuffer_.handle_,lightPipelineLayout_, 0u, descriptorSets, 3u);
 
         //Draw call       
         mesh::draw(lightCommandBuffer_.handle_, sphereMesh_ );
@@ -885,7 +882,7 @@ private:
   bool mouseButtonPressed_ = false;  
 };
 
-void animateLights(f32 timeDelta, std::vector< bkk::handle_t >& lights, scene_t& scene )
+void animateLights( scene_t& scene, std::vector< bkk::handle_t >& lights, f32 timeDelta )
 {
   static const vec3 light_path[] =
   {
@@ -930,7 +927,7 @@ int main()
   scene.initialize( context );
 
   //Add some materials  
-  bkk::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.9f);
+  bkk::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.0f, 0.0f, 0.0f), 1.0f);
   bkk::handle_t redWall = scene.addMaterial( vec3(0.5f,0.0f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.9f);
   bkk::handle_t greenWall = scene.addMaterial( vec3(0.0f,0.5f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.9f);  
   bkk::handle_t gold = scene.addMaterial(vec3(1.000, 0.766, 0.336), 1.0f, vec3(1.000, 0.766, 0.336), 0.3f);
@@ -977,6 +974,7 @@ int main()
   lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(0.0f, 1.0f, 0.0f)));
   lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(0.0f, 0.0f, 1.0f)));
 
+  bool bAnimateLights = true;
   auto timePrev = bkk::time::getCurrent();
   auto currentTime = timePrev;
 
@@ -1003,6 +1001,10 @@ int main()
         {
           window::event_key_t* keyEvent = (window::event_key_t*)event;
           scene.OnKeyEvent( keyEvent->keyCode_, keyEvent->pressed_, scene );
+          if(keyEvent->pressed_ && keyEvent->keyCode_ == 'p')
+          {
+            bAnimateLights = !bAnimateLights;
+          }
           break;
         }
         case window::EVENT_MOUSE_BUTTON:
@@ -1022,16 +1024,19 @@ int main()
       }
     }
     currentTime = bkk::time::getCurrent();
-    f32 delta = bkk::time::getDifference(timePrev, currentTime);// *0.001f;
-    animateLights(delta, lights, scene);
+
+    if (bAnimateLights)
+    {
+      animateLights(scene, lights, bkk::time::getDifference(timePrev, currentTime));
+    }
+
     timePrev = currentTime;
 
     
     //Render next frame
     scene.Render();
   }
-
-
+  
   render::contextFlush( context );
   scene.Destroy();
   render::contextDestroy( &context );

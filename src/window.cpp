@@ -26,7 +26,8 @@ static window::key_e KeyFromKeyCode(WPARAM keycode)
       return KEY_S;
     case 0x27:
       return KEY_D;
-
+    case 0x50:
+      return KEY_P;
     case 0x5A:
       return KEY_Z;
     case 0x58:
