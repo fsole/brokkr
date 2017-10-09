@@ -24,14 +24,15 @@ static const char* gGeometryPassVertexShaderSource = {
   }scene;\n \
   layout(set = 1, binding = 1) uniform MODEL\n \
   {\n \
-    mat4 value;\n \
+    mat4 transform;\n \
+    mat4 normalTransform;\n \
   }model;\n \
   out vec3 normalViewSpace;\n \
   void main(void)\n \
   {\n \
-    mat4 modelView = scene.view * model.value;\n \
+    mat4 modelView = scene.view * model.transform;\n \
     gl_Position = scene.projection * modelView * vec4(aPosition,1.0);\n \
-    normalViewSpace = normalize((modelView * vec4(aNormal,0.0)).xyz);\n \
+    normalViewSpace = normalize((transpose( inverse( modelView) ) * vec4(aNormal,0.0)).xyz);\n \
   }\n"
 };
 
@@ -440,13 +441,13 @@ struct scene_t
     vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &renderComplete_);
 
     //Create frame buffer attachment
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, render::texture_sampler_t(), &finalImage_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, render::texture_sampler_t(), &finalImage_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &finalImage_);
 
     //Create render pass
     lightPass_ = {};
     render::render_pass_t::attachment_t attachment;
-    attachment.format_ = VK_FORMAT_B8G8R8A8_UNORM;
+    attachment.format_ = VK_FORMAT_R32G32B32A32_SFLOAT;
     attachment.initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachment.finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     attachment.storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
@@ -587,7 +588,7 @@ struct scene_t
 
     //Update modelview matrices
     std::vector<object_t>& object( object_.getData() );
-    for( u32 i(0); i<object.size(); ++i )
+    for (u32 i(0); i < object.size(); ++i)
     {
       render::gpuBufferUpdate(*context_, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_ );
     }
@@ -622,6 +623,10 @@ struct scene_t
 
     render::commandBufferBegin(*context_, &geometryFrameBuffer_, 4u, clearValues, geometryCommandBuffer_);
     {
+      bkk::render::textureChangeLayout( *context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT0_);
+      bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT1_);
+      bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT2_);
+
       bkk::render::graphicsPipelineBind(geometryCommandBuffer_.handle_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
       descriptorSets[0] = globalsDescriptorSet_;
@@ -638,7 +643,13 @@ struct scene_t
         mesh::draw(geometryCommandBuffer_.handle_, *mesh);
         ++objectIter;
       }
+
+
+      bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT0_);
+      bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
+      bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
     }
+
     render::commandBufferEnd(*context_, geometryCommandBuffer_);
 
 
@@ -651,6 +662,7 @@ struct scene_t
 
     render::commandBufferBegin(*context_, &lightFrameBuffer_, 1u, clearValues, lightCommandBuffer_);
     {
+      bkk::render::textureChangeLayout(*context_, lightCommandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &finalImage_);
       bkk::render::graphicsPipelineBind(lightCommandBuffer_.handle_, lightPipeline_);
 
       render::descriptor_set_t descriptorSets[3];
@@ -667,6 +679,8 @@ struct scene_t
         mesh::draw(lightCommandBuffer_.handle_, sphereMesh_ );
         ++lightIter;
       }
+
+      bkk::render::textureChangeLayout(*context_, lightCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &finalImage_);
     }
     render::commandBufferEnd(*context_, lightCommandBuffer_);
 
