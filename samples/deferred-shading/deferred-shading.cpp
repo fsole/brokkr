@@ -40,7 +40,8 @@ static const char* gGeometryPassFragmentShaderSource = {
   "#version 440 core\n \
   layout(set = 2, binding = 2) uniform MATERIAL\n \
   {\n \
-    vec4 albedo;\n \
+    vec3 albedo;\n \
+    float metallic;\n\
     vec3 F0;\n \
     float roughness;\n \
   }material;\n \
@@ -51,9 +52,9 @@ static const char* gGeometryPassFragmentShaderSource = {
   in vec3 positionViewSpace;\n \
   void main(void)\n \
   {\n \
-    RT0 = vec4(material.albedo.xyz, gl_FragCoord.z);\n \
+    RT0 = vec4(material.albedo, gl_FragCoord.z);\n \
     RT1 = vec4(normalize(normalViewSpace), material.roughness );\n \
-    RT2 = vec4(material.F0, 1.0);\n \
+    RT2 = vec4(material.F0, material.metallic);\n \
   }\n"
 };
 
@@ -78,7 +79,8 @@ static const char* gLightPassVertexShaderSource = {
   void main(void)\n \
   {\n \
     mat4 viewProjection = scene.projection * scene.view;\n \
-    gl_Position = viewProjection * vec4( aPosition*light.radius+light.position.xyz, 1.0 );\n\
+    vec4 vertexPosition =  vec4( aPosition*light.radius+light.position.xyz, 1.0 );\n\
+    gl_Position = viewProjection * vertexPosition;\n\
     lightPositionVS = (scene.view * light.position).xyz;\n\
   }\n"
 };
@@ -103,6 +105,7 @@ static const char* gLightPassFragmentShaderSource = {
   layout(set = 1, binding = 1) uniform sampler2D RT1;\n \
   layout(set = 1, binding = 2) uniform sampler2D RT2;\n \
   in vec3 lightPositionVS;\n\
+  const float PI = 3.14159265359;\n\
   layout(location = 0) out vec4 result;\n \
   vec3 ViewSpacePositionFromDepth(vec2 uv, float depth)\n\
   {\n\
@@ -110,17 +113,72 @@ static const char* gLightPassFragmentShaderSource = {
     vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
     return(viewSpacePosition.xyz / viewSpacePosition.w);\n\
   }\n\
+  vec3 fresnelSchlick(float cosTheta, vec3 F0)\n\
+  {\n\
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);\n\
+  }\n\
+  float DistributionGGX(vec3 N, vec3 H, float roughness)\n\
+  {\n\
+    float a = roughness*roughness;\n\
+    float a2 = a*a;\n\
+    float NdotH = max(dot(N, H), 0.0);\n\
+    float NdotH2 = NdotH*NdotH;\n\
+    float nom = a2;\n\
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\n\
+    denom = PI * denom * denom;\n\
+    return nom / denom;\n\
+  }\n\
+  float GeometrySchlickGGX(float NdotV, float roughness)\n\
+  {\n\
+    float r = (roughness + 1.0);\n\
+    float k = (r*r) / 8.0;\n\
+    float nom = NdotV;\n\
+    float denom = NdotV * (1.0 - k) + k;\n\
+    return nom / denom;\n\
+  }\n\
+  float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)\n\
+  {\n\
+    float NdotV = max(dot(N, V), 0.0);\n\
+    float NdotL = max(dot(N, L), 0.0);\n\
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\n\
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\n\
+    return ggx1 * ggx2;\n\
+  }\n\
   void main(void)\n \
   {\n \
     vec2 uv = gl_FragCoord.xy / scene.imageSize;\n\
-    vec4 albedo = texture(RT0, uv);\n \
-    float depth = albedo.w;\n\
-    vec3 GBufferPositionVS = ViewSpacePositionFromDepth( uv,depth );\n\
-    vec3 lightVector = lightPositionVS-GBufferPositionVS;\n\
-    vec3 GBufferNormal = normalize( texture(RT1, uv).xyz );\n \
-    float attenuation = max( 0, ( light.radius - length(lightVector) ) / light.radius);\n\
-    float NdotL =  max( 0.0, dot( GBufferNormal, normalize(lightVector) ) );\n \
-    result =  vec4( attenuation * NdotL * light.color * albedo.xyz,1.0);\n \
+    vec4 RT0Value = texture(RT0, uv);\n \
+    vec3 albedo = RT0Value.xyz;\n\
+    float depth = RT0Value.w;\n\
+    vec4 RT1Value = texture(RT1, uv);\n \
+    vec3 N = normalize(RT1Value.xyz); \n \
+    float roughness = RT1Value.w;\n\
+    vec4 RT2Value = texture(RT2, uv);\n \
+    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );\n\
+    vec3 L = normalize( lightPositionVS-positionVS );\n\
+    vec3 F0 = RT2Value.xyz;\n \
+    float metallic = RT2Value.w;\n\
+    F0 = mix(F0, albedo, metallic);\n \
+    vec3 V = -normalize(positionVS);\n\
+    vec3 H = normalize(V + L);\n\
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);\n \
+    float NDF = DistributionGGX(N, H, roughness);\n\
+    float G = GeometrySmith(N, V, L, roughness);\n\
+    vec3 kS = F;\n\
+    vec3 kD = vec3(1.0) - kS;\n\
+    kD *= 1.0 - metallic;\n\
+    vec3 nominator = NDF * G * F;\n\
+    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;\n\
+    vec3 specular = nominator / denominator;\n\
+    float distance    = length(lightPositionVS - positionVS);\n\
+    float attenuation = 1.0 / (distance * distance);\n\
+    float NdotL =  max( 0.0, dot( N, L ) );\n \
+    vec3 Lo = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;\n\
+    vec3 ambient = vec3(0.03) * albedo;\n\
+    vec3 color = Lo;\n\
+    color = color / (color + vec3(1.0));\n\
+    color = pow(color, vec3(1.0 / 2.2));\n\
+    result = vec4(color,1.0);\n\
   }\n"
 };
 
@@ -167,7 +225,8 @@ struct scene_t
   {
     struct material_uniforms_t
     {
-      vec4 albedo_;
+      vec3 albedo_;
+      float metallic_;
       vec3 F0_;
       float roughness_;
     };
@@ -226,11 +285,12 @@ struct scene_t
     return mesh_.add( mesh );
   }
 
-  bkk::handle_t addMaterial( const vec3& albedo, const vec3& F0, float roughness )
+  bkk::handle_t addMaterial( const vec3& albedo, float metallic, const vec3& F0, float roughness )
   {
     //Create uniform buffer and descriptor set
     material_t material = {};
-    material.uniforms_.albedo_ = vec4(albedo,1.0);
+    material.uniforms_.albedo_ = albedo;
+    material.uniforms_.metallic_ = metallic;
     material.uniforms_.F0_ = F0;
     material.uniforms_.roughness_ = roughness;
     render::gpuBufferCreate(  *context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
@@ -451,9 +511,9 @@ struct scene_t
     initializeOffscreenPasses(context, size);
 
     //Create scene uniform buffer
-    camera_.position_ = vec3(0.0f, 2.5f, 8.0f);
+    camera_.position_ = vec3(0.0f, 2.5f, 8.5f);
     camera_.Update();
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.5f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
+    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
     computeInverse(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
     uniforms_.viewMatrix_ = camera_.view_;
     uniforms_.imageSize_ = vec2((f32)size.x, (f32)size.y);
@@ -531,15 +591,14 @@ struct scene_t
     std::vector<object_t>& object( object_.getData() );
     for( u32 i(0); i<object.size(); ++i )
     {
-      maths::mat4* modelTx = transformManager_.getWorldMatrix( object[i].transform_ );
-      render::gpuBufferUpdate(*context_, modelTx, 0, sizeof(mat4), &object[i].ubo_ );
+      render::gpuBufferUpdate(*context_, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_ );
     }
 
+    //Update lights position
     std::vector<light_t>& light(light_.getData());
     for (u32 i(0); i<light.size(); ++i)
     {
-      maths::vec4 position = light[i].uniforms_.position_;
-      render::gpuBufferUpdate(*context_, &position, 0, sizeof(vec4), &light[i].ubo_);
+      render::gpuBufferUpdate(*context_, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
     }
 
 
@@ -733,8 +792,7 @@ struct scene_t
     render::shaderDestroy(*context_, &gBuffervertexShader_);
     render::shaderDestroy(*context_, &gBufferfragmentShader_);
     render::graphicsPipelineDestroy(*context_, &gBufferPipeline_);
-    render::descriptorSetDestroy(*context_, &globalsDescriptorSet_);
-    render::descriptorPoolDestroy(*context_, &descriptorPool_ );
+    render::descriptorSetDestroy(*context_, &globalsDescriptorSet_);    
     render::pipelineLayoutDestroy(*context_, &gBufferPipelineLayout_);
     render::gpuBufferDestroy(*context_, &ubo_, &allocator_ );
     render::gpuAllocatorDestroy(*context_, &allocator_ );
@@ -750,7 +808,9 @@ struct scene_t
     render::shaderDestroy(*context_, &vertexShader_);
     render::shaderDestroy(*context_, &fragmentShader_);
     render::pipelineLayoutDestroy(*context_, &pipelineLayout_);
+    render::descriptorPoolDestroy(*context_, &descriptorPool_);
     mesh::destroy(*context_, &fullScreenQuad_);
+    mesh::destroy(*context_, &sphereMesh_);
   }
   
 private:
@@ -829,11 +889,11 @@ void animateLights(f32 timeDelta, std::vector< bkk::handle_t >& lights, scene_t&
 {
   static const vec3 light_path[] =
   {
-    vec3(-4.0f,  1.0f, 5.0f),
-    vec3(-4.0f,  1.0f, -5.0f),
-    vec3(4.0f,   1.0f, 5.0f),
-    vec3(4.0f,   1.0f, -5.0f),
-    vec3(-4.0f,  1.0f, 5.0f)
+    vec3(-3.0f,  2.0f, 4.0f),
+    vec3(-3.0f,  2.0f, -3.0f),
+    vec3(3.0f,   2.0f, -3.0f),
+    vec3(3.0f,   2.0f, 4.0f),
+    vec3(-3.0f,  2.0f, 4.0f)
   };
 
   static f32 totalTime = 0.0f;
@@ -869,37 +929,54 @@ int main()
   scene_t scene;
   scene.initialize( context );
 
-  //Add some materials
-  bkk::handle_t material0 = scene.addMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.1f,0.1f,0.1f), 1.0f);
-  bkk::handle_t material1 = scene.addMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.4f,0.4f,0.4f), 1.0f);
-  bkk::handle_t material2 = scene.addMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.8f,0.8f,0.8f), 1.0f);
-  bkk::handle_t material3 = scene.addMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.2f,0.2f,0.2f), 1.0f);
-  bkk::handle_t material4 = scene.addMaterial( vec3(1.0f,1.0f,1.0f), vec3(0.5f,0.5f,0.5f), 1.0f);
+  //Add some materials  
+  bkk::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.9f);
+  bkk::handle_t redWall = scene.addMaterial( vec3(0.5f,0.0f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.9f);
+  bkk::handle_t greenWall = scene.addMaterial( vec3(0.0f,0.5f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.9f);  
+  bkk::handle_t gold = scene.addMaterial(vec3(1.000, 0.766, 0.336), 1.0f, vec3(1.000, 0.766, 0.336), 0.3f);
+  bkk::handle_t silver = scene.addMaterial(vec3(0.972, 0.960, 0.915), 1.0f, vec3(0.972, 0.960, 0.915), 0.3f);
+  bkk::handle_t copper = scene.addMaterial(vec3(1.0, 0.637, 0.538), 1.0f, vec3(1.0, 0.637, 0.538), 0.3f);
+  bkk::handle_t redPlastic = scene.addMaterial(vec3(1.0, 0.0, 0.0), 0.0f, vec3(0.5, 0.5, 0.5), 0.2f);
+  bkk::handle_t bluePlastic = scene.addMaterial(vec3(0.0, 0.0, 1.0), 0.0f, vec3(0.5, 0.5, 0.5), 0.2f);
 
   //Add some meshes
   bkk::handle_t bunny = scene.addMesh( "../resources/bunny.ply" );
   bkk::handle_t dragon = scene.addMesh("../resources/dragon.obj");
   bkk::handle_t buddha = scene.addMesh("../resources/buddha.obj");
   bkk::handle_t armadillo = scene.addMesh("../resources/armadillo.obj");
+  bkk::handle_t teapot = scene.addMesh("../resources/teapot.obj");
   bkk::handle_t quad = scene.addQuadMesh();
-
-  //Add objects
-  scene.addObject( bunny, material0, maths::computeTransform( maths::vec3(-3.0f, 0.0f, -1.5f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.addObject( bunny, material1, maths::computeTransform( maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(10.0f, 10.0f, 10.0f), maths::QUAT_UNIT ) );
-  scene.addObject( dragon, material2, maths::computeTransform( maths::vec3(3.5f, 1.4f, -3.0f), maths::vec3(1.5f, 1.5f, 1.5f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))));
-  scene.addObject( buddha, material3, maths::computeTransform( maths::vec3(-1.5f, 1.75f, 3.5f), maths::vec3(1.5f, 1.5f, 1.5f), maths::quaternionFromAxisAngle(vec3(1,0,0), maths::degreeToRadian(90.0f) )));
-  scene.addObject( armadillo, material4, maths::computeTransform( maths::vec3(2.5f, 1.2f, 3.0f), maths::vec3(0.7f, 0.7f, 0.7f), maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(180.0f))));
-  scene.addObject( quad,  material0, maths::computeTransform( maths::vec3(0.0f, 0.35f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
     
+  //Cornell box
+  scene.addObject( quad, wall, maths::computeTransform( maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
+  scene.addObject( quad, redWall, maths::computeTransform(maths::vec3(-5.0f, 4.0f, 0.0f), maths::vec3(4.0f, 5.0f, 5.0f), maths::quaternionFromAxisAngle(vec3(0, 0, 1), maths::degreeToRadian(90.0f))));
+  scene.addObject( quad, greenWall, maths::computeTransform(maths::vec3(5.0f, 4.0f, 0.0f), maths::vec3(4.0f, 5.0f, 5.0f), maths::quaternionFromAxisAngle(vec3(0, 0, 1), maths::degreeToRadian(-90.0f))));
+  scene.addObject( quad, wall, maths::computeTransform(maths::vec3(0.0f, 4.0f, -5.0f), maths::vec3(5.0f, 5.0f, 4.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(-90.0f))));
+  scene.addObject(quad, wall, maths::computeTransform(maths::vec3(0.0f, 8.0f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(180.0f))));
+  
+  //scene objects  
+  scene.addObject(bunny, bluePlastic, maths::computeTransform(maths::vec3(0.0f, -0.4f, 0.5f), maths::vec3(12.0f, 12.0f, 12.0f), maths::QUAT_UNIT));
+  scene.addObject(dragon, silver, maths::computeTransform(maths::vec3(2.5f, 1.2f, 4.0f), maths::vec3(1.7f, 1.7f, 1.7f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-10.0f))));
+  scene.addObject(buddha, copper, maths::computeTransform(maths::vec3(-3.0f, 1.4f, 4.0f), maths::vec3(1.5f, 1.5f, 1.5f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-30.0f))));
+  scene.addObject(armadillo, redPlastic, maths::computeTransform(maths::vec3(-3.0f, 1.1f, -1.5f), maths::vec3(1.0f, 1.0f, 1.0f), maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(180.0f))));
+  scene.addObject(teapot, gold, maths::computeTransform(maths::vec3(2.0f, 0.0f, -3.0f), maths::vec3(0.5f, 0.5f, 0.5f), maths::QUAT_UNIT));
+
+
   //Add lights
   std::vector < bkk::handle_t > lights;
-  lights.push_back(scene.addLight(vec3(0.0f,0.0f,0.0f),   5.0f, vec3(1.0f,0.0f,0.0f) ) );
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 1.0f, 0.0f)) );
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 0.0f, 1.0f)) );
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(1.0f, 0.0f, 0.0f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 1.0f, 0.0f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 5.0f, vec3(0.0f, 0.0f, 1.0f)));
-  
+  lights.push_back(scene.addLight(vec3(0.0f,0.0f,0.0f),   20.0f, vec3(1.0f,1.0f,1.0f) ) );
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(1.0f, 1.0f, 1.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(1.0f, 1.0f, 1.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(1.0f, 1.0f, 1.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(1.0f, 1.0f, 1.0f)));  
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(0.0f, 0.0f, 1.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(1.0f, 0.0f, 0.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(0.0f, 1.0f, 0.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(0.0f, 0.0f, 1.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(1.0f, 0.0f, 0.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(0.0f, 1.0f, 0.0f)));
+  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 20.0f, vec3(0.0f, 0.0f, 1.0f)));
+
   auto timePrev = bkk::time::getCurrent();
   auto currentTime = timePrev;
 
