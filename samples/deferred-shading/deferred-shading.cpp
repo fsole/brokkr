@@ -1,3 +1,26 @@
+/*
+* Brokkr framework
+*
+* Copyright(c) 2017 by Ferran Sole
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files(the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions :
+*
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+*/
 
 #include "render.h"
 #include "window.h"
@@ -159,7 +182,6 @@ static const char* gLightPassFragmentShaderSource = {
     vec3 L = normalize( lightPositionVS-positionVS );\n\
     vec3 F0 = RT2Value.xyz;\n \
     float metallic = RT2Value.w;\n\
-    F0 = mix(F0, albedo, metallic);\n \
     vec3 V = -normalize(positionVS);\n\
     vec3 H = normalize(V + L);\n\
     vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);\n \
@@ -644,10 +666,10 @@ struct scene_t
         ++objectIter;
       }
 
-
-      bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT0_);
-      bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
-      bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
+      
+    bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT0_);
+    bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
+    bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
     }
 
     render::commandBufferEnd(*context_, geometryCommandBuffer_);
@@ -941,14 +963,14 @@ int main()
   scene.initialize( context );
 
   //Add some materials  
-  bkk::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.0f, 0.0f, 0.0f), 1.0f);
-  bkk::handle_t redWall = scene.addMaterial( vec3(0.5f,0.0f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.9f);
-  bkk::handle_t greenWall = scene.addMaterial( vec3(0.0f,0.5f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.9f);  
-  bkk::handle_t gold = scene.addMaterial(vec3(1.000, 0.766, 0.336), 1.0f, vec3(1.000, 0.766, 0.336), 0.3f);
-  bkk::handle_t silver = scene.addMaterial(vec3(0.972, 0.960, 0.915), 1.0f, vec3(0.972, 0.960, 0.915), 0.3f);
-  bkk::handle_t copper = scene.addMaterial(vec3(1.0, 0.637, 0.538), 1.0f, vec3(1.0, 0.637, 0.538), 0.3f);
-  bkk::handle_t redPlastic = scene.addMaterial(vec3(1.0, 0.0, 0.0), 0.0f, vec3(0.5, 0.5, 0.5), 0.2f);
-  bkk::handle_t bluePlastic = scene.addMaterial(vec3(0.0, 0.0, 1.0), 0.0f, vec3(0.5, 0.5, 0.5), 0.2f);
+  bkk::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f),0.7f);
+  bkk::handle_t redWall = scene.addMaterial( vec3(0.5f,0.0f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
+  bkk::handle_t greenWall = scene.addMaterial( vec3(0.0f,0.5f,0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
+  bkk::handle_t gold = scene.addMaterial(vec3(0.0, 0.0, 0.0), 1.0f, vec3(1.000, 0.766, 0.336), 0.3f);
+  bkk::handle_t silver = scene.addMaterial(vec3(0.0, 0.0, 0.0), 1.0f, vec3(0.972, 0.960, 0.915), 0.3f);
+  bkk::handle_t copper = scene.addMaterial(vec3(0.0, 0.0, 0.0), 1.0f, vec3(1.0, 0.537, 0.438), 0.3f);
+  bkk::handle_t redPlastic = scene.addMaterial(vec3(1.0, 0.0, 0.0), 0.0f, vec3(0.05, 0.05, 0.05), 0.2f);
+  bkk::handle_t bluePlastic = scene.addMaterial(vec3(0.0, 0.0, 1.0), 0.0f, vec3(0.05, 0.05, 0.05), 0.2f);
 
   //Add some meshes
   bkk::handle_t bunny = scene.addMesh( "../resources/bunny.ply" );

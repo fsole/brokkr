@@ -1,3 +1,26 @@
+/*
+* Brokkr framework
+*
+* Copyright(c) 2017 by Ferran Sole
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files(the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions :
+*
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+*/
 
 #include "render.h"
 #include "window.h"
@@ -30,47 +53,47 @@ static maths::vec2 gMousePosition = vec2(0.0f,0.0f);
 static bool gMouseButtonPressed = false;
 
 static const char* gVertexShaderSource = {
-	"#version 440 core\n \
-	layout(location = 0) in vec3 aPosition;\n \
-	layout(location = 1) in vec3 aNormal;\n \
-	layout(location = 2) in vec2 aTexCoord;\n \
-	layout(location = 3) in vec4 aBonesWeight;\n \
-	layout(location = 4) in vec4 aBonesId;\n \
-	layout(binding = 1) uniform UNIFORMS\n \
-	{\n \
-		mat4 modelView;\n \
-		mat4 modelViewProjection;\n \
-	}uniforms;\n \
-	layout(binding = 2) uniform BONESTX\n \
-	{\n \
-		mat4 bones[64];\n \
-	}bonesTx;\n \
-	out vec3 normalViewSpace;\n \
-	out vec3 lightViewSpace;\n \
-	void main(void)\n \
-	{\n \
-		mat4 transform = bonesTx.bones[int(aBonesId[0])] * aBonesWeight[0] +  \n \
-		bonesTx.bones[int(aBonesId[1])] * aBonesWeight[1] +					  \n \
-		bonesTx.bones[int(aBonesId[2])] * aBonesWeight[2] +					  \n \
-		bonesTx.bones[int(aBonesId[3])] * aBonesWeight[3];                    \n \
-		gl_Position = uniforms.modelViewProjection * transform * vec4(aPosition,1.0); \n \
-		mat4 normalTransform = mat4(inverse(transpose(uniforms.modelView * transform)));\n \
-		normalViewSpace = normalize((normalTransform * vec4(aNormal,0.0)).xyz);\n \
-		vec3 lightPositionModelSpace = vec3(-0.5,0.5,1.0);\n \
-		lightViewSpace = normalize((uniforms.modelView * vec4(normalize(lightPositionModelSpace),0.0)).xyz);\n \
-	}\n"
+  "#version 440 core\n \
+  layout(location = 0) in vec3 aPosition;\n \
+  layout(location = 1) in vec3 aNormal;\n \
+  layout(location = 2) in vec2 aTexCoord;\n \
+  layout(location = 3) in vec4 aBonesWeight;\n \
+  layout(location = 4) in vec4 aBonesId;\n \
+  layout(binding = 1) uniform UNIFORMS\n \
+  {\n \
+    mat4 modelView;\n \
+    mat4 modelViewProjection;\n \
+  }uniforms;\n \
+  layout(binding = 2) uniform BONESTX\n \
+  {\n \
+    mat4 bones[64];\n \
+  }bonesTx;\n \
+  out vec3 normalViewSpace;\n \
+  out vec3 lightViewSpace;\n \
+  void main(void)\n \
+  {\n \
+    mat4 transform = bonesTx.bones[int(aBonesId[0])] * aBonesWeight[0] +  \n \
+    bonesTx.bones[int(aBonesId[1])] * aBonesWeight[1] +					  \n \
+    bonesTx.bones[int(aBonesId[2])] * aBonesWeight[2] +					  \n \
+    bonesTx.bones[int(aBonesId[3])] * aBonesWeight[3];                    \n \
+    gl_Position = uniforms.modelViewProjection * transform * vec4(aPosition,1.0); \n \
+    mat4 normalTransform = mat4(inverse(transpose(uniforms.modelView * transform)));\n \
+    normalViewSpace = normalize((normalTransform * vec4(aNormal,0.0)).xyz);\n \
+    vec3 lightPositionModelSpace = vec3(-0.5,0.5,1.0);\n \
+    lightViewSpace = normalize((uniforms.modelView * vec4(normalize(lightPositionModelSpace),0.0)).xyz);\n \
+  }\n"
 };
 
 static const char* gFragmentShaderSource = {
-	"#version 440 core\n \
-	in vec3 normalViewSpace;\n \
-	in vec3 lightViewSpace;\n \
-	layout(location = 0) out vec4 color;\n \
-	void main(void)\n \
-	{\n \
-		float diffuse = max(dot(normalize(lightViewSpace), normalize(normalViewSpace)), 0.0);\n \
-		color = vec4(vec3(diffuse), 1.0);\n \
-	}\n"
+  "#version 440 core\n \
+  in vec3 normalViewSpace;\n \
+  in vec3 lightViewSpace;\n \
+  layout(location = 0) out vec4 color;\n \
+  void main(void)\n \
+  {\n \
+    float diffuse = max(dot(normalize(lightViewSpace), normalize(normalViewSpace)), 0.0);\n \
+    color = vec4(vec3(diffuse), 1.0);\n \
+  }\n"
 };
 
 bool CreateUniformBuffer()
