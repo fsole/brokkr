@@ -1,4 +1,4 @@
-#version 450
+#version 440
 
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
@@ -36,7 +36,7 @@ struct Sphere
 };
 
 //Generated image
-layout (binding = 0, rgba8) uniform writeonly image2D result;
+layout (binding = 0, rgba32f) uniform image2D result;
 
 //Data sent from the client
 layout (std140, binding = 1) uniform UBO
@@ -48,13 +48,6 @@ layout (std140, binding = 1) uniform UBO
   Sphere sphere[50];
   uint sphereCount;
 }data;
-
-//Storage buffer used to accumulate the samples over multiple frames
-//at full float precision
-layout (binding = 2) buffer SSBO
-{
-  vec4 data[];
-}accumulationBuffer;
 
 //Pseudo-random number generation
 uint rng_state = 0;
@@ -101,8 +94,6 @@ vec3 GetSampleBiased( in vec3 dir, float power )
   return a*o1 + b*o2 + r.y*dir;
 }
 
-
-
 vec3 RandomPointInSphere()
 {
   vec3 point = vec3(0.0,0.0,0.0);
@@ -116,17 +107,17 @@ vec3 RandomPointInSphere()
 
 vec3 RandomPointInHemisphere( vec3 normal )
 {
-	vec3 p = RandomPointInSphere();
-	//if( dot(normal, p ) < 0.0 )
-	//{
-	//	p = vec3(-p.x,-p.y,-pz);
-	//}	
-	return p;
+  vec3 p = RandomPointInSphere();
+  if( dot(normal, p ) < 0.0 )
+  {
+    p *= -1.0;
+  }	
+  return p;
 }
 
 vec3 FresnelSchlick(float cosTheta, vec3 F0)
 {
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+  return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 } 
 
 vec3 Brdf( in uint objectId, in vec3 normal, in vec3 inDir, in vec3 outDir )
@@ -153,8 +144,6 @@ vec3 Brdf( in uint objectId, in vec3 normal, in vec3 inDir, in vec3 outDir )
   float specPower = pow(2,(1-roughness) * 4.0);
   float D = ((specPower + 2.0f) / (2.0f*3.14159)) * pow( max( dot(normal,h),0.0 ), specPower);
   vec3 specular = F * D / (4.0*NdotV*NdotL+0.001);
-  
-  
   vec3 diffuse = (1.0-F) * data.sphere[objectId].material.albedo / 3.1415;
 
   return (specular + diffuse) * NdotL;
@@ -174,8 +163,7 @@ void SampleMaterial( in uint objectId, in vec3 normal, in Ray ray, out vec3 newD
   else
   {
     //Diffuse reflection
-    //newDirection = normalize( GetSampleBiased(normal,1.0) );
-	newDirection = normalize( RandomPointInHemisphere( normal ) );
+    newDirection = normalize( RandomPointInHemisphere( normal ) );
 	probability = 1.0 - probability;
   }
 
@@ -198,7 +186,6 @@ int IntersectScene( in Ray ray, out vec3 hitPosition, out vec3 hitNormal )
       hitObject = i;
       hitPosition = ray.origin + ray.direction * t;
       hitNormal = normalize( hitPosition - data.sphere[i].origin);
-      hitPosition += hitNormal * 0.001;
     }
   }
 
@@ -248,7 +235,7 @@ void main()
   vec3 normal;
   vec3 position;
   int objectId = IntersectScene( ray, position, normal );
-  vec3 finalColor = vec3(0.0);
+  vec3 pixelColor = vec3(0.0);
 
   if( objectId != -1 )
   {	
@@ -260,12 +247,12 @@ void main()
 
     for( int i = 0; i<data.maxBounces; ++i )
     {
-      ray.origin = position;
+      ray.origin = position + newDirection * 0.001;
       ray.direction = newDirection;
       objectId = IntersectScene( ray, position, normal );
       if( objectId == -1 )
       {
-        finalColor = color * GetEnvironmentColor(ray.direction);
+        pixelColor = color * GetEnvironmentColor(ray.direction);
         break;
       }
       SampleMaterial( objectId, normal, ray, newDirection, attenuation );
@@ -274,19 +261,13 @@ void main()
   }
   else
   {
-    finalColor = GetEnvironmentColor(ray.direction);
+    pixelColor = GetEnvironmentColor(ray.direction);
   }
 
-  uint pixelIndex = gl_GlobalInvocationID.y * data.imageSize.x + gl_GlobalInvocationID.x;
-  if( data.sampleCount == 0 )
-  {
-    accumulationBuffer.data[pixelIndex] = vec4(0.0);
-  }
-  
-  vec4 averagedColor = ( data.sampleCount*accumulationBuffer.data[pixelIndex] + vec4(finalColor,1.0)) / (data.sampleCount + 1.0);
-  accumulationBuffer.data[pixelIndex] = averagedColor;
-
+  vec3 currentColor = imageLoad(result,ivec2(gl_GlobalInvocationID.xy)).rgb;  
+  vec3 averagedColor = clamp( ( data.sampleCount*currentColor + pixelColor) / (data.sampleCount + 1.0), vec3(0.0), vec3(1.0));
   imageStore(result,
              ivec2(gl_GlobalInvocationID.xy),
-             vec4( sqrt(accumulationBuffer.data[pixelIndex].xyz),1.0) );
+             vec4( averagedColor,1.0) );
+	
 }

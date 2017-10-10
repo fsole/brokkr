@@ -51,7 +51,6 @@ static render::pipeline_layout_t gComputePipelineLayout;
 static render::descriptor_set_t gComputeDescriptorSet;
 static render::compute_pipeline_t gComputePipeline;
 static render::gpu_buffer_t gUbo;
-static render::gpu_buffer_t gSsbo;
 
 static render::command_buffer_t gComputeCommandBuffer;
 static render::shader_t gVertexShader;
@@ -82,11 +81,14 @@ static const char* gFragmentShaderSource = {
   "#version 440 core\n \
   in vec2 uv;\n \
   layout(binding = 0) uniform sampler2D uTexture; \n \
-  layout(location = 0) out vec4 color; \n \
+  layout(location = 0) out vec4 result; \n \
   void main(void)\n \
   {\n \
     vec4 texColor = texture(uTexture, uv);\n \
-    color = texColor;\n \
+    vec3 color = texColor.rgb;\n \
+    color = color / (color + vec3(1.0));\n\
+    color = pow(color, vec3(1.0 / 2.2));\n\
+    result = vec4(color, 1.0);\n\
   }\n"
 };
 
@@ -206,7 +208,7 @@ void GenerateScene( u32 sphereCount, const maths::vec3& extents, Scene* scene )
 bool CreateResources()
 {
   //Create the texture
-  render::texture2DCreate( gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &gTexture );
+  render::texture2DCreate( gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &gTexture );
   render::textureChangeLayoutNow(gContext, VK_IMAGE_LAYOUT_GENERAL, &gTexture);
 
   //Create data to be passed to the gpu
@@ -225,12 +227,6 @@ bool CreateResources()
                            render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                            (void*)&data, sizeof(data),
                            &gUbo );
-
-  //Create shader storage buffer for accumulation
-  render::gpuBufferCreate( gContext, render::gpu_buffer_t::usage::STORAGE_BUFFER,
-                           render::gpu_memory_type_e::DEVICE_LOCAL,
-                           nullptr, sizeof(vec4)*gImageSize.x*gImageSize.y,
-                           &gSsbo );
 
   return true;
 }
@@ -275,7 +271,7 @@ void CreateGraphicsPipeline()
   render::pipelineLayoutCreate( gContext, 1u, &descriptorSetLayout, &gPipelineLayout );
 
   //Create descriptor pool
-  render::descriptorPoolCreate(gContext, 2u, 1u, 1u, 1u, 1u, &gDescriptorPool);
+  render::descriptorPoolCreate(gContext, 2u, 1u, 1u, 0u, 1u, &gDescriptorPool);
 
   //Create descriptor set
   render::descriptor_t descriptor = render::getDescriptor(gTexture);
@@ -305,20 +301,17 @@ void CreateComputePipeline()
   //Create descriptor layout
   render::descriptor_set_layout_t descriptorSetLayout;
 
-  std::array< render::descriptor_binding_t, 3> bindings{
-    render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_IMAGE,  0, render::descriptor_t::stage::COMPUTE },
-    render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::COMPUTE },
-    render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_BUFFER, 2, render::descriptor_t::stage::COMPUTE }
-  };
+  render::descriptor_binding_t bindings[2] = { render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_IMAGE,  0, render::descriptor_t::stage::COMPUTE },
+                                               render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::COMPUTE }};
 
-  render::descriptorSetLayoutCreate(gContext, (uint32_t)bindings.size(), &bindings[0], &descriptorSetLayout);
+  render::descriptorSetLayoutCreate(gContext, 2u, bindings, &descriptorSetLayout);
 
   //Create pipeline layout
   render::pipelineLayoutCreate(gContext, 1u, &descriptorSetLayout, &gComputePipelineLayout);
 
   //Create descriptor set
-  std::array<render::descriptor_t, 3> descriptors = { render::getDescriptor(gTexture), render::getDescriptor(gUbo), render::getDescriptor(gSsbo) };
-  render::descriptorSetCreate(gContext, gDescriptorPool, descriptorSetLayout, &descriptors[0], &gComputeDescriptorSet);
+  render::descriptor_t descriptors[2] = { render::getDescriptor(gTexture), render::getDescriptor(gUbo) };
+  render::descriptorSetCreate(gContext, gDescriptorPool, descriptorSetLayout, descriptors, &gComputeDescriptorSet);
 
   //Create pipeline
   bkk::render::shaderCreateFromGLSL(gContext, bkk::render::shader_t::COMPUTE_SHADER, "../path-tracing/path-tracing.comp", &gComputeShader);
@@ -338,29 +331,13 @@ void BuildCommandBuffers()
   {
     VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer( gContext, i, nullptr );
 
-    //Image memory barrier to make sure compute shader has finished
-    VkImageMemoryBarrier barrier = {};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.pNext = NULL;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    barrier.image = gTexture.image_;
-    barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    barrier.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
-    vkCmdPipelineBarrier(
-      cmdBuffer,
-      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-      0,
-      0, nullptr,
-      0, nullptr,
-      1, &barrier);
-
+    render::textureChangeLayout(gContext, cmdBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gTexture);
+    
     bkk::render::graphicsPipelineBind(cmdBuffer, gPipeline);
     bkk::render::descriptorSetBindForGraphics(cmdBuffer, gPipelineLayout, 0, &gDescriptorSet, 1u);
     mesh::draw(cmdBuffer, gMesh );
 
+    render::textureChangeLayout(gContext, cmdBuffer, VK_IMAGE_LAYOUT_GENERAL, &gTexture);
     render::endPresentationCommandBuffer( gContext, i );
   }
 }
@@ -375,7 +352,7 @@ void BuildComputeCommandBuffer()
   bkk::render::computePipelineBind(gComputeCommandBuffer.handle_, gComputePipeline);
   bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer.handle_, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
 
-  vkCmdDispatch(gComputeCommandBuffer.handle_, gImageSize.x / 16, gImageSize.y / 16, 1);
+  vkCmdDispatch(gComputeCommandBuffer.handle_, gImageSize.x/16, gImageSize.y/16, 1);
 
   render::commandBufferEnd(gContext, gComputeCommandBuffer);
 }
@@ -391,7 +368,6 @@ void Exit()
   mesh::destroy( gContext, &gMesh );
   render::textureDestroy( gContext, &gTexture );
   render::gpuBufferDestroy( gContext, &gUbo );
-  render::gpuBufferDestroy( gContext, &gSsbo );
 
   render::shaderDestroy(gContext, &gVertexShader);
   render::shaderDestroy(gContext, &gFragmentShader);
@@ -415,14 +391,16 @@ void Exit()
 
 void Render()
 {
-  render::gpuBufferUpdate( gContext, (void*)&gSampleCount, 0, sizeof(u32), &gUbo );
-  ++gSampleCount;
-
   render::presentNextImage( &gContext );
 
-  //Submit compute command buffer
-  render::commandBufferSubmit(gContext, gComputeCommandBuffer);
-  vkQueueWaitIdle(gContext.computeQueue_.handle_);
+  if (gSampleCount < 1000.0f)
+  {
+    //Submit compute command buffer
+    render::gpuBufferUpdate(gContext, (void*)&gSampleCount, 0, sizeof(u32), &gUbo);
+    ++gSampleCount;
+    render::commandBufferSubmit(gContext, gComputeCommandBuffer);
+    vkQueueWaitIdle(gContext.computeQueue_.handle_);
+  }
 }
 
 void UpdateCameraTransform()
@@ -494,7 +472,7 @@ void OnMouseMove( uint32_t x, uint32_t y )
 int main()
 {
   //Create a window
-  window::create( "Path Tracer", gImageSize.x, gImageSize.y, &gWindow );
+  window::create( "Path Tracer", gImageSize.x , gImageSize.y, &gWindow );
 
   //Initialize gContext
   render::contextCreate( "Path Tracer", "", gWindow, 3, &gContext );
