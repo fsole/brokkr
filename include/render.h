@@ -374,6 +374,7 @@ namespace bkk
         VkAttachmentLoadOp loadOp_;
       };
 
+      //@TODO Suport subpasses. Currently onle one subpass is supported
       struct subpass_t
       {
         std::vector< uint32_t > colorAttachment_;
@@ -467,6 +468,7 @@ namespace bkk
     void vertexFormatDestroy(vertex_format_t* format);
 
     //Command buffers
+    //@TODO Allow user to specify command buffer pool from which command buffers are allocated (Command buffers are allocated from global command buffer pool from the context)
     void commandBufferCreate(const context_t& context, VkCommandBufferLevel level, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t signalSemaphoreCount, VkSemaphore* signalSemaphore, command_buffer_t::type type, command_buffer_t* commandBuffer);
     void commandBufferDestroy(const context_t& context, command_buffer_t* commandBuffer );
     void commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer);

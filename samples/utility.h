@@ -25,6 +25,8 @@
 #ifndef UTILITY_H
 #define UTILITY_H
 
+#include "mesh.h"
+#include "render.h"
 #include "maths.h"
 
 using namespace bkk;
@@ -76,17 +78,13 @@ struct orbiting_camera_t
   {
     quat orientation =  quaternionFromAxisAngle( vec3(1.0f,0.0f,0.0f), angle_.y ) *
                         quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), angle_.x);
-
-    forward_ = maths::rotate( vec3(0.0f,0.0f,1.0f), orientation );
-    right_ = cross( forward_, vec3(0.0f,1.0f,0.0f) );
+          
     computeInverse( computeTransform(vec3(0.0f,0.0f,offset_), VEC3_ONE, QUAT_UNIT) * computeTransform( VEC3_ZERO, VEC3_ONE, orientation ), view_ );
   }
 
   mat4 view_;
   f32 offset_;
   vec2 angle_;
-  vec3 forward_;
-  vec3 right_;
 };
 
 

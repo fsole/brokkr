@@ -22,6 +22,8 @@
 * SOFTWARE.
 */
 
+
+// This sample is work in progress.
 #include "render.h"
 #include "window.h"
 #include "image.h"

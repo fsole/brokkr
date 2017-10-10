@@ -966,11 +966,11 @@ int main()
   bkk::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f),0.7f);
   bkk::handle_t redWall = scene.addMaterial( vec3(0.5f,0.0f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
   bkk::handle_t greenWall = scene.addMaterial( vec3(0.0f,0.5f,0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
-  bkk::handle_t gold = scene.addMaterial(vec3(0.0, 0.0, 0.0), 1.0f, vec3(1.000, 0.766, 0.336), 0.3f);
-  bkk::handle_t silver = scene.addMaterial(vec3(0.0, 0.0, 0.0), 1.0f, vec3(0.972, 0.960, 0.915), 0.3f);
-  bkk::handle_t copper = scene.addMaterial(vec3(0.0, 0.0, 0.0), 1.0f, vec3(1.0, 0.537, 0.438), 0.3f);
-  bkk::handle_t redPlastic = scene.addMaterial(vec3(1.0, 0.0, 0.0), 0.0f, vec3(0.05, 0.05, 0.05), 0.2f);
-  bkk::handle_t bluePlastic = scene.addMaterial(vec3(0.0, 0.0, 1.0), 0.0f, vec3(0.05, 0.05, 0.05), 0.2f);
+  bkk::handle_t gold = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.000f, 0.766f, 0.336f), 0.3f);
+  bkk::handle_t silver = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(0.972f, 0.960f, 0.915f), 0.3f);
+  bkk::handle_t copper = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.0f, 0.437f, 0.338f), 0.3f);
+  bkk::handle_t redPlastic = scene.addMaterial(vec3(1.0f, 0.0f, 0.0f), 0.0f, vec3(0.05f, 0.05f, 0.05f), 0.2f);
+  bkk::handle_t bluePlastic = scene.addMaterial(vec3(0.0f, 0.0f, 1.0f), 0.0f, vec3(0.05f, 0.05f, 0.05f), 0.2f);
 
   //Add some meshes
   bkk::handle_t bunny = scene.addMesh( "../resources/bunny.ply" );
