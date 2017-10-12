@@ -97,7 +97,7 @@ void CreatePipeline(const bkk::render::context_t& context, const bkk::mesh::mesh
   pipelineDesc.depthWriteEnabled_ = false;
   pipelineDesc.vertexShader_ = vertexShader;
   pipelineDesc.fragmentShader_ = fragmentShader;
-  bkk::render::graphicsPipelineCreate( context, context.swapChain_.renderPass_, mesh.vertexFormat_, *layout, pipelineDesc, pipeline );
+  bkk::render::graphicsPipelineCreate( context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, *layout, pipelineDesc, pipeline );
 }
 
 void BuildCommandBuffers(const bkk::render::context_t& context, const bkk::mesh::mesh_t& mesh, const bkk::render::graphics_pipeline_t& pipeline )

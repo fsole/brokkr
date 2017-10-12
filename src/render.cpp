@@ -1597,7 +1597,7 @@ void render::descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pi
 }
 
 
-void render::graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, const render::vertex_format_t& vertexFormat, 
+void render::graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, uint32_t subpass, const render::vertex_format_t& vertexFormat, 
   const pipeline_layout_t& pipelineLayout, const graphics_pipeline_t::description_t& pipelineDesc, graphics_pipeline_t* pipeline)
 {
   pipeline->desc_ = pipelineDesc;
@@ -1664,6 +1664,7 @@ void render::graphicsPipelineCreate(const context_t& context, VkRenderPass rende
   graphicsPipelineCreateInfo.pVertexInputState = &vertexFormat.vertexInputState_;
   graphicsPipelineCreateInfo.pInputAssemblyState = &vertexFormat.inputAssemblyState_;
   graphicsPipelineCreateInfo.renderPass = renderPass;
+  graphicsPipelineCreateInfo.subpass = subpass;
   graphicsPipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
   graphicsPipelineCreateInfo.pColorBlendState = &pipelineColorBlendStateCreateInfo;
   graphicsPipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
@@ -1886,11 +1887,7 @@ void render::renderPassCreate(const context_t& context,
   renderPass->attachmentCount_ = attachmentCount;
   memcpy(renderPass->attachment_, attachments, sizeof(render_pass_t::attachment_t)*attachmentCount);
 
-
   std::vector<VkAttachmentDescription> attachmentDescription(attachmentCount);
-  VkAttachmentReference attachmentDepthStencilReference = {};
-  renderPass->depthStencilAttachment_ = -1;
-  std::vector<VkAttachmentReference> attachmentColorReference;
   for (uint32_t i(0); i < attachmentCount; ++i)
   {
     attachmentDescription[i].samples = attachments[i].samples_;
@@ -1899,43 +1896,100 @@ void render::renderPassCreate(const context_t& context,
     attachmentDescription[i].storeOp = attachments[i].storeOp_;
     attachmentDescription[i].initialLayout = attachments[i].initialLayout_;
     attachmentDescription[i].finalLayout = attachments[i].finallLayout_;
-
-    if (attachments[i].format_ == context.swapChain_.depthStencil_.format_)
-    {
-      renderPass->depthStencilAttachment_ = i;
-      attachmentDepthStencilReference.attachment = i;
-      attachmentDepthStencilReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    }
-    else
-    {
-      VkAttachmentReference attachmentRef = {};
-      attachmentRef.attachment = i;
-      attachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-      attachmentColorReference.push_back(attachmentRef);
-    }
   }
 
-
-  VkSubpassDescription subpassDescription = {};
-  subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpassDescription.inputAttachmentCount = 0;
-  subpassDescription.pColorAttachments = attachmentColorReference.data();
-  subpassDescription.colorAttachmentCount = (uint32_t)attachmentColorReference.size();
-
-  if(renderPass->depthStencilAttachment_ != -1)
+  
+  if (subpassCount == 0u)
   {
-    subpassDescription.pDepthStencilAttachment = &attachmentDepthStencilReference;
+    //Create default subpass
+    VkSubpassDescription subpassDescription = {};
+    std::vector<VkAttachmentReference> attachmentColorReference;
+    VkAttachmentReference depthStencilAttachmentReference;
+    for (u32 i(0); i < attachmentDescription.size(); ++i)
+    {
+      if (attachmentDescription[i].format == context.swapChain_.depthStencil_.format_)
+      {
+        depthStencilAttachmentReference.attachment = i;
+        depthStencilAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        subpassDescription.pDepthStencilAttachment = &depthStencilAttachmentReference;
+      }
+      else
+      {
+        VkAttachmentReference attachmentRef = {};
+        attachmentRef.attachment = i;
+        attachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        attachmentColorReference.push_back(attachmentRef);
+      }
+    }
+    subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpassDescription.inputAttachmentCount = 0;
+    subpassDescription.pColorAttachments = attachmentColorReference.data();
+    subpassDescription.colorAttachmentCount = (uint32_t)attachmentColorReference.size();
+
+    VkRenderPassCreateInfo renderPassCreateInfo = {};
+    renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassCreateInfo.attachmentCount = attachmentCount;
+    renderPassCreateInfo.subpassCount = 1u;
+    renderPassCreateInfo.pSubpasses = &subpassDescription;
+    renderPassCreateInfo.pAttachments = attachmentDescription.data();
+
+
+    vkCreateRenderPass(context.device_, &renderPassCreateInfo, nullptr, &renderPass->handle_);
   }
-   
-  VkRenderPassCreateInfo renderPassCreateInfo = {};
-  renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  renderPassCreateInfo.attachmentCount = attachmentCount;
-  renderPassCreateInfo.subpassCount = 1;
-  renderPassCreateInfo.pSubpasses = &subpassDescription;
-  renderPassCreateInfo.pAttachments = attachmentDescription.data();  
+  else
+  {
+    //Create subpasses descriptions
+    std::vector<VkSubpassDescription> subpassDescription(subpassCount);
+    std::vector< std::vector<VkAttachmentReference> > inputAttachmentRef( subpassCount );
+    std::vector< std::vector<VkAttachmentReference> > colorAttachmentRef(subpassCount);
+    std::vector<VkAttachmentReference> depthStencilAttachmentRef(subpassCount);
+
+    for (uint32_t i = 0; i < subpassCount; ++i)
+    {
+      subpassDescription[i].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+
+      //Input attachments
+      uint32_t inputAttachmentCount = subpasses[i].inputAttachmentIndex_.size();
+      inputAttachmentRef[i].resize(inputAttachmentCount);
+      for (uint32_t j = 0; j < inputAttachmentCount; ++j)
+      {
+        inputAttachmentRef[i][j].attachment = subpasses[i].inputAttachmentIndex_[j];
+        inputAttachmentRef[i][j].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      }
+      subpassDescription[i].inputAttachmentCount = inputAttachmentCount;
+      subpassDescription[i].pInputAttachments = inputAttachmentRef[i].data();
+
+      //Color attachments
+      uint32_t colorAttachmentCount = subpasses[i].colorAttachmentIndex_.size();
+      colorAttachmentRef[i].resize(colorAttachmentCount);
+      for (uint32_t j = 0; j < colorAttachmentCount; ++j)
+      {
+        colorAttachmentRef[i][j].attachment = subpasses[i].colorAttachmentIndex_[j];
+        colorAttachmentRef[i][j].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      }
+      subpassDescription[i].colorAttachmentCount = colorAttachmentCount;
+      subpassDescription[i].pColorAttachments = colorAttachmentRef[i].data();
+      
+
+      //Depth stencil attachment
+      if (subpasses[i].depthStencilAttachmentIndex_ != -1)
+      {        
+        depthStencilAttachmentRef[i].attachment = subpasses[i].depthStencilAttachmentIndex_;
+        depthStencilAttachmentRef[i].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        subpassDescription[i].pDepthStencilAttachment = &depthStencilAttachmentRef[i];
+      }
+    }
+
+    VkRenderPassCreateInfo renderPassCreateInfo = {};
+    renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassCreateInfo.attachmentCount = attachmentCount;
+    renderPassCreateInfo.subpassCount = (uint32_t)subpassDescription.size();
+    renderPassCreateInfo.pSubpasses = subpassDescription.data();
+    renderPassCreateInfo.pAttachments = attachmentDescription.data();
 
 
-  vkCreateRenderPass(context.device_, &renderPassCreateInfo, nullptr, &renderPass->handle_);
+    vkCreateRenderPass(context.device_, &renderPassCreateInfo, nullptr, &renderPass->handle_);
+  }  
 }
 
 void render::renderPassDestroy(const context_t& context, render_pass_t* renderPass)
@@ -2010,7 +2064,7 @@ void render::commandBufferDestroy(const context_t& context, command_buffer_t* co
   vkFreeCommandBuffers(context.device_, context.commandPool_, 1u, &commandBuffer->handle_ );
 }
 
-void render::commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer)
+void render::commandBufferBegin( const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer)
 {
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -2043,7 +2097,12 @@ void render::commandBufferBegin(const context_t& context, const frame_buffer_t* 
   }
 }
 
-void render::commandBufferEnd(const context_t& context, const command_buffer_t& commandBuffer)
+void render::commandBufferNextSubpass(const command_buffer_t& commandBuffer)
+{
+  vkCmdNextSubpass(commandBuffer.handle_, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void render::commandBufferEnd( const command_buffer_t& commandBuffer)
 {
   if (commandBuffer.type_ == command_buffer_t::GRAPHICS)
   {

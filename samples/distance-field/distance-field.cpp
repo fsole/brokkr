@@ -383,7 +383,7 @@ void CreateGraphicsPipeline()
   pipelineDesc.depthWriteEnabled_ = false;
   pipelineDesc.vertexShader_ = gVertexShader;
   pipelineDesc.fragmentShader_ = gFragmentShader;
-  render::graphicsPipelineCreate(gContext, gContext.swapChain_.renderPass_, gFSQuad.vertexFormat_, gPipelineLayout, pipelineDesc, &gPipeline);
+  render::graphicsPipelineCreate(gContext, gContext.swapChain_.renderPass_, 0u, gFSQuad.vertexFormat_, gPipelineLayout, pipelineDesc, &gPipeline);
 }
 
 void CreateComputePipeline()
@@ -474,14 +474,14 @@ void BuildComputeCommandBuffer()
   //Build compute command buffer
   render::commandBufferCreate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0u, nullptr, nullptr, 0u, nullptr, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer);
 
-  render::commandBufferBegin(gContext, nullptr, 0u, nullptr, gComputeCommandBuffer);
+  render::commandBufferBegin(nullptr, 0u, nullptr, gComputeCommandBuffer);
 
   bkk::render::computePipelineBind(gComputeCommandBuffer.handle_, gComputePipeline);
   bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer.handle_, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
 
   vkCmdDispatch(gComputeCommandBuffer.handle_, gImageSize.x / 16, gImageSize.y / 16, 1);
 
-  render::commandBufferEnd(gContext, gComputeCommandBuffer);
+  render::commandBufferEnd(gComputeCommandBuffer);
 }
 
 void Exit()

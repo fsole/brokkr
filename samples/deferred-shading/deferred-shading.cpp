@@ -363,14 +363,14 @@ struct scene_t
     return light_.get(light);
   }
 
-  void initializeOffscreenPasses(render::context_t& context, const uvec2& size)
+  void initializeOffscreenPass(render::context_t& context, const uvec2& size)
   {
-    ////Geometry pass
+    ////Geometry subpass
 
-    //Semaphore to indicate geometry pass has completed
+    //Semaphore to indicate rendering has completed
     VkSemaphoreCreateInfo semaphoreCreateInfo = {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &geometryRenderComplete_);
+    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &renderComplete_);
 
     //Create geometry pass
     render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, render::texture_sampler_t(), &gBufferRT0_);
@@ -380,42 +380,64 @@ struct scene_t
     render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, render::texture_sampler_t(), &gBufferRT2_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT2_);
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, render::texture_sampler_t(), &finalImage_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &finalImage_);
 
-    geometryPass_ = {};
-    render::render_pass_t::attachment_t attachments[4];
-    attachments[0].format_ = VK_FORMAT_R32G32B32A32_SFLOAT;
+    renderPass_ = {};
+    render::render_pass_t::attachment_t attachments[5];
+    attachments[0].format_ = gBufferRT0_.format_;
     attachments[0].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[0].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     attachments[0].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[0].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[0].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
-    attachments[1].format_ = VK_FORMAT_R32G32B32A32_SFLOAT;
+    attachments[1].format_ = gBufferRT1_.format_;;
     attachments[1].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[1].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     attachments[1].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[1].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[1].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
-    attachments[2].format_ = VK_FORMAT_R32G32B32A32_SFLOAT;
+    attachments[2].format_ = gBufferRT2_.format_;;
     attachments[2].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[2].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     attachments[2].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[2].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[2].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
-    attachments[3].format_ = depthStencilBuffer_.format_;
-    attachments[3].initialLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    attachments[3].format_ = finalImage_.format_;
+    attachments[3].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[3].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     attachments[3].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[3].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[3].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
-    render::renderPassCreate(context, 4u, attachments, 0, 0, &geometryPass_);
+    attachments[4].format_ = depthStencilBuffer_.format_;
+    attachments[4].initialLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    attachments[4].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[4].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[4].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[4].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
-    //Create geometry pass frame buffer
-    VkImageView fbAttachment[4] = { gBufferRT0_.imageView_, gBufferRT1_.imageView_, gBufferRT2_.imageView_, depthStencilBuffer_.imageView_ };
-    render::frameBufferCreate(context, size.x, size.y, geometryPass_, fbAttachment, &geometryFrameBuffer_);
+    
+    //Create subpasses
+    render::render_pass_t::subpass_t subpasses[2];
+    subpasses[0].colorAttachmentIndex_.push_back(0);
+    subpasses[0].colorAttachmentIndex_.push_back(1);
+    subpasses[0].colorAttachmentIndex_.push_back(2);
+    subpasses[0].depthStencilAttachmentIndex_ = 4;
+
+    subpasses[1].inputAttachmentIndex_.push_back(0);
+    subpasses[1].inputAttachmentIndex_.push_back(1);
+    subpasses[1].inputAttachmentIndex_.push_back(2);
+    subpasses[1].colorAttachmentIndex_.push_back(3);
+
+    render::renderPassCreate(context, 5u, attachments, 2u, subpasses, &renderPass_);
+
+    //Create frame buffer
+    VkImageView fbAttachment[5] = { gBufferRT0_.imageView_, gBufferRT1_.imageView_, gBufferRT2_.imageView_, depthStencilBuffer_.imageView_, finalImage_.imageView_ };
+    render::frameBufferCreate(context, size.x, size.y, renderPass_, fbAttachment, &frameBuffer_);
     
     //Create descriptorSets layouts
     render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
@@ -455,30 +477,10 @@ struct scene_t
     pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
     pipelineDesc.vertexShader_ = gBuffervertexShader_;
     pipelineDesc.fragmentShader_ = gBufferfragmentShader_;
-    render::graphicsPipelineCreate(context, geometryPass_.handle_, vertexFormat_, gBufferPipelineLayout_, pipelineDesc, &gBufferPipeline_);
+    render::graphicsPipelineCreate(context, renderPass_.handle_, 0u, vertexFormat_, gBufferPipelineLayout_, pipelineDesc, &gBufferPipeline_);
 
-    ////Light pass
-
-    //Semaphore to indicate light pass has completed
-    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &renderComplete_);
-
-    //Create frame buffer attachment
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, render::texture_sampler_t(), &finalImage_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &finalImage_);
-
-    //Create render pass
-    lightPass_ = {};
-    render::render_pass_t::attachment_t attachment;
-    attachment.format_ = VK_FORMAT_R32G32B32A32_SFLOAT;
-    attachment.initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachment.finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachment.storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
-    attachment.loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachment.samples_ = VK_SAMPLE_COUNT_1_BIT;
-    render::renderPassCreate(context, 1u, &attachment, 0, 0, &lightPass_);
-
-    //Create frame buffer
-    render::frameBufferCreate(context, size.x, size.y, lightPass_, &finalImage_.imageView_, &lightFrameBuffer_);
+    
+    ////Light subpass
 
     //Create descriptorSet layouts
     render::descriptor_binding_t bindings[3];
@@ -514,7 +516,7 @@ struct scene_t
     lightPipelineDesc.depthWriteEnabled_ = false;
     lightPipelineDesc.vertexShader_ = lightVertexShader_;
     lightPipelineDesc.fragmentShader_ = lightFragmentShader_;
-    render::graphicsPipelineCreate(context, lightPass_.handle_, vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
+    render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
   }
 
   void initialize( render::context_t& context )
@@ -529,7 +531,7 @@ struct scene_t
     render::descriptorPoolCreate(context, 100u, 100u, 100u, 0u, 0u, &descriptorPool_);
 
     //Initialize off-screen render passes
-    initializeOffscreenPasses(context, size);
+    initializeOffscreenPass(context, size);
 
     //Create scene uniform buffer
     camera_.position_ = vec3(0.0f, 2.5f, 8.5f);
@@ -591,7 +593,7 @@ struct scene_t
     pipelineDesc.depthWriteEnabled_ = false;
     pipelineDesc.vertexShader_ = vertexShader_;
     pipelineDesc.fragmentShader_ = fragmentShader_;
-    bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, fullScreenQuad_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
+    bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
   }
 
   void Resize( uint32_t width, uint32_t height )
@@ -624,32 +626,33 @@ struct scene_t
 
 
     BuildCommandBuffers();
-    render::commandBufferSubmit(*context_, geometryCommandBuffer_);
-    render::commandBufferSubmit(*context_, lightCommandBuffer_);
+    render::commandBufferSubmit(*context_, commandBuffer_);
     render::presentNextImage( context_, 1u, &renderComplete_);
   }
 
   void BuildCommandBuffers()
   {
     //Geometry command buffer
-    if (geometryCommandBuffer_.handle_ == VK_NULL_HANDLE)
+    if (commandBuffer_.handle_ == VK_NULL_HANDLE)
     {
-      render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0, nullptr, nullptr, 1, &geometryRenderComplete_, render::command_buffer_t::GRAPHICS, &geometryCommandBuffer_);
+      render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0, nullptr, nullptr, 1, &renderComplete_, render::command_buffer_t::GRAPHICS, &commandBuffer_);
     }
     
-    VkClearValue clearValues[4];
+    VkClearValue clearValues[5];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[3].depthStencil = { 1.0f,0 };
+    clearValues[4].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
-    render::commandBufferBegin(*context_, &geometryFrameBuffer_, 4u, clearValues, geometryCommandBuffer_);
+    render::commandBufferBegin(&frameBuffer_, 5u, clearValues, commandBuffer_);
     {
-      bkk::render::textureChangeLayout( *context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT0_);
-      bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT1_);
-      bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT2_);
+      bkk::render::textureChangeLayout( *context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT0_);
+      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT1_);
+      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT2_);
+      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &finalImage_);
 
-      bkk::render::graphicsPipelineBind(geometryCommandBuffer_.handle_, gBufferPipeline_);
+      bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
       descriptorSets[0] = globalsDescriptorSet_;
       packed_freelist_iterator_t<object_t> objectIter = object_.begin();
@@ -658,54 +661,42 @@ struct scene_t
         //Bind descriptor set
         descriptorSets[1] = objectIter.get().descriptorSet_;
         descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(geometryCommandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
+        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
 
         //Draw call
         mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
-        mesh::draw(geometryCommandBuffer_.handle_, *mesh);
+        mesh::draw(commandBuffer_.handle_, *mesh);
         ++objectIter;
       }
 
       
-    bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT0_);
-    bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
-    bkk::render::textureChangeLayout(*context_, geometryCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
-    }
+      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT0_);
+      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
+      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
 
-    render::commandBufferEnd(*context_, geometryCommandBuffer_);
-
-
-    //Light command buffer
-    if (lightCommandBuffer_.handle_ == VK_NULL_HANDLE)
-    {
-      VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-      render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1u, &geometryRenderComplete_, &waitStage, 1u, &renderComplete_, render::command_buffer_t::GRAPHICS, &lightCommandBuffer_);
-    }
-
-    render::commandBufferBegin(*context_, &lightFrameBuffer_, 1u, clearValues, lightCommandBuffer_);
-    {
-      bkk::render::textureChangeLayout(*context_, lightCommandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &finalImage_);
-      bkk::render::graphicsPipelineBind(lightCommandBuffer_.handle_, lightPipeline_);
-
-      render::descriptor_set_t descriptorSets[3];
-      descriptorSets[0] = globalsDescriptorSet_;
+      //Light subpass
+      bkk::render::commandBufferNextSubpass(commandBuffer_);
+      
+      bkk::render::graphicsPipelineBind(commandBuffer_.handle_, lightPipeline_);
       descriptorSets[1] = lightPassTexturesDescriptorSet_;
       packed_freelist_iterator_t<light_t> lightIter = light_.begin();
       while (lightIter != light_.end())
       {
         //Bind descriptor set        
         descriptorSets[2] = lightIter.get().descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(lightCommandBuffer_.handle_,lightPipelineLayout_, 0u, descriptorSets, 3u);
+        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 0u, descriptorSets, 3u);
 
         //Draw call       
-        mesh::draw(lightCommandBuffer_.handle_, sphereMesh_ );
+        mesh::draw(commandBuffer_.handle_, sphereMesh_);
         ++lightIter;
       }
 
-      bkk::render::textureChangeLayout(*context_, lightCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &finalImage_);
-    }
-    render::commandBufferEnd(*context_, lightCommandBuffer_);
+      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &finalImage_);
 
+    }
+
+    render::commandBufferEnd(commandBuffer_);
+    
     //Presentation command buffers
     for (unsigned i(0); i<3; ++i)
     {
@@ -833,7 +824,7 @@ struct scene_t
     render::textureDestroy(*context_, &gBufferRT1_);
     render::textureDestroy(*context_, &gBufferRT2_);
     render::depthStencilBufferDestroy(*context_, &depthStencilBuffer_);
-    render::commandBufferDestroy(*context_, &geometryCommandBuffer_);
+    render::commandBufferDestroy(*context_, &commandBuffer_);
     render::graphicsPipelineDestroy(*context_, &pipeline_);
     render::descriptorSetDestroy(*context_, &descriptorSet_[0]);
     render::descriptorSetDestroy(*context_, &descriptorSet_[1]);
@@ -872,29 +863,22 @@ private:
   render::shader_t gBufferfragmentShader_;
   scene_uniforms_t uniforms_;  
 
-  VkSemaphore geometryRenderComplete_;
-  render::command_buffer_t geometryCommandBuffer_;
-  render::render_pass_t geometryPass_;
+  VkSemaphore renderComplete_;
+  render::command_buffer_t commandBuffer_;
+  render::render_pass_t renderPass_;
   render::texture_t gBufferRT0_;
   render::texture_t gBufferRT1_;
   render::texture_t gBufferRT2_;
+  render::texture_t finalImage_;
   render::depth_stencil_buffer_t depthStencilBuffer_;
-  render::frame_buffer_t geometryFrameBuffer_;
-
-  VkSemaphore renderComplete_;
-  render::command_buffer_t lightCommandBuffer_;
-  render::render_pass_t lightPass_;
+  render::frame_buffer_t frameBuffer_;
   render::descriptor_set_layout_t lightPassGlobalDescriptorSetLayout_;
   render::descriptor_set_layout_t lightPassTexturesDescriptorSetLayout_;  
   render::descriptor_set_t lightPassTexturesDescriptorSet_;
-  
-
   render::pipeline_layout_t lightPipelineLayout_;
   render::graphics_pipeline_t lightPipeline_;
   render::shader_t lightVertexShader_;
   render::shader_t lightFragmentShader_;
-  render::texture_t finalImage_;
-  render::frame_buffer_t lightFrameBuffer_;
   mesh::mesh_t sphereMesh_;
 
   packed_freelist_t<material_t> material_;

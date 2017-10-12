@@ -170,7 +170,7 @@ void CreatePipeline()
   pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
   pipelineDesc.vertexShader_ = gVertexShader;
   pipelineDesc.fragmentShader_ = gFragmentShader;
-  render::graphicsPipelineCreate( gContext, gContext.swapChain_.renderPass_, gMesh.vertexFormat_, gPipelineLayout, pipelineDesc, &gPipeline );
+  render::graphicsPipelineCreate( gContext, gContext.swapChain_.renderPass_, 0u, gMesh.vertexFormat_, gPipelineLayout, pipelineDesc, &gPipeline );
 }
 
 void BuildCommandBuffers()

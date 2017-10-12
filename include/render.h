@@ -377,16 +377,16 @@ namespace bkk
       //@TODO Suport subpasses. Currently onle one subpass is supported
       struct subpass_t
       {
-        std::vector< uint32_t > colorAttachment_;
-        std::vector< uint32_t > inputAttachment_;
-        uint32_t depthStencilAttachment_;
+        std::vector< uint32_t > colorAttachmentIndex_;
+        std::vector< uint32_t > inputAttachmentIndex_;
+        int32_t depthStencilAttachmentIndex_ = -1;
       };
 
       VkRenderPass handle_;
 
       uint32_t attachmentCount_;
       attachment_t* attachment_;
-      int32_t depthStencilAttachment_;
+      //int32_t depthStencilAttachment_;
     };
 
     struct frame_buffer_t
@@ -455,7 +455,7 @@ namespace bkk
     void pipelineLayoutCreate(const context_t& context, uint32_t descriptorSetLayoutCount, descriptor_set_layout_t* descriptorSetLayouts, pipeline_layout_t* pipelineLayout);
     void pipelineLayoutDestroy(const context_t& context, pipeline_layout_t* pipelineLayout);
 
-    void graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, const render::vertex_format_t& vertexFormat, const pipeline_layout_t& pipelineLayout, const graphics_pipeline_t::description_t& pipelineDesc, graphics_pipeline_t* pipeline);
+    void graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, uint32_t subpass, const render::vertex_format_t& vertexFormat, const pipeline_layout_t& pipelineLayout, const graphics_pipeline_t::description_t& pipelineDesc, graphics_pipeline_t* pipeline);
     void graphicsPipelineDestroy(const context_t& context, graphics_pipeline_t* pipeline);
     void graphicsPipelineBind( VkCommandBuffer commandBuffer, const graphics_pipeline_t& pipeline);
 
@@ -471,8 +471,9 @@ namespace bkk
     //@TODO Allow user to specify command buffer pool from which command buffers are allocated (Command buffers are allocated from global command buffer pool from the context)
     void commandBufferCreate(const context_t& context, VkCommandBufferLevel level, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t signalSemaphoreCount, VkSemaphore* signalSemaphore, command_buffer_t::type type, command_buffer_t* commandBuffer);
     void commandBufferDestroy(const context_t& context, command_buffer_t* commandBuffer );
-    void commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer);
-    void commandBufferEnd(const context_t& context, const command_buffer_t& commandBuffer);
+    void commandBufferBegin(const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer);
+    void commandBufferNextSubpass(const command_buffer_t& commandBuffer);
+    void commandBufferEnd(const command_buffer_t& commandBuffer);
     void commandBufferSubmit(const context_t& context, const command_buffer_t& commandBuffer );
 
     //Renderpass
