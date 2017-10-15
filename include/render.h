@@ -359,7 +359,8 @@ namespace bkk
       VkPipelineStageFlags* waitStages_;
 
       uint32_t signalSemaphoreCount_;
-      VkSemaphore* signalSemaphore_;      
+      VkSemaphore* signalSemaphore_;
+      VkFence fence_;
     };
 
     struct render_pass_t

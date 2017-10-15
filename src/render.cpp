@@ -31,7 +31,7 @@
 using namespace bkk;
 using namespace bkk::render;
 
-//#define VK_DEBUG_LAYERS
+#define VK_DEBUG_LAYERS
 
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
@@ -46,9 +46,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
 {
 
   std::cerr << "VULKAN_ERROR: " << msg << std::endl;
-  return VK_FALSE;
+    return VK_FALSE;
 }
-
+  
 static VkDeviceSize GetNextMultiple(VkDeviceSize from, VkDeviceSize multiple)
 {
   return ((from + multiple - 1) / multiple) * multiple;
@@ -1217,7 +1217,7 @@ void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBu
   imageBarrier.subresourceRange.layerCount = 1;
   imageBarrier.subresourceRange.layerCount = 1;
   imageBarrier.subresourceRange.levelCount = 1;
-
+  imageBarrier.srcAccessMask = 0;
   switch (imageBarrier.oldLayout)
   {
   case VK_IMAGE_LAYOUT_PREINITIALIZED:
@@ -1249,7 +1249,6 @@ void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBu
     break;
   case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
     imageBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    imageBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
     break;
   case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
     imageBarrier.dstAccessMask |=
@@ -1944,6 +1943,8 @@ void render::renderPassCreate(const context_t& context,
     std::vector< std::vector<VkAttachmentReference> > colorAttachmentRef(subpassCount);
     std::vector<VkAttachmentReference> depthStencilAttachmentRef(subpassCount);
 
+    //TODO: Subpass dependencies. Assuming no dependencies
+    std::vector<VkSubpassDependency> subpassDependencies(subpassCount - 1);
     for (uint32_t i = 0; i < subpassCount; ++i)
     {
       subpassDescription[i].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -1986,6 +1987,8 @@ void render::renderPassCreate(const context_t& context,
     renderPassCreateInfo.subpassCount = (uint32_t)subpassDescription.size();
     renderPassCreateInfo.pSubpasses = subpassDescription.data();
     renderPassCreateInfo.pAttachments = attachmentDescription.data();
+    renderPassCreateInfo.dependencyCount = (uint32_t)subpassDependencies.size();
+    renderPassCreateInfo.pDependencies = subpassDependencies.data();
 
 
     vkCreateRenderPass(context.device_, &renderPassCreateInfo, nullptr, &renderPass->handle_);
@@ -2053,6 +2056,11 @@ void render::commandBufferCreate(const context_t& context, VkCommandBufferLevel 
   commandBufferAllocateInfo.commandPool = context.commandPool_;
   commandBufferAllocateInfo.level = level;
   vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, &commandBuffer->handle_ );
+
+  VkFenceCreateInfo fenceCreateInfo = {};
+  fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+  vkCreateFence(context.device_, &fenceCreateInfo, nullptr, &commandBuffer->fence_);
 }
 
 void render::commandBufferDestroy(const context_t& context, command_buffer_t* commandBuffer )
@@ -2114,6 +2122,9 @@ void render::commandBufferEnd( const command_buffer_t& commandBuffer)
 
 void render::commandBufferSubmit(const context_t& context, const command_buffer_t& commandBuffer )
 {
+  vkWaitForFences(context.device_, 1u, &commandBuffer.fence_, VK_TRUE, UINT64_MAX);
+  vkResetFences(context.device_, 1, &commandBuffer.fence_);
+
   //Submit current command buffer
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2127,11 +2138,11 @@ void render::commandBufferSubmit(const context_t& context, const command_buffer_
 
   if(commandBuffer.type_ == command_buffer_t::GRAPHICS)
   {
-    vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, commandBuffer.fence_);
   }
   else
   {
-    vkQueueSubmit(context.computeQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueSubmit(context.computeQueue_.handle_, 1, &submitInfo, commandBuffer.fence_);
   }
 
 }
