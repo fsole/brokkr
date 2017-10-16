@@ -641,9 +641,9 @@ struct scene_t
     VkClearValue clearValues[5];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-    clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-    clearValues[3].depthStencil = { 1.0f,0 };
-    clearValues[4].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+    clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };    
+    clearValues[3].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+    clearValues[4].depthStencil = { 1.0f,0 };
 
     render::commandBufferBegin(&frameBuffer_, 5u, clearValues, commandBuffer_);
     {

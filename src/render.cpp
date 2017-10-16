@@ -31,7 +31,7 @@
 using namespace bkk;
 using namespace bkk::render;
 
-#define VK_DEBUG_LAYERS
+//#define VK_DEBUG_LAYERS
 
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
@@ -1979,6 +1979,16 @@ void render::renderPassCreate(const context_t& context,
         depthStencilAttachmentRef[i].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         subpassDescription[i].pDepthStencilAttachment = &depthStencilAttachmentRef[i];
       }
+      /*
+      if (i != 0)
+      {
+        subpassDependencies[i-1].srcSubpass = i - 1; 
+        subpassDependencies[i - 1].dstSubpass = i;
+        subpassDependencies[i - 1].srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        subpassDependencies[i - 1].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; 
+        subpassDependencies[i - 1].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        subpassDependencies[i - 1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+      }*/
     }
 
     VkRenderPassCreateInfo renderPassCreateInfo = {};
@@ -1987,8 +1997,8 @@ void render::renderPassCreate(const context_t& context,
     renderPassCreateInfo.subpassCount = (uint32_t)subpassDescription.size();
     renderPassCreateInfo.pSubpasses = subpassDescription.data();
     renderPassCreateInfo.pAttachments = attachmentDescription.data();
-    renderPassCreateInfo.dependencyCount = (uint32_t)subpassDependencies.size();
-    renderPassCreateInfo.pDependencies = subpassDependencies.data();
+    //renderPassCreateInfo.dependencyCount = (uint32_t)subpassDependencies.size();
+    //renderPassCreateInfo.pDependencies = subpassDependencies.data();
 
 
     vkCreateRenderPass(context.device_, &renderPassCreateInfo, nullptr, &renderPass->handle_);
