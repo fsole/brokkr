@@ -426,8 +426,8 @@ namespace bkk
     void texture2DCreate(const context_t& context, const image::image2D_t* images, uint32_t imageCount, texture_sampler_t sampler, texture_t* texture);
     void texture2DCreate(const context_t& context, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usageFlags, texture_sampler_t sampler, texture_t* texture);    
     void textureDestroy(const context_t& context, texture_t* texture);
-    void textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture);
-    void textureChangeLayoutNow(const context_t& context, VkImageLayout layout, texture_t* texture);    
+    void textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture);
+    void textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture);
 
     //Buffers
     void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, uint32_t memoryType, void* data, size_t size, gpu_buffer_t* buffer, gpu_memory_allocator_t* allocator = nullptr);

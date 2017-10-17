@@ -65,7 +65,7 @@ bkk::render::texture_t CreateTexture(const bkk::render::context_t& context)
   {
     //Create the texture
     bkk::render::texture2DCreate(context, &image, 1, bkk::render::texture_sampler_t(), &texture);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &texture);    
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, &texture);
     bkk::image::unload(&image);
   }
 

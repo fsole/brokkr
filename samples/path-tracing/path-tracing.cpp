@@ -209,7 +209,7 @@ bool CreateResources()
 {
   //Create the texture
   render::texture2DCreate( gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &gTexture );
-  render::textureChangeLayoutNow(gContext, VK_IMAGE_LAYOUT_GENERAL, &gTexture);
+  render::textureChangeLayoutNow(gContext, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, &gTexture);
 
   //Create data to be passed to the gpu
   BufferData data;
@@ -331,13 +331,13 @@ void BuildCommandBuffers()
   {
     VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer( gContext, i, nullptr );
 
-    render::textureChangeLayout(gContext, cmdBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gTexture);
+    render::textureChangeLayout(gContext, cmdBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, &gTexture);
     
     bkk::render::graphicsPipelineBind(cmdBuffer, gPipeline);
     bkk::render::descriptorSetBindForGraphics(cmdBuffer, gPipelineLayout, 0, &gDescriptorSet, 1u);
     mesh::draw(cmdBuffer, gMesh );
 
-    render::textureChangeLayout(gContext, cmdBuffer, VK_IMAGE_LAYOUT_GENERAL, &gTexture);
+    render::textureChangeLayout(gContext, cmdBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, &gTexture);
     render::endPresentationCommandBuffer( gContext, i );
   }
 }
