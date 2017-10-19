@@ -387,35 +387,35 @@ struct scene_t
     render::render_pass_t::attachment_t attachments[5];
     attachments[0].format_ = gBufferRT0_.format_;
     attachments[0].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachments[0].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[0].finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[0].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[0].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[0].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
     attachments[1].format_ = gBufferRT1_.format_;;
     attachments[1].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachments[1].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[1].finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[1].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[1].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[1].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
     attachments[2].format_ = gBufferRT2_.format_;;
     attachments[2].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachments[2].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[2].finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[2].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[2].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[2].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
     attachments[3].format_ = finalImage_.format_;
     attachments[3].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachments[3].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[3].finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[3].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[3].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[3].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
     attachments[4].format_ = depthStencilBuffer_.format_;
     attachments[4].initialLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    attachments[4].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[4].finallLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     attachments[4].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[4].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[4].samples_ = VK_SAMPLE_COUNT_1_BIT;
@@ -427,13 +427,30 @@ struct scene_t
     subpasses[0].colorAttachmentIndex_.push_back(1);
     subpasses[0].colorAttachmentIndex_.push_back(2);
     subpasses[0].depthStencilAttachmentIndex_ = 4;
+    
 
     subpasses[1].inputAttachmentIndex_.push_back(0);
     subpasses[1].inputAttachmentIndex_.push_back(1);
     subpasses[1].inputAttachmentIndex_.push_back(2);
     subpasses[1].colorAttachmentIndex_.push_back(3);
 
-    render::renderPassCreate(context, 5u, attachments, 2u, subpasses, &renderPass_);
+    render::render_pass_t::subpass_dependency_t dependencies[2];
+    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass = 0;
+    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    
+    dependencies[1].srcSubpass = 0;
+    dependencies[1].dstSubpass = 1;
+    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+   
+    render::renderPassCreate(context, 5u, attachments, 2u, subpasses, 2u, dependencies, &renderPass_);
 
     //Create frame buffer
     VkImageView fbAttachment[5] = { gBufferRT0_.imageView_, gBufferRT1_.imageView_, gBufferRT2_.imageView_, finalImage_.imageView_, depthStencilBuffer_.imageView_ };
@@ -594,13 +611,15 @@ struct scene_t
     pipelineDesc.vertexShader_ = vertexShader_;
     pipelineDesc.fragmentShader_ = fragmentShader_;
     bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
+
+    BuildPresentationCommandBuffers();
   }
 
   void Resize( uint32_t width, uint32_t height )
   {
     uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.2f, (f32)width / (f32)height,0.1f,100.0f );
     render::swapchainResize( context_, width, height );
-    BuildCommandBuffers();
+    BuildPresentationCommandBuffers();
   }
 
   void Render()
@@ -623,21 +642,23 @@ struct scene_t
     {
       render::gpuBufferUpdate(*context_, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
     }
+    
 
-
-    BuildCommandBuffers();
-    render::commandBufferSubmit(*context_, commandBuffer_);
+    render::textureChangeLayoutNow(*context_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &finalImage_);
+    BuildAbdSubmitCommandBuffer();    
+    render::textureChangeLayoutNow(*context_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, &finalImage_);
     render::presentNextImage( context_, 1u, &renderComplete_);
   }
 
-  void BuildCommandBuffers()
-  {
-    //Geometry command buffer
-    if (commandBuffer_.handle_ == VK_NULL_HANDLE)
+  void BuildAbdSubmitCommandBuffer()
+  {    
+    if (commandBuffer_.handle_ != VK_NULL_HANDLE)
     {
-      render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0, nullptr, nullptr, 1, &renderComplete_, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+      render::commandBufferDestroy(*context_, &commandBuffer_);
     }
     
+    render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0, nullptr, nullptr, 1, &renderComplete_, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+
     VkClearValue clearValues[5];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
@@ -647,56 +668,43 @@ struct scene_t
 
     render::commandBufferBegin(&frameBuffer_, 5u, clearValues, commandBuffer_);
     {
-      bkk::render::textureChangeLayout( *context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT0_);
-      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT1_);
-      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT2_);
-      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &finalImage_);
-
+      
+      //GBuffer pass
       bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
       descriptorSets[0] = globalsDescriptorSet_;
       packed_freelist_iterator_t<object_t> objectIter = object_.begin();
       while (objectIter != object_.end())
       {
-        //Bind descriptor set
         descriptorSets[1] = objectIter.get().descriptorSet_;
         descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
         bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
-
-        //Draw call
         mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
         mesh::draw(commandBuffer_.handle_, *mesh);
         ++objectIter;
       }
 
-      
-      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, &gBufferRT0_);
-      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, &gBufferRT1_);
-      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, &gBufferRT2_);
-
-      //Light subpass
       bkk::render::commandBufferNextSubpass(commandBuffer_);
       
+      //Light pass      
       bkk::render::graphicsPipelineBind(commandBuffer_.handle_, lightPipeline_);
       descriptorSets[1] = lightPassTexturesDescriptorSet_;
       packed_freelist_iterator_t<light_t> lightIter = light_.begin();
       while (lightIter != light_.end())
-      {
-        //Bind descriptor set        
+      {      
         descriptorSets[2] = lightIter.get().descriptorSet_;
         bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 0u, descriptorSets, 3u);
-
-        //Draw call       
         mesh::draw(commandBuffer_.handle_, sphereMesh_);
         ++lightIter;
       }
-
-      bkk::render::textureChangeLayout(*context_, commandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, &finalImage_);
-
     }
 
     render::commandBufferEnd(commandBuffer_);
-    
+    render::commandBufferSubmit(*context_, commandBuffer_);
+  }
+
+  void BuildPresentationCommandBuffers()
+  {
     //Presentation command buffers
     for (unsigned i(0); i<3; ++i)
     {
@@ -707,7 +715,6 @@ struct scene_t
       bkk::render::endPresentationCommandBuffer(*context_, i);
     }
   }
-
 
   void OnKeyEvent(window::key_e key, bool pressed, scene_t& scene)
   {
@@ -740,23 +747,12 @@ struct scene_t
         break;
       }
       case window::key_e::KEY_1:
-      {
-        currentDescriptorSet_ = 0;
-        break;
-      }
       case window::key_e::KEY_2:
-      {
-        currentDescriptorSet_ = 1;
-        break;
-      }
       case window::key_e::KEY_3:
-      {
-        currentDescriptorSet_ = 2;
-        break;
-      }
       case window::key_e::KEY_4:
       {
-        currentDescriptorSet_ = 3;
+        currentDescriptorSet_ = key - window::key_e::KEY_1;
+        BuildPresentationCommandBuffers();
         break;
       }
       default:

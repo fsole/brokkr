@@ -282,7 +282,7 @@ void CreateGraphicsPipeline()
   bkk::render::shaderCreateFromGLSLSource(gContext, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &gFragmentShader);
 
   //Create graphics pipeline
-  bkk::render::graphics_pipeline_t::description_t pipelineDesc;
+  bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
   pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)gContext.swapChain_.imageWidth_, (float)gContext.swapChain_.imageHeight_, 0.0f, 1.0f };
   pipelineDesc.scissorRect_ = { {0,0}, {gContext.swapChain_.imageWidth_,gContext.swapChain_.imageHeight_} };
   pipelineDesc.blendState_.resize(1);
@@ -330,14 +330,11 @@ void BuildCommandBuffers()
   for( unsigned i(0); i<3; ++i )
   {
     VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer( gContext, i, nullptr );
-
-    render::textureChangeLayout(gContext, cmdBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, &gTexture);
-    
     bkk::render::graphicsPipelineBind(cmdBuffer, gPipeline);
     bkk::render::descriptorSetBindForGraphics(cmdBuffer, gPipelineLayout, 0, &gDescriptorSet, 1u);
     mesh::draw(cmdBuffer, gMesh );
 
-    render::textureChangeLayout(gContext, cmdBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, &gTexture);
+    
     render::endPresentationCommandBuffer( gContext, i );
   }
 }

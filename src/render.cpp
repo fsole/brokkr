@@ -31,7 +31,7 @@
 using namespace bkk;
 using namespace bkk::render;
 
-//#define VK_DEBUG_LAYERS
+#define VK_DEBUG_LAYERS
 
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
@@ -46,7 +46,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
 {
 
   std::cerr << "VULKAN_ERROR: " << msg << std::endl;
-    return VK_FALSE;
+  return VK_FALSE;
 }
   
 static VkDeviceSize GetNextMultiple(VkDeviceSize from, VkDeviceSize multiple)
@@ -704,8 +704,8 @@ void render::presentNextImage(context_t* context, uint32_t waitSemaphoreCount, V
 
   std::vector<VkSemaphore> waitSemaphoreList(1 + waitSemaphoreCount);
   std::vector<VkPipelineStageFlags> waitStageList(1 + waitSemaphoreCount);
-  waitSemaphoreList[0] = context->swapChain_.renderingComplete_;
-  waitStageList[0] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  waitSemaphoreList[0] = context->swapChain_.imageAcquired_;
+  waitStageList[0] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
   for (size_t i(0); i < waitSemaphoreCount; ++i)
   {
     waitSemaphoreList[i+1] = waitSemaphore[i];
@@ -714,10 +714,10 @@ void render::presentNextImage(context_t* context, uint32_t waitSemaphoreCount, V
   VkSubmitInfo submitInfo = {};
   
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.waitSemaphoreCount = 1;
-  submitInfo.pWaitSemaphores = &context->swapChain_.imageAcquired_;	      //Wait until image is aquired
-  submitInfo.signalSemaphoreCount = (uint32_t)waitSemaphoreList.size();
-  submitInfo.pSignalSemaphores = waitSemaphoreList.data();	//When command buffer has finished will signal renderingCompleteSemaphore
+  submitInfo.waitSemaphoreCount = waitSemaphoreList.size();
+  submitInfo.pWaitSemaphores = waitSemaphoreList.data();	      //Wait until image is aquired
+  submitInfo.signalSemaphoreCount = 1u;
+  submitInfo.pSignalSemaphores = &context->swapChain_.renderingComplete_;	//When command buffer has finished will signal renderingCompleteSemaphore
   submitInfo.pWaitDstStageMask = waitStageList.data();
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &context->swapChain_.commandBuffer_[currentImage];
@@ -1051,7 +1051,7 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
 
   //Transition image layout from optimal-for-transfer to optimal-for-shader-reads
   imageBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-  imageBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+  imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
   imageBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
   imageBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
 
@@ -1108,6 +1108,7 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
   samplerCreateInfo.maxAnisotropy = 1.0;
   vkCreateSampler(context.device_, &samplerCreateInfo, nullptr, &texture->sampler_);
 
+  
   texture->descriptor_ = {};
   texture->descriptor_.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
   texture->descriptor_.imageView = texture->imageView_;
@@ -1117,6 +1118,8 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
   texture->mipLevels_ = 1;
   texture->aspectFlags_ = VK_IMAGE_ASPECT_COLOR_BIT;
   texture->format_ = format;
+
+  textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, texture);
 }
 
 void render::texture2DCreate(const context_t& context,
@@ -1328,6 +1331,11 @@ void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBu
 
 void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
 {
+  if (layout == texture->layout_)
+  {
+    return;
+  }
+
   //Create command buffer
   VkCommandBuffer commandBuffer;
   VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
@@ -1932,6 +1940,7 @@ void render::depthStencilBufferChangeLayout(const context_t& context, VkCommandB
 void render::renderPassCreate(const context_t& context,
   uint32_t attachmentCount, render_pass_t::attachment_t* attachments,
   uint32_t subpassCount, render_pass_t::subpass_t* subpasses,
+  uint32_t dependencyCount, render_pass_t::subpass_dependency_t* dependencies,
   render_pass_t* renderPass)
 {
   renderPass->attachment_ = new render_pass_t::attachment_t[attachmentCount];
@@ -1995,8 +2004,8 @@ void render::renderPassCreate(const context_t& context,
     std::vector< std::vector<VkAttachmentReference> > colorAttachmentRef(subpassCount);
     std::vector<VkAttachmentReference> depthStencilAttachmentRef(subpassCount);
 
-    //TODO: Subpass dependencies. Assuming no dependencies
-    std::vector<VkSubpassDependency> subpassDependencies(subpassCount - 1);
+    
+    
     for (uint32_t i = 0; i < subpassCount; ++i)
     {
       subpassDescription[i].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -2007,7 +2016,7 @@ void render::renderPassCreate(const context_t& context,
       for (uint32_t j = 0; j < inputAttachmentCount; ++j)
       {
         inputAttachmentRef[i][j].attachment = subpasses[i].inputAttachmentIndex_[j];
-        inputAttachmentRef[i][j].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        inputAttachmentRef[i][j].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
       }
       subpassDescription[i].inputAttachmentCount = inputAttachmentCount;
       subpassDescription[i].pInputAttachments = inputAttachmentRef[i].data();
@@ -2018,7 +2027,7 @@ void render::renderPassCreate(const context_t& context,
       for (uint32_t j = 0; j < colorAttachmentCount; ++j)
       {
         colorAttachmentRef[i][j].attachment = subpasses[i].colorAttachmentIndex_[j];
-        colorAttachmentRef[i][j].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachmentRef[i][j].layout = VK_IMAGE_LAYOUT_GENERAL;
       }
       subpassDescription[i].colorAttachmentCount = colorAttachmentCount;
       subpassDescription[i].pColorAttachments = colorAttachmentRef[i].data();
@@ -2030,17 +2039,19 @@ void render::renderPassCreate(const context_t& context,
         depthStencilAttachmentRef[i].attachment = subpasses[i].depthStencilAttachmentIndex_;
         depthStencilAttachmentRef[i].layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         subpassDescription[i].pDepthStencilAttachment = &depthStencilAttachmentRef[i];
-      }
-      /*
-      if (i != 0)
-      {
-        subpassDependencies[i-1].srcSubpass = i - 1; 
-        subpassDependencies[i - 1].dstSubpass = i;
-        subpassDependencies[i - 1].srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        subpassDependencies[i - 1].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; 
-        subpassDependencies[i - 1].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        subpassDependencies[i - 1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-      }*/
+      }      
+    }
+
+    //Dependencies
+    std::vector<VkSubpassDependency> subpassDependencies( dependencyCount );
+    for (uint32_t i = 0; i < dependencyCount; ++i)
+    {
+      subpassDependencies[i].srcSubpass = dependencies[i].srcSubpass;
+      subpassDependencies[i].dstSubpass = dependencies[i].dstSubpass;
+      subpassDependencies[i].srcStageMask = dependencies[i].srcStageMask;
+      subpassDependencies[i].dstStageMask = dependencies[i].dstStageMask;
+      subpassDependencies[i].srcAccessMask = dependencies[i].srcAccessMask;
+      subpassDependencies[i].dstAccessMask = dependencies[i].dstAccessMask;
     }
 
     VkRenderPassCreateInfo renderPassCreateInfo = {};
@@ -2049,8 +2060,8 @@ void render::renderPassCreate(const context_t& context,
     renderPassCreateInfo.subpassCount = (uint32_t)subpassDescription.size();
     renderPassCreateInfo.pSubpasses = subpassDescription.data();
     renderPassCreateInfo.pAttachments = attachmentDescription.data();
-    //renderPassCreateInfo.dependencyCount = (uint32_t)subpassDependencies.size();
-    //renderPassCreateInfo.pDependencies = subpassDependencies.data();
+    renderPassCreateInfo.dependencyCount = dependencyCount;
+    renderPassCreateInfo.pDependencies = subpassDependencies.data();
 
 
     vkCreateRenderPass(context.device_, &renderPassCreateInfo, nullptr, &renderPass->handle_);
@@ -2136,6 +2147,7 @@ void render::commandBufferDestroy(const context_t& context, command_buffer_t* co
 
 void render::commandBufferBegin( const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer)
 {
+
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   

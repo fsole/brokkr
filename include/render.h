@@ -375,13 +375,25 @@ namespace bkk
         VkAttachmentLoadOp loadOp_;
       };
 
-      //@TODO Suport subpasses. Currently onle one subpass is supported
+      
+      struct subpass_dependency_t
+      {
+        uint32_t                srcSubpass;
+        uint32_t                dstSubpass;
+        VkPipelineStageFlags    srcStageMask;
+        VkPipelineStageFlags    dstStageMask;
+        VkAccessFlags           srcAccessMask;
+        VkAccessFlags           dstAccessMask;
+      };
+
       struct subpass_t
       {
         std::vector< uint32_t > colorAttachmentIndex_;
         std::vector< uint32_t > inputAttachmentIndex_;
         int32_t depthStencilAttachmentIndex_ = -1;
       };
+
+     
 
       VkRenderPass handle_;
 
@@ -481,6 +493,7 @@ namespace bkk
     void renderPassCreate(const context_t& context,
       uint32_t attachmentCount, render_pass_t::attachment_t* attachments,
       uint32_t subpassCount, render_pass_t::subpass_t* subpasses,
+      uint32_t dependencyCount, render_pass_t::subpass_dependency_t* dependencies,
       render_pass_t* renderPass);
 
     void renderPassDestroy(const context_t& context, render_pass_t* renderPass);
