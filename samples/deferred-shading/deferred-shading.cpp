@@ -652,12 +652,11 @@ struct scene_t
 
   void BuildAbdSubmitCommandBuffer()
   {    
-    if (commandBuffer_.handle_ != VK_NULL_HANDLE)
+    if (commandBuffer_.handle_ == VK_NULL_HANDLE)
     {
-      render::commandBufferDestroy(*context_, &commandBuffer_);
-    }
+      render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0, nullptr, nullptr, 1, &renderComplete_, render::command_buffer_t::GRAPHICS, &commandBuffer_); 
+    }    
     
-    render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0, nullptr, nullptr, 1, &renderComplete_, render::command_buffer_t::GRAPHICS, &commandBuffer_);
 
     VkClearValue clearValues[5];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
