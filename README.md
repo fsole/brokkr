@@ -1,5 +1,5 @@
 # Brokkr
-Brokkr is yet another little Vulkan framework written in C++ for Windows and Linux platforms. It's still under developement so there might be errors and features missing.
+Brokkr is yet another little Vulkan framework written in C++ for Windows (Linux support is on the way). It's still under developement so there might be errors and features missing.
 
 # Building
 A Visual Studio solution is included under build/vs2015 to compile the library and all the samples with Visual Studio.
