@@ -2227,7 +2227,4 @@ void render::commandBufferSubmit(const context_t& context, const command_buffer_
   {
     vkQueueSubmit(context.computeQueue_.handle_, 1, &submitInfo, commandBuffer.fence_);
   }
-
-  
-
 }
