@@ -43,6 +43,7 @@ static maths::mat4 gModelTransform;
 static maths::mat4 gProjection;
 static render::pipeline_layout_t gPipelineLayout;
 static render::descriptor_pool_t gDescriptorPool;
+static render::descriptor_set_layout_t gDescriptorSetLayout;
 static render::descriptor_set_t gDescriptorSet;
 static render::graphics_pipeline_t gPipeline;
 static render::shader_t gVertexShader;
@@ -134,24 +135,23 @@ void CreateGeometry()
 
 void CreatePipeline()
 {
-  //Create descriptor layout
-  render::descriptor_set_layout_t descriptorSetLayout;
+  //Create descriptor layout  
   std::array< render::descriptor_binding_t, 2> bindings{ 
     render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::VERTEX },
     render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 2, render::descriptor_t::stage::VERTEX }
   };
  
-  render::descriptorSetLayoutCreate( gContext, (uint32_t)bindings.size(), &bindings[0], &descriptorSetLayout );
+  render::descriptorSetLayoutCreate( gContext, (uint32_t)bindings.size(), &bindings[0], &gDescriptorSetLayout);
 
   //Create pipeline layout
-  render::pipelineLayoutCreate( gContext, 1u, &descriptorSetLayout, &gPipelineLayout );
+  render::pipelineLayoutCreate( gContext, 1u, &gDescriptorSetLayout, &gPipelineLayout );
 
   //Create descriptor pool
   render::descriptorPoolCreate( gContext, 1u, 0u, 2u, 0u, 0u, &gDescriptorPool );
 
   //Create descriptor set
   std::array<render::descriptor_t, 2> descriptors = { render::getDescriptor(gUbo), render::getDescriptor(gAnimator.buffer_)};  
-  render::descriptorSetCreate( gContext, gDescriptorPool, descriptorSetLayout, &descriptors[0], &gDescriptorSet );
+  render::descriptorSetCreate( gContext, gDescriptorPool, gDescriptorSetLayout, &descriptors[0], &gDescriptorSet );
 
   //Load shaders
   bkk::render::shaderCreateFromGLSLSource(gContext, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &gVertexShader);
@@ -200,6 +200,7 @@ void Exit()
 
   render::graphicsPipelineDestroy( gContext, &gPipeline );
   render::descriptorSetDestroy( gContext, &gDescriptorSet );
+  render::descriptorSetLayoutDestroy(gContext, &gDescriptorSetLayout);
   render::descriptorPoolDestroy( gContext, &gDescriptorPool );
   render::pipelineLayoutDestroy( gContext, &gPipelineLayout );
 

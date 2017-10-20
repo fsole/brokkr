@@ -475,6 +475,7 @@ static void CreateSwapChain(context_t* context,
     vkCreateFence(context->device_, &fenceCreateInfo, nullptr, &context->swapChain_.frameFence_[i]);
   }
 
+
   //Create depth stencil buffer (shared by all the framebuffers)
   VkFormat depthStencilFormat = VK_FORMAT_UNDEFINED;
   GetDepthStencilFormat(context->physicalDevice_, &depthStencilFormat);
@@ -694,11 +695,12 @@ void render::presentNextImage(context_t* context, uint32_t waitSemaphoreCount, V
     UINT64_MAX, context->swapChain_.imageAcquired_,
     VK_NULL_HANDLE, &context->swapChain_.currentImage_);
 
-
-  //Wait until previous presentation of the image in the swap chain has finished
-  vkWaitForFences(context->device_, 1, &context->swapChain_.frameFence_[context->swapChain_.currentImage_], VK_TRUE, UINT64_MAX);
-  vkResetFences(context->device_, 1, &context->swapChain_.frameFence_[context->swapChain_.currentImage_]);
   uint32_t currentImage = context->swapChain_.currentImage_;
+
+  vkWaitForFences(context->device_, 1, &context->swapChain_.frameFence_[currentImage], VK_TRUE, UINT64_MAX);
+  vkResetFences(context->device_, 1, &context->swapChain_.frameFence_[currentImage]);
+
+  
 
   //Submit current command buffer
 
@@ -714,7 +716,7 @@ void render::presentNextImage(context_t* context, uint32_t waitSemaphoreCount, V
   VkSubmitInfo submitInfo = {};
   
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.waitSemaphoreCount = waitSemaphoreList.size();
+  submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphoreList.size();
   submitInfo.pWaitSemaphores = waitSemaphoreList.data();	      //Wait until image is aquired
   submitInfo.signalSemaphoreCount = 1u;
   submitInfo.pSignalSemaphores = &context->swapChain_.renderingComplete_;	//When command buffer has finished will signal renderingCompleteSemaphore
@@ -734,7 +736,7 @@ void render::presentNextImage(context_t* context, uint32_t waitSemaphoreCount, V
   context->vkQueuePresentKHR(context->graphicsQueue_.handle_, &presentInfo);
 
   //Submit presentation and place a fence so next time we try to update currentImage_ image
-  //we know that previous submited image has already been presented
+  //we know that previous submited image has already been presented  
   vkQueueSubmit(context->graphicsQueue_.handle_, 0, nullptr, context->swapChain_.frameFence_[currentImage]);
 }
 
@@ -1070,13 +1072,18 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &uploadCommandBuffer;
 
-  //Warning: Texture upload has to be done at initialization time. Otherwise
-  //the submission fence has to placed on the next image of the swap chain (not 0)
-  vkResetFences(context.device_, 1u, &context.swapChain_.frameFence_[0]);
-  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, context.swapChain_.frameFence_[0]);
+  VkFenceCreateInfo fenceCreateInfo = {};
+  fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+  VkFence fence;
+  vkCreateFence(context.device_, &fenceCreateInfo, nullptr, &fence);
+  vkResetFences(context.device_, 1u, &fence);
+  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, fence);
 
   //Destroy temporary resources
-  vkWaitForFences(context.device_, 1u, &context.swapChain_.frameFence_[0], VK_TRUE, UINT64_MAX);
+  vkWaitForFences(context.device_, 1u, &fence, VK_TRUE, UINT64_MAX);
+  vkDestroyFence(context.device_, fence, nullptr);
   vkFreeCommandBuffers(context.device_, context.commandPool_, 1, &uploadCommandBuffer);
   gpuMemoryDeallocate(context, stagingBufferMemory);
   vkDestroyBuffer(context.device_, stagingBuffer, nullptr);
@@ -1468,7 +1475,7 @@ descriptor_t render::getDescriptor(const depth_stencil_buffer_t& depthStencilBuf
 void render::descriptorSetLayoutCreate(const context_t& context, uint32_t bindingCount, descriptor_binding_t* bindings, descriptor_set_layout_t* descriptorSetLayout)
 {
   descriptorSetLayout->bindingCount_ = bindingCount;
-  descriptorSetLayout->bindings_ = 0;
+  descriptorSetLayout->bindings_ = nullptr;
   descriptorSetLayout->handle_ = VK_NULL_HANDLE;
 
   if (bindingCount > 0)
@@ -1499,11 +1506,17 @@ void render::descriptorSetLayoutCreate(const context_t& context, uint32_t bindin
   vkCreateDescriptorSetLayout(context.device_, &descriptorSetLayoutCreateInfo, nullptr, &descriptorSetLayout->handle_);  
 }
 
+void render::descriptorSetLayoutDestroy(const context_t& context, descriptor_set_layout_t* desriptorSetLayout)
+{
+  delete[] desriptorSetLayout->bindings_;
+  vkDestroyDescriptorSetLayout(context.device_, desriptorSetLayout->handle_, nullptr);
+}
+
 void render::pipelineLayoutCreate(const context_t& context, uint32_t descriptorSetLayoutCount, descriptor_set_layout_t* descriptorSetLayouts, pipeline_layout_t* pipelineLayout)
 {
   //Create pipeline layout
   pipelineLayout->descriptorSetLayoutCount_ = descriptorSetLayoutCount;
-  pipelineLayout->descriptorSetLayout_ = 0;
+  pipelineLayout->descriptorSetLayout_ = nullptr;
   pipelineLayout->handle_ = VK_NULL_HANDLE;
 
   if (descriptorSetLayoutCount > 0)
@@ -1527,15 +1540,8 @@ void render::pipelineLayoutCreate(const context_t& context, uint32_t descriptorS
 
 void render::pipelineLayoutDestroy(const context_t& context, pipeline_layout_t* pipelineLayout)
 {
-  vkDestroyPipelineLayout(context.device_, pipelineLayout->handle_, nullptr);
-
-  for (uint32_t i(0); i < pipelineLayout->descriptorSetLayoutCount_; ++i)
-  {
-    delete[] pipelineLayout->descriptorSetLayout_[i].bindings_;
-    vkDestroyDescriptorSetLayout(context.device_, pipelineLayout->descriptorSetLayout_[i].handle_, nullptr);
-  }
-
   delete[] pipelineLayout->descriptorSetLayout_;
+  vkDestroyPipelineLayout(context.device_, pipelineLayout->handle_, nullptr);
 }
 
 void render::descriptorPoolCreate(const context_t& context, uint32_t descriptorSetsCount, 
@@ -1858,6 +1864,7 @@ void render::depthStencilBufferDestroy(const context_t& context, depth_stencil_b
 {
   vkDestroyImageView(context.device_, depthStencilBuffer->imageView_, nullptr);
   vkDestroyImage(context.device_, depthStencilBuffer->image_, nullptr);
+  vkDestroySampler(context.device_, depthStencilBuffer->descriptor_.sampler, nullptr);
   gpuMemoryDeallocate(context, depthStencilBuffer->memory_);
 }
 
@@ -2003,15 +2010,13 @@ void render::renderPassCreate(const context_t& context,
     std::vector< std::vector<VkAttachmentReference> > inputAttachmentRef( subpassCount );
     std::vector< std::vector<VkAttachmentReference> > colorAttachmentRef(subpassCount);
     std::vector<VkAttachmentReference> depthStencilAttachmentRef(subpassCount);
-
-    
     
     for (uint32_t i = 0; i < subpassCount; ++i)
     {
       subpassDescription[i].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
       //Input attachments
-      uint32_t inputAttachmentCount = subpasses[i].inputAttachmentIndex_.size();
+      uint32_t inputAttachmentCount = (uint32_t)subpasses[i].inputAttachmentIndex_.size();
       inputAttachmentRef[i].resize(inputAttachmentCount);
       for (uint32_t j = 0; j < inputAttachmentCount; ++j)
       {
@@ -2022,12 +2027,12 @@ void render::renderPassCreate(const context_t& context,
       subpassDescription[i].pInputAttachments = inputAttachmentRef[i].data();
 
       //Color attachments
-      uint32_t colorAttachmentCount = subpasses[i].colorAttachmentIndex_.size();
+      uint32_t colorAttachmentCount = (uint32_t)subpasses[i].colorAttachmentIndex_.size();
       colorAttachmentRef[i].resize(colorAttachmentCount);
       for (uint32_t j = 0; j < colorAttachmentCount; ++j)
       {
         colorAttachmentRef[i][j].attachment = subpasses[i].colorAttachmentIndex_[j];
-        colorAttachmentRef[i][j].layout = VK_IMAGE_LAYOUT_GENERAL;
+        colorAttachmentRef[i][j].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
       }
       subpassDescription[i].colorAttachmentCount = colorAttachmentCount;
       subpassDescription[i].pColorAttachments = colorAttachmentRef[i].data();
@@ -2070,7 +2075,8 @@ void render::renderPassCreate(const context_t& context,
 
 void render::renderPassDestroy(const context_t& context, render_pass_t* renderPass)
 {
-  //@TODO
+  delete[] renderPass->attachment_;
+  vkDestroyRenderPass(context.device_, renderPass->handle_, nullptr);
 }
 
 void render::frameBufferCreate(const context_t& context, uint32_t width, uint32_t height, const render_pass_t& renderPass, VkImageView* imageViews, frame_buffer_t* frameBuffer)
@@ -2094,7 +2100,7 @@ void render::frameBufferCreate(const context_t& context, uint32_t width, uint32_
 
 void render::frameBufferDestroy(const context_t& context, frame_buffer_t* frameBuffer)
 {
-    //@TODO
+  vkDestroyFramebuffer(context.device_, frameBuffer->handle_, nullptr);
 }
 
 
@@ -2143,11 +2149,13 @@ void render::commandBufferDestroy(const context_t& context, command_buffer_t* co
   delete[] commandBuffer->signalSemaphore_;
 
   vkFreeCommandBuffers(context.device_, context.commandPool_, 1u, &commandBuffer->handle_ );
+  vkDestroyFence(context.device_, commandBuffer->fence_, nullptr);
 }
 
-void render::commandBufferBegin( const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer)
+void render::commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer)
 {
-
+  vkWaitForFences(context.device_, 1u, &commandBuffer.fence_, VK_TRUE, UINT64_MAX);
+  
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   
@@ -2194,8 +2202,9 @@ void render::commandBufferEnd( const command_buffer_t& commandBuffer)
   vkEndCommandBuffer(commandBuffer.handle_);
 }
 
+
 void render::commandBufferSubmit(const context_t& context, const command_buffer_t& commandBuffer )
-{
+{ 
   vkWaitForFences(context.device_, 1u, &commandBuffer.fence_, VK_TRUE, UINT64_MAX);
   vkResetFences(context.device_, 1, &commandBuffer.fence_);
 
@@ -2218,5 +2227,7 @@ void render::commandBufferSubmit(const context_t& context, const command_buffer_
   {
     vkQueueSubmit(context.computeQueue_.handle_, 1, &submitInfo, commandBuffer.fence_);
   }
+
+  
 
 }

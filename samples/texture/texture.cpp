@@ -177,6 +177,7 @@ int main()
   bkk::render::shaderDestroy(context, &fragmentShader);
 
   bkk::render::graphicsPipelineDestroy(context, &pipeline);
+  render::descriptorSetLayoutDestroy(context, &descriptorSetLayout);
   bkk::render::descriptorSetDestroy(context, &descriptorSet);
   bkk::render::descriptorPoolDestroy(context, &descriptorPool);
   bkk::render::pipelineLayoutDestroy(context, &pipelineLayout);

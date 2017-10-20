@@ -63,11 +63,13 @@ static mesh::mesh_t gFSQuad;
 static render::descriptor_pool_t gDescriptorPool;
 
 static render::pipeline_layout_t gPipelineLayout;
+static render::descriptor_set_layout_t gDescriptorSetLayout;
 static render::descriptor_set_t gDescriptorSet;
 static render::graphics_pipeline_t gPipeline;
 
 
 static render::pipeline_layout_t gComputePipelineLayout;
+static render::descriptor_set_layout_t gComputeDescriptorSetLayout;
 static render::descriptor_set_t gComputeDescriptorSet;
 static render::compute_pipeline_t gComputePipeline;
 static render::gpu_buffer_t gUbo;
@@ -353,19 +355,18 @@ void CreateFullscreenQuad( mesh::mesh_t* quad )
 void CreateGraphicsPipeline()
 {
   //Create descriptor layout
-  render::descriptor_set_layout_t descriptorSetLayout;
   render::descriptor_binding_t binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
-  render::descriptorSetLayoutCreate(gContext,1u, &binding,  &descriptorSetLayout);
+  render::descriptorSetLayoutCreate(gContext,1u, &binding,  &gDescriptorSetLayout);
 
   //Create pipeline layout
-  render::pipelineLayoutCreate(gContext, 1u, &descriptorSetLayout, &gPipelineLayout);
+  render::pipelineLayoutCreate(gContext, 1u, &gDescriptorSetLayout, &gPipelineLayout);
 
   //Create descriptor pool  
   render::descriptorPoolCreate(gContext, 2u, 1u, 1u, 1u, 1u, &gDescriptorPool);
 
   //Create descriptor set
   render::descriptor_t descriptor = render::getDescriptor(gTexture);
-  render::descriptorSetCreate(gContext, gDescriptorPool, descriptorSetLayout, &descriptor, &gDescriptorSet);
+  render::descriptorSetCreate(gContext, gDescriptorPool, gDescriptorSetLayout, &descriptor, &gDescriptorSet);
 
   //Load shaders
   render::shaderCreateFromGLSLSource(gContext, render::shader_t::VERTEX_SHADER, gVertexShaderSource, &gVertexShader);
@@ -389,22 +390,20 @@ void CreateGraphicsPipeline()
 void CreateComputePipeline()
 {
   //Create descriptor layout
-  render::descriptor_set_layout_t descriptorSetLayout;
-
   std::array< render::descriptor_binding_t, 3> bindings{
     render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_IMAGE,  0, render::descriptor_t::stage::COMPUTE },
     render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::COMPUTE },
     render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_BUFFER, 2, render::descriptor_t::stage::COMPUTE }
   };
 
-  render::descriptorSetLayoutCreate(gContext, (uint32_t)bindings.size(), &bindings[0], &descriptorSetLayout);
+  render::descriptorSetLayoutCreate(gContext, (uint32_t)bindings.size(), &bindings[0], &gComputeDescriptorSetLayout);
 
   //Create pipeline layout
-  render::pipelineLayoutCreate(gContext, 1u, &descriptorSetLayout, &gComputePipelineLayout);
+  render::pipelineLayoutCreate(gContext, 1u, &gComputeDescriptorSetLayout, &gComputePipelineLayout);
 
   //Create descriptor set
   std::array<render::descriptor_t, 3> descriptors = { render::getDescriptor(gTexture), render::getDescriptor(gUbo), render::getDescriptor(gDistanceField) };
-  render::descriptorSetCreate(gContext, gDescriptorPool, descriptorSetLayout, &descriptors[0], &gComputeDescriptorSet);
+  render::descriptorSetCreate(gContext, gDescriptorPool, gComputeDescriptorSetLayout, &descriptors[0], &gComputeDescriptorSet);
 
   //Create pipeline
   bkk::render::shaderCreateFromGLSL(gContext, bkk::render::shader_t::COMPUTE_SHADER, "../distance-field/distance-field.comp", &gComputeShader);
@@ -437,7 +436,7 @@ void BuildComputeCommandBuffer()
   //Build compute command buffer
   render::commandBufferCreate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0u, nullptr, nullptr, 0u, nullptr, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer);
 
-  render::commandBufferBegin(nullptr, 0u, nullptr, gComputeCommandBuffer);
+  render::commandBufferBegin(gContext, nullptr, 0u, nullptr, gComputeCommandBuffer);
 
   bkk::render::computePipelineBind(gComputeCommandBuffer.handle_, gComputePipeline);
   bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer.handle_, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
@@ -465,10 +464,12 @@ void Exit()
   render::shaderDestroy(gContext, &gComputeShader);
 
   render::graphicsPipelineDestroy(gContext, &gPipeline);
+  render::descriptorSetLayoutDestroy(gContext, &gDescriptorSetLayout);
   render::descriptorSetDestroy(gContext, &gDescriptorSet);
   render::pipelineLayoutDestroy(gContext, &gPipelineLayout);
 
   render::computePipelineDestroy(gContext, &gComputePipeline);
+  render::descriptorSetLayoutDestroy(gContext, &gComputeDescriptorSetLayout);
   render::descriptorSetDestroy(gContext, &gComputeDescriptorSet);
   render::pipelineLayoutDestroy(gContext, &gComputePipelineLayout);
 

@@ -434,7 +434,8 @@ struct scene_t
     subpasses[1].inputAttachmentIndex_.push_back(2);
     subpasses[1].colorAttachmentIndex_.push_back(3);
 
-    render::render_pass_t::subpass_dependency_t dependencies[2];
+    //Dependency chain for layout transitions
+    render::render_pass_t::subpass_dependency_t dependencies[4];
     dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[0].dstSubpass = 0;
     dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
@@ -442,15 +443,29 @@ struct scene_t
     dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
     dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     
-    dependencies[1].srcSubpass = 0;
+    dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[1].dstSubpass = 1;
     dependencies[1].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     dependencies[1].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dependencies[1].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-   
-    render::renderPassCreate(context, 5u, attachments, 2u, subpasses, 2u, dependencies, &renderPass_);
+    dependencies[2].srcSubpass = 0;
+    dependencies[2].dstSubpass = 1;
+    dependencies[2].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[2].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    dependencies[2].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[2].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    dependencies[3].srcSubpass = 1;
+    dependencies[3].dstSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[3].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[3].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    dependencies[3].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dependencies[3].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    
+    render::renderPassCreate(context, 5u, attachments, 2u, subpasses, 4u, dependencies, &renderPass_);
 
     //Create frame buffer
     VkImageView fbAttachment[5] = { gBufferRT0_.imageView_, gBufferRT1_.imageView_, gBufferRT2_.imageView_, finalImage_.imageView_, depthStencilBuffer_.imageView_ };
@@ -581,20 +596,19 @@ struct scene_t
     //Initialize presentation pass (Presents image genereated by offscreen pass) 
 
     //Descriptor set layout and pipeline layout
-    render::descriptor_binding_t binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
-    bkk::render::descriptor_set_layout_t descriptorSetLayout;
-    bkk::render::descriptorSetLayoutCreate(context, 1u, &binding, &descriptorSetLayout);
-    bkk::render::pipelineLayoutCreate(context, 1u, &descriptorSetLayout, &pipelineLayout_);
+    render::descriptor_binding_t binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };    
+    bkk::render::descriptorSetLayoutCreate(context, 1u, &binding, &descriptorSetLayout_);
+    bkk::render::pipelineLayoutCreate(context, 1u, &descriptorSetLayout_, &pipelineLayout_);
 
     //Presentation descriptor sets
     descriptor = bkk::render::getDescriptor(finalImage_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout, &descriptor, &descriptorSet_[0]);
+    bkk::render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, &descriptor, &descriptorSet_[0]);
     descriptor = bkk::render::getDescriptor(gBufferRT0_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout, &descriptor, &descriptorSet_[1]);
+    bkk::render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, &descriptor, &descriptorSet_[1]);
     descriptor = bkk::render::getDescriptor(gBufferRT1_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout, &descriptor, &descriptorSet_[2]);
+    bkk::render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, &descriptor, &descriptorSet_[2]);
     descriptor = bkk::render::getDescriptor(gBufferRT2_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout, &descriptor, &descriptorSet_[3]);
+    bkk::render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, &descriptor, &descriptorSet_[3]);
     
     //Create presentation pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
@@ -643,21 +657,19 @@ struct scene_t
       render::gpuBufferUpdate(*context_, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
     }
     
-
-    render::textureChangeLayoutNow(*context_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &finalImage_);
-    BuildAbdSubmitCommandBuffer();    
-    render::textureChangeLayoutNow(*context_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT, &finalImage_);
+    BuildAndSubmitCommandBuffer();        
     render::presentNextImage( context_, 1u, &renderComplete_);
   }
 
-  void BuildAbdSubmitCommandBuffer()
-  {    
+  void BuildAndSubmitCommandBuffer()
+  { 
     if (commandBuffer_.handle_ == VK_NULL_HANDLE)
     {
       render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0, nullptr, nullptr, 1, &renderComplete_, render::command_buffer_t::GRAPHICS, &commandBuffer_); 
-    }    
+    }
+     
     
-
+    
     VkClearValue clearValues[5];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
@@ -665,7 +677,7 @@ struct scene_t
     clearValues[3].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[4].depthStencil = { 1.0f,0 };
 
-    render::commandBufferBegin(&frameBuffer_, 5u, clearValues, commandBuffer_);
+    render::commandBufferBegin(*context_, &frameBuffer_, 5u, clearValues, commandBuffer_);
     {
       
       //GBuffer pass
@@ -700,7 +712,7 @@ struct scene_t
 
     render::commandBufferEnd(commandBuffer_);
     render::commandBufferSubmit(*context_, commandBuffer_);
-  }
+   }
 
   void BuildPresentationCommandBuffers()
   {
@@ -751,6 +763,7 @@ struct scene_t
       case window::key_e::KEY_4:
       {
         currentDescriptorSet_ = key - window::key_e::KEY_1;
+        render::contextFlush(*context_);
         BuildPresentationCommandBuffers();
         break;
       }
@@ -807,29 +820,62 @@ struct scene_t
       ++objectIter;
     }
 
+    //Destroy lights resources
+    packed_freelist_iterator_t<light_t> lightIter = light_.begin();
+    while (lightIter != light_.end())
+    {
+      render::gpuBufferDestroy(*context_, &lightIter.get().ubo_, &allocator_);
+      render::descriptorSetDestroy(*context_, &lightIter.get().descriptorSet_);
+      ++lightIter;
+    }
+
     //Destroy global resources
     render::shaderDestroy(*context_, &gBuffervertexShader_);
     render::shaderDestroy(*context_, &gBufferfragmentShader_);
+    render::shaderDestroy(*context_, &lightVertexShader_);
+    render::shaderDestroy(*context_, &lightFragmentShader_);
+    render::shaderDestroy(*context_, &vertexShader_);
+    render::shaderDestroy(*context_, &fragmentShader_);
+    
     render::graphicsPipelineDestroy(*context_, &gBufferPipeline_);
-    render::descriptorSetDestroy(*context_, &globalsDescriptorSet_);    
-    render::pipelineLayoutDestroy(*context_, &gBufferPipelineLayout_);
-    render::gpuBufferDestroy(*context_, &ubo_, &allocator_ );
-    render::gpuAllocatorDestroy(*context_, &allocator_ );
-    render::textureDestroy(*context_, &gBufferRT0_);
-    render::textureDestroy(*context_, &gBufferRT1_);
-    render::textureDestroy(*context_, &gBufferRT2_);
-    render::depthStencilBufferDestroy(*context_, &depthStencilBuffer_);
-    render::commandBufferDestroy(*context_, &commandBuffer_);
+    render::graphicsPipelineDestroy(*context_, &lightPipeline_);
     render::graphicsPipelineDestroy(*context_, &pipeline_);
+
+    render::pipelineLayoutDestroy(*context_, &pipelineLayout_);
+    render::pipelineLayoutDestroy(*context_, &gBufferPipelineLayout_);
+    render::pipelineLayoutDestroy(*context_, &lightPipelineLayout_);
+        
+    render::frameBufferDestroy(*context_, &frameBuffer_);    
+    render::commandBufferDestroy(*context_, &commandBuffer_);
+    render::renderPassDestroy(*context_, &renderPass_);
+    
+    render::descriptorSetDestroy(*context_, &globalsDescriptorSet_);
+    render::descriptorSetDestroy(*context_, &lightPassTexturesDescriptorSet_);
     render::descriptorSetDestroy(*context_, &descriptorSet_[0]);
     render::descriptorSetDestroy(*context_, &descriptorSet_[1]);
     render::descriptorSetDestroy(*context_, &descriptorSet_[2]);
-    render::shaderDestroy(*context_, &vertexShader_);
-    render::shaderDestroy(*context_, &fragmentShader_);
-    render::pipelineLayoutDestroy(*context_, &pipelineLayout_);
+
+    render::descriptorSetLayoutDestroy(*context_, &globalsDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(*context_, &materialDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(*context_, &objectDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(*context_, &lightDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(*context_, &lightPassTexturesDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(*context_, &descriptorSetLayout_);
+
+    render::textureDestroy(*context_, &gBufferRT0_);
+    render::textureDestroy(*context_, &gBufferRT1_);
+    render::textureDestroy(*context_, &gBufferRT2_);
+    render::textureDestroy(*context_, &finalImage_);
+    render::depthStencilBufferDestroy(*context_, &depthStencilBuffer_);
+    
+    render::vertexFormatDestroy(&vertexFormat_);
+    render::gpuBufferDestroy(*context_, &ubo_, &allocator_);
+    render::gpuAllocatorDestroy(*context_, &allocator_);
     render::descriptorPoolDestroy(*context_, &descriptorPool_);
+
     mesh::destroy(*context_, &fullScreenQuad_);
     mesh::destroy(*context_, &sphereMesh_);
+    vkDestroySemaphore(context_->device_, renderComplete_, nullptr);
   }
   
 private:
@@ -867,8 +913,7 @@ private:
   render::texture_t finalImage_;
   render::depth_stencil_buffer_t depthStencilBuffer_;
   render::frame_buffer_t frameBuffer_;
-  render::descriptor_set_layout_t lightPassGlobalDescriptorSetLayout_;
-  render::descriptor_set_layout_t lightPassTexturesDescriptorSetLayout_;  
+  render::descriptor_set_layout_t lightPassTexturesDescriptorSetLayout_;
   render::descriptor_set_t lightPassTexturesDescriptorSet_;
   render::pipeline_layout_t lightPipelineLayout_;
   render::graphics_pipeline_t lightPipeline_;
@@ -881,14 +926,13 @@ private:
   packed_freelist_t<object_t> object_;
   packed_freelist_t<light_t> light_;
 
-  
-
   render::graphics_pipeline_t pipeline_;
   render::pipeline_layout_t pipelineLayout_;
   render::shader_t vertexShader_;
   render::shader_t fragmentShader_;
 
   uint32_t currentDescriptorSet_ = 0u;
+  render::descriptor_set_layout_t descriptorSetLayout_;
   render::descriptor_set_t descriptorSet_[4];
   mesh::mesh_t fullScreenQuad_;
 
