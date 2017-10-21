@@ -963,7 +963,7 @@ int main()
 {
   //Create a window
   window::window_t window;
-  window::create( "Scene", 800u, 600u, &window );
+  window::create( "Scene", 1200u, 800u, &window );
 
   //Initialize context
   render::context_t context;
