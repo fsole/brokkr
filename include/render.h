@@ -172,9 +172,9 @@ namespace bkk
       filter_mode minification_ = filter_mode::LINEAR;   //Minification filter (NEAREST,LINEAR)
       filter_mode magnification_ = filter_mode::LINEAR;  //Magnification filter(NEAREST,LINEAR)
       filter_mode mipmap_ = filter_mode::LINEAR;         //For trilinear interpolation (NEAREST,LINEAR)
-      wrap_mode wrapU_ = wrap_mode::CLAMP_TO_EDGE;
-      wrap_mode wrapV_ = wrap_mode::CLAMP_TO_EDGE;
-      wrap_mode wrapW_ = wrap_mode::CLAMP_TO_EDGE;
+      wrap_mode wrapU_ = wrap_mode::MIRRORED_REPEAT;
+      wrap_mode wrapV_ = wrap_mode::MIRRORED_REPEAT;
+      wrap_mode wrapW_ = wrap_mode::MIRRORED_REPEAT;
     };    
 
     struct gpu_buffer_t

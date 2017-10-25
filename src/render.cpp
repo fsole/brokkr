@@ -610,6 +610,7 @@ void render::contextDestroy(context_t* context)
 
 void render::swapchainResize(context_t* context, uint32_t width, uint32_t height)
 {
+  //TODO: Handle width and height equal 0!
   contextFlush(*context);
 
   //Destroy framebuffers

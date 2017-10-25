@@ -129,7 +129,7 @@ void UpdateUniformBuffer()
 
 void CreateGeometry()
 {
-  mesh::createFromFile( gContext, "../resources/goblin.dae", &gMesh );
+  mesh::createFromFile( gContext, "../resources/goblin.dae", mesh::EXPORT_ALL, nullptr, 0u, &gMesh );
   mesh::animatorCreate( gContext, gMesh, 0u, 5.0f, &gAnimator );
 }
 

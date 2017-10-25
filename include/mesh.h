@@ -79,10 +79,6 @@ namespace bkk
     {
       render::gpu_buffer_t vertexBuffer_;
       render::gpu_buffer_t indexBuffer_;
-      
-      //VkBuffer vertexBuffer_;
-      //VkBuffer indexBuffer_;
-      //render::gpu_memory_t memory_;
 
       u32 vertexCount_;
       u32 indexCount_;
@@ -96,7 +92,24 @@ namespace bkk
       render::vertex_format_t vertexFormat_;
     };
 
-    
+    struct material_t
+    {
+      maths::vec3 kd_;
+      maths::vec3 ks_;
+      std::string diffuseMap_;
+      std::string specularMap_;
+      std::string normalMap_;
+    };
+
+    enum export_flags_e
+    {
+      EXPORT_POSITION_ONLY = 0,
+      EXPORT_NORMALS      = 1,
+      EXPORT_UV           = 2,
+      EXPORT_BONE_WEIGHTS = 4,
+      EXPORT_ALL = EXPORT_NORMALS | EXPORT_UV | EXPORT_BONE_WEIGHTS
+      
+    };
 
     void create(const render::context_t& context,
                 const uint32_t* indexData, uint32_t indexDataSize,
@@ -104,10 +117,20 @@ namespace bkk
                 render::vertex_attribute_t* attribute, uint32_t attributeCount,
                 mesh_t* mesh, render::gpu_memory_allocator_t* allocator = nullptr);
 
-    void createFromFile(const render::context_t& context, const char* file, mesh_t* mesh, render::gpu_memory_allocator_t* allocator = nullptr);
-    void destroy(const render::context_t& context, mesh_t* mesh, render::gpu_memory_allocator_t* allocator = nullptr);
-    void draw(VkCommandBuffer commandBuffer, const mesh_t& mesh);
 
+    //Load all submeshes from a file
+    //Warning: Allocates an array of meshes (returned by reference in 'meshes') and passes ownership of that memory to the caller
+    uint32_t createFromFile(const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, mesh_t** meshes);
+
+    //Load a single submesh from a file
+    void createFromFile(const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t subMesh, mesh_t* mesh);
+
+    uint32_t loadMaterials(const char* file, uint32_t** materialIndices, material_t** materials);
+
+    void draw(VkCommandBuffer commandBuffer, const mesh_t& mesh);
+    void destroy(const render::context_t& context, mesh_t* mesh, render::gpu_memory_allocator_t* allocator = nullptr);
+        
+    //Animator
     void animatorCreate(const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float duration, skeletal_animator_t* animator);
     void animatorUpdate(const render::context_t& context, f32 time, skeletal_animator_t* animator);
     void animatorDestroy(const render::context_t& context, skeletal_animator_t* animator);
