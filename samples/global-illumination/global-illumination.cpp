@@ -696,51 +696,49 @@ struct scene_t
     if (commandBuffer_.handle_ == VK_NULL_HANDLE)
     {
       render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0, nullptr, nullptr, 1, &renderComplete_, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+
+      VkClearValue clearValues[5];
+      clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+      clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+      clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+      clearValues[3].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+      clearValues[4].depthStencil = { 1.0f,0 };
+
+      render::commandBufferBegin(*context_, &frameBuffer_, 5u, clearValues, commandBuffer_);
+      {
+
+        //GBuffer pass
+        bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
+        render::descriptor_set_t descriptorSets[3];
+        descriptorSets[0] = globalsDescriptorSet_;
+        packed_freelist_iterator_t<object_t> objectIter = object_.begin();
+        while (objectIter != object_.end())
+        {
+          descriptorSets[1] = objectIter.get().descriptorSet_;
+          descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
+          bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
+          mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
+          mesh::draw(commandBuffer_.handle_, *mesh);
+          ++objectIter;
+        }
+
+        bkk::render::commandBufferNextSubpass(commandBuffer_);
+
+        //Light pass
+        bkk::render::graphicsPipelineBind(commandBuffer_.handle_, lightPipeline_);
+        descriptorSets[1] = lightPassTexturesDescriptorSet_;
+        packed_freelist_iterator_t<light_t> lightIter = light_.begin();
+        while (lightIter != light_.end())
+        {
+          descriptorSets[2] = lightIter.get().descriptorSet_;
+          bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 0u, descriptorSets, 3u);
+          mesh::draw(commandBuffer_.handle_, sphereMesh_);
+          ++lightIter;
+        }
+      }
+      render::commandBufferEnd(commandBuffer_);
     }
 
-
-
-    VkClearValue clearValues[5];
-    clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-    clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-    clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-    clearValues[3].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-    clearValues[4].depthStencil = { 1.0f,0 };
-
-    render::commandBufferBegin(*context_, &frameBuffer_, 5u, clearValues, commandBuffer_);
-    {
-
-      //GBuffer pass
-      bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
-      render::descriptor_set_t descriptorSets[3];
-      descriptorSets[0] = globalsDescriptorSet_;
-      packed_freelist_iterator_t<object_t> objectIter = object_.begin();
-      while (objectIter != object_.end())
-      {
-        descriptorSets[1] = objectIter.get().descriptorSet_;
-        descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
-        mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
-        mesh::draw(commandBuffer_.handle_, *mesh);
-        ++objectIter;
-      }
-
-      bkk::render::commandBufferNextSubpass(commandBuffer_);
-
-      //Light pass      
-      bkk::render::graphicsPipelineBind(commandBuffer_.handle_, lightPipeline_);
-      descriptorSets[1] = lightPassTexturesDescriptorSet_;
-      packed_freelist_iterator_t<light_t> lightIter = light_.begin();
-      while (lightIter != light_.end())
-      {
-        descriptorSets[2] = lightIter.get().descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 0u, descriptorSets, 3u);
-        mesh::draw(commandBuffer_.handle_, sphereMesh_);
-        ++lightIter;
-      }
-    }
-
-    render::commandBufferEnd(commandBuffer_);
     render::commandBufferSubmit(*context_, commandBuffer_);
   }
 
