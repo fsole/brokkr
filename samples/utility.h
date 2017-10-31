@@ -138,7 +138,7 @@ struct free_camera_t
   f32  velocity_; //Units per second
 };
 
-bkk::mesh::mesh_t FullScreenQuad(const bkk::render::context_t& context)
+bkk::mesh::mesh_t fullScreenQuad(const bkk::render::context_t& context)
 {
   struct Vertex
   {
@@ -147,13 +147,14 @@ bkk::mesh::mesh_t FullScreenQuad(const bkk::render::context_t& context)
   };
 
   //WARNING: IN Vulkan, Y is pointing down in NDC!
-  static const Vertex vertices[] = { { { -1.0f, 1.0f, 0.0f },{ 0.0f, 1.0f } },
-  { { 1.0f,  1.0f, 0.0f },{ 1.0f, 1.0f } },
-  { { 1.0f, -1.0f, 0.0f },{ 1.0f, 0.0f } },
-  { { -1.0f,-1.0f, 1.0f },{ 0.0f, 0.0f } }
+  static const Vertex vertices[] = { { { -1.0f,  1.0f, 0.0f },{ 0.0f, 1.0f } },
+                                     { {  1.0f,  1.0f, 0.0f },{ 1.0f, 1.0f } },
+                                     { {  1.0f, -1.0f, 0.0f },{ 1.0f, 0.0f } },
+                                     { { -1.0f, -1.0f, 0.0f },{ 0.0f, 0.0f } }
   };
 
   static const uint32_t indices[] = { 0,1,2,0,2,3 };
+  
 
 
   static bkk::render::vertex_attribute_t attributes[2];

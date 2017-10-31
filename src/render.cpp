@@ -467,7 +467,7 @@ static void CreateSwapChain(context_t* context,
 
   //Create fences
   context->swapChain_.frameFence_.resize(imageCount);
-  for (int i = 0; i < 3; ++i)
+  for (int i = 0; i < imageCount; ++i)
   {
     VkFenceCreateInfo fenceCreateInfo = {};
     fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;

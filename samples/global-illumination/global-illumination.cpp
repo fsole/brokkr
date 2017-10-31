@@ -85,7 +85,7 @@ static const char* gGeometryPassFragmentShaderSource = {
   }\n"
 };
 
-static const char* gLightPassVertexShaderSource = {
+static const char* gPointLightPassVertexShaderSource = {
   "#version 440 core\n \
   layout(location = 0) in vec3 aPosition;\n \
   layout(set = 0, binding = 0) uniform SCENE\n \
@@ -112,7 +112,7 @@ static const char* gLightPassVertexShaderSource = {
 };
 
 
-static const char* gLightPassFragmentShaderSource = {
+static const char* gPointLightPassFragmentShaderSource = {
   "#version 440 core\n \
   layout(set = 0, binding = 0) uniform SCENE\n \
   {\n \
@@ -200,6 +200,123 @@ static const char* gLightPassFragmentShaderSource = {
     attenuation *= attenuation;\n\
     float NdotL =  max( 0.0, dot( N, L ) );\n \
     vec3 color = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;\n\
+    color = color / (color + vec3(1.0));\n\
+    color = pow(color, vec3(1.0 / 2.2));\n\
+    result = vec4(color,1.0);\n\
+  }\n"
+};
+
+static const char* gDirectionalLightPassVertexShaderSource = {
+  "#version 440 core\n \
+  layout(location = 0) in vec3 aPosition;\n \
+  layout(location = 1) in vec2 aUV;\n \
+  layout(set = 0, binding = 0) uniform SCENE\n \
+  {\n \
+    mat4 view;\n \
+    mat4 projection;\n \
+    mat4 projectionInverse;\n \
+    vec4 imageSize;\n \
+  }scene;\n \
+  layout (set = 2, binding = 0) uniform LIGHT\n \
+  {\n \
+   vec4 position;\n \
+   vec3 color;\n \
+   float radius;\n \
+  }light;\n \
+  void main(void)\n \
+  {\n \
+    gl_Position = vec4(aPosition,1.0);\n \
+  }\n"
+};
+
+
+static const char* gDirectionalLightPassFragmentShaderSource = {
+  "#version 440 core\n \
+  layout(set = 0, binding = 0) uniform SCENE\n \
+  {\n \
+    mat4 view;\n \
+    mat4 projection;\n \
+    mat4 projectionInverse;\n \
+    vec4 imageSize;\n \
+  }scene;\n \
+  layout (set = 2, binding = 0) uniform LIGHT\n \
+  {\n \
+   vec4 position;\n \
+   vec3 color;\n \
+   float radius;\n \
+  }light;\n \
+  layout(set = 1, binding = 0) uniform sampler2D RT0;\n \
+  layout(set = 1, binding = 1) uniform sampler2D RT1;\n \
+  layout(set = 1, binding = 2) uniform sampler2D RT2;\n \
+  const float PI = 3.14159265359;\n\
+  layout(location = 0) out vec4 result;\n \
+  vec3 ViewSpacePositionFromDepth(vec2 uv, float depth)\n\
+  {\n\
+    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);\n\
+    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
+    return(viewSpacePosition.xyz / viewSpacePosition.w);\n\
+  }\n\
+  vec3 fresnelSchlick(float cosTheta, vec3 F0)\n\
+  {\n\
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);\n\
+  }\n\
+  float DistributionGGX(vec3 N, vec3 H, float roughness)\n\
+  {\n\
+    float a = roughness*roughness;\n\
+    float a2 = a*a;\n\
+    float NdotH = max(dot(N, H), 0.0);\n\
+    float NdotH2 = NdotH*NdotH;\n\
+    float nom = a2;\n\
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\n\
+    denom = PI * denom * denom;\n\
+    return nom / denom;\n\
+  }\n\
+  float GeometrySchlickGGX(float NdotV, float roughness)\n\
+  {\n\
+    float r = (roughness + 1.0);\n\
+    float k = (r*r) / 8.0;\n\
+    float nom = NdotV;\n\
+    float denom = NdotV * (1.0 - k) + k;\n\
+    return nom / denom;\n\
+  }\n\
+  float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)\n\
+  {\n\
+    float NdotV = max(dot(N, V), 0.0);\n\
+    float NdotL = max(dot(N, L), 0.0);\n\
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\n\
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\n\
+    return ggx1 * ggx2;\n\
+  }\n\
+  void main(void)\n \
+  {\n \
+    vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;\n\
+    vec4 RT0Value = texture(RT0, uv);\n \
+    vec3 albedo = RT0Value.xyz;\n\
+    float roughness = RT0Value.w;\n\
+    vec4 RT1Value = texture(RT1, uv);\n \
+    vec3 N = normalize(RT1Value.xyz); \n \
+    float depth = RT1Value.w;\n\
+    vec4 RT2Value = texture(RT2, uv);\n \
+    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );\n\
+    vec3 L = normalize( (scene.view * vec4(light.position.xyz,0.0)).xyz );\n\
+    vec3 F0 = RT2Value.xyz;\n \
+    float metallic = RT2Value.w;\n\
+    vec3 V = -normalize(positionVS);\n\
+    vec3 H = normalize(V + L);\n\
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);\n \
+    float NDF = DistributionGGX(N, H, roughness);\n\
+    float G = GeometrySmith(N, V, L, roughness);\n\
+    vec3 kS = F;\n\
+    vec3 kD = vec3(1.0) - kS;\n\
+    kD *= 1.0 - metallic;\n\
+    vec3 nominator = NDF * G * F;\n\
+    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;\n\
+    vec3 specular = nominator / denominator;\n\
+    float attenuation = 1.0;\n\
+    float NdotL =  max( 0.0, dot( N, L ) );\n \
+    vec3 ambient = vec3(0.05,0.05,0.05);\n \
+    vec3 diffuseColor = albedo / PI;\n\
+    vec3 color = (kD * diffuseColor + specular) * (light.color*attenuation) * NdotL + ambient * diffuseColor;\n\
     color = color / (color + vec3(1.0));\n\
     color = pow(color, vec3(1.0 / 2.2));\n\
     result = vec4(color,1.0);\n\
@@ -368,14 +485,32 @@ struct scene_t
     return object_.add(object);
   }
 
-  bkk::handle_t addLight(const maths::vec3& position, float radius, const maths::vec3& color)
+  
+  void addDirectionalLight(const maths::vec3& direction, const maths::vec3& color)
+  {
+    if (directionalLight_ == nullptr)
+    {
+      directionalLight_ = new light_t;
+      directionalLight_->uniforms_.position_ = maths::vec4(direction, 0.0);
+      directionalLight_->uniforms_.color_ = color;
+      //Create uniform buffer and descriptor set
+      render::gpuBufferCreate(*context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+        &directionalLight_->uniforms_, sizeof(light_t::uniforms_t),
+        &allocator_, &directionalLight_->ubo_);
+
+
+      render::descriptor_t descriptor = render::getDescriptor(directionalLight_->ubo_);
+      render::descriptorSetCreate(*context_, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &directionalLight_->descriptorSet_);
+    }
+  }
+
+  bkk::handle_t addPointLight(const maths::vec3& position, float radius, const maths::vec3& color )
   {
     light_t light;
 
     light.uniforms_.position_ = maths::vec4(position, 1.0);
     light.uniforms_.color_ = color;
     light.uniforms_.radius_ = radius;
-
     //Create uniform buffer and descriptor set
     render::gpuBufferCreate(*context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
       &light.uniforms_, sizeof(light_t::uniforms_t),
@@ -550,9 +685,9 @@ struct scene_t
     render::descriptor_set_layout_t lightPassDescriptorSetLayouts[3] = { globalsDescriptorSetLayout_, lightPassTexturesDescriptorSetLayout_, lightDescriptorSetLayout_ };
     render::pipelineLayoutCreate(context, 3u, lightPassDescriptorSetLayouts, &lightPipelineLayout_);
 
-    //Create light pass pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gLightPassVertexShaderSource, &lightVertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gLightPassFragmentShaderSource, &lightFragmentShader_);
+    //Create point light pass pipeline
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gPointLightPassVertexShaderSource, &pointLightVertexShader_);
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gPointLightPassFragmentShaderSource, &pointLightFragmentShader_);
     bkk::render::graphics_pipeline_t::description_t lightPipelineDesc = {};
     lightPipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     lightPipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
@@ -568,9 +703,17 @@ struct scene_t
     lightPipelineDesc.cullMode_ = VK_CULL_MODE_FRONT_BIT;
     lightPipelineDesc.depthTestEnabled_ = false;
     lightPipelineDesc.depthWriteEnabled_ = false;
-    lightPipelineDesc.vertexShader_ = lightVertexShader_;
-    lightPipelineDesc.fragmentShader_ = lightFragmentShader_;
-    render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, sphereMesh_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
+    lightPipelineDesc.vertexShader_ = pointLightVertexShader_;
+    lightPipelineDesc.fragmentShader_ = pointLightFragmentShader_;
+    render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, sphereMesh_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &pointLightPipeline_);
+
+    //Create directional light pass pipeline
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gDirectionalLightPassVertexShaderSource, &directionalLightVertexShader_);
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gDirectionalLightPassFragmentShaderSource, &directionalLightFragmentShader_);
+    lightPipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+    lightPipelineDesc.vertexShader_ = directionalLightVertexShader_;
+    lightPipelineDesc.fragmentShader_ = directionalLightFragmentShader_;
+    render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, fullScreenQuad_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &directionalLightPipeline_);
   }
 
   void initialize(render::context_t& context)
@@ -592,7 +735,7 @@ struct scene_t
     render::vertexFormatCreate(attributes, 3u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes
-    fullScreenQuad_ = sample_utils::FullScreenQuad(context);
+    fullScreenQuad_ = sample_utils::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
     //Create default diffuse map
@@ -709,31 +852,38 @@ struct scene_t
 
         //GBuffer pass
         bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
-        render::descriptor_set_t descriptorSets[3];
-        descriptorSets[0] = globalsDescriptorSet_;
+        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, &globalsDescriptorSet_, 1u);
         packed_freelist_iterator_t<object_t> objectIter = object_.begin();
         while (objectIter != object_.end())
         {
-          descriptorSets[1] = objectIter.get().descriptorSet_;
-          descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
-          bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
+          bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 1, &objectIter.get().descriptorSet_, 1u);
+          bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 2, &material_.get(objectIter.get().material_)->descriptorSet_, 1u);
           mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
           mesh::draw(commandBuffer_.handle_, *mesh);
           ++objectIter;
         }
 
-        bkk::render::commandBufferNextSubpass(commandBuffer_);
-
         //Light pass
-        bkk::render::graphicsPipelineBind(commandBuffer_.handle_, lightPipeline_);
-        descriptorSets[1] = lightPassTexturesDescriptorSet_;
+        bkk::render::commandBufferNextSubpass(commandBuffer_);
+        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 0, &globalsDescriptorSet_, 1u);
+        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 1, &lightPassTexturesDescriptorSet_, 1u);
+
+        //Point lights
+        bkk::render::graphicsPipelineBind(commandBuffer_.handle_, pointLightPipeline_);
         packed_freelist_iterator_t<light_t> lightIter = light_.begin();
         while (lightIter != light_.end())
         {
-          descriptorSets[2] = lightIter.get().descriptorSet_;
-          bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 0u, descriptorSets, 3u);
+          bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 2, &lightIter.get().descriptorSet_, 1u);
           mesh::draw(commandBuffer_.handle_, sphereMesh_);
           ++lightIter;
+        }
+
+        //Directional light
+        if (directionalLight_ != nullptr)
+        {
+          bkk::render::graphicsPipelineBind(commandBuffer_.handle_, directionalLightPipeline_);
+          bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 2, &directionalLight_->descriptorSet_, 1u);
+          mesh::draw(commandBuffer_.handle_, fullScreenQuad_);
         }
       }
       render::commandBufferEnd(commandBuffer_);
@@ -863,16 +1013,25 @@ struct scene_t
       ++lightIter;
     }
 
+    if (directionalLight_ != nullptr)
+    {
+      render::gpuBufferDestroy(*context_, &directionalLight_->ubo_, &allocator_);
+      render::descriptorSetDestroy(*context_, &directionalLight_->descriptorSet_);
+      delete directionalLight_;
+    }
     
     render::shaderDestroy(*context_, &gBuffervertexShader_);
     render::shaderDestroy(*context_, &gBufferfragmentShader_);
-    render::shaderDestroy(*context_, &lightVertexShader_);
-    render::shaderDestroy(*context_, &lightFragmentShader_);
+    render::shaderDestroy(*context_, &pointLightVertexShader_);
+    render::shaderDestroy(*context_, &pointLightFragmentShader_);
+    render::shaderDestroy(*context_, &directionalLightVertexShader_);
+    render::shaderDestroy(*context_, &directionalLightFragmentShader_);
     render::shaderDestroy(*context_, &presentationVertexShader_);
     render::shaderDestroy(*context_, &presentationFragmentShader_);
 
     render::graphicsPipelineDestroy(*context_, &gBufferPipeline_);
-    render::graphicsPipelineDestroy(*context_, &lightPipeline_);
+    render::graphicsPipelineDestroy(*context_, &pointLightPipeline_);
+    render::graphicsPipelineDestroy(*context_, &directionalLightPipeline_);
     render::graphicsPipelineDestroy(*context_, &presentationPipeline_);
 
     render::pipelineLayoutDestroy(*context_, &presentationPipelineLayout_);
@@ -942,7 +1101,8 @@ private:
   render::pipeline_layout_t gBufferPipelineLayout_;
   render::graphics_pipeline_t gBufferPipeline_;
   render::pipeline_layout_t lightPipelineLayout_;
-  render::graphics_pipeline_t lightPipeline_;
+  render::graphics_pipeline_t pointLightPipeline_;
+  render::graphics_pipeline_t directionalLightPipeline_;
 
   render::pipeline_layout_t presentationPipelineLayout_;
   render::graphics_pipeline_t presentationPipeline_;
@@ -963,8 +1123,10 @@ private:
 
   render::shader_t gBuffervertexShader_;
   render::shader_t gBufferfragmentShader_;
-  render::shader_t lightVertexShader_;
-  render::shader_t lightFragmentShader_;
+  render::shader_t pointLightVertexShader_;
+  render::shader_t pointLightFragmentShader_;
+  render::shader_t directionalLightVertexShader_;
+  render::shader_t directionalLightFragmentShader_;
   render::shader_t presentationVertexShader_;
   render::shader_t presentationFragmentShader_;
 
@@ -973,39 +1135,11 @@ private:
   mesh::mesh_t sphereMesh_;
   mesh::mesh_t fullScreenQuad_;
 
+  light_t* directionalLight_ = nullptr;
   sample_utils::free_camera_t camera_;
   maths::vec2 mousePosition_ = vec2(0.0f, 0.0f);
   bool mouseButtonPressed_ = false;
 };
-
-void animateLights(scene_t& scene, std::vector< bkk::handle_t >& lights, f32 timeDelta)
-{
-  static const vec3 light_path[] =
-  {
-    vec3(-3.0f,  3.0f, 4.0f),
-    vec3(-3.0f,  3.0f, -3.0f),
-    vec3(3.0f,   3.0f, -3.0f),
-    vec3(3.0f,   3.0f, 4.0f),
-    vec3(-3.0f,  3.0f, 4.0f)
-  };
-
-  static f32 totalTime = 0.0f;
-  totalTime += timeDelta*0.001f;
-
-  for (u32 i(0); i<lights.size(); ++i)
-  {
-    float t = totalTime + i* 5.0f / lights.size();
-    int baseFrame = (int)t;
-    float f = t - baseFrame;
-
-    vec3 p0 = light_path[(baseFrame + 0) % 5];
-    vec3 p1 = light_path[(baseFrame + 1) % 5];
-    vec3 p2 = light_path[(baseFrame + 2) % 5];
-    vec3 p3 = light_path[(baseFrame + 3) % 5];
-
-    scene.getLight(lights[i])->uniforms_.position_ = vec4(maths::cubicInterpolation(p0, p1, p2, p3, f), 1.0);
-  }
-}
 
 
 int main()
@@ -1023,17 +1157,15 @@ int main()
   scene.initialize(context);
   scene.load("../resources/sponza/sponza.obj");
 
+  
 
   //Lights
-  std::vector < bkk::handle_t > lights;
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f, 0.5f, 0.5f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f, 0.5f, 0.5f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f, 0.5f, 0.5f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f, 0.5f, 0.5f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f, 0.5f, 0.5f)));
+  scene.addDirectionalLight(vec3(0.0f, 1.0f, 0.5f), vec3(0.8f, 0.8f, 0.8f));
+  scene.addPointLight(vec3(0.0f, 1.0f, 0.0f), 5.0f, vec3(0.5f, 0.0f, 0.0f));
+  scene.addPointLight(vec3(-5.0f, 1.0f, 0.0f), 5.0f, vec3(0.0f, 0.5f, 0.0f));
+  scene.addPointLight(vec3(5.0f, 1.0f, 0.0f), 5.0f, vec3(0.0f, 0.0f, 0.5f));
+  
 
-  bool bAnimateLights = true;
-  auto timePrev = bkk::time::getCurrent();
   bool quit = false;
   while (!quit)
   {
@@ -1056,11 +1188,7 @@ int main()
       case window::EVENT_KEY:
       {
         window::event_key_t* keyEvent = (window::event_key_t*)event;
-        scene.OnKeyEvent(keyEvent->keyCode_, keyEvent->pressed_, scene);
-        if (keyEvent->pressed_ && keyEvent->keyCode_ == 'p')
-        {
-          bAnimateLights = !bAnimateLights;
-        }
+        scene.OnKeyEvent(keyEvent->keyCode_, keyEvent->pressed_, scene);       
         break;
       }
       case window::EVENT_MOUSE_BUTTON:
@@ -1079,17 +1207,10 @@ int main()
         break;
       }
     }
-
-    auto currentTime = bkk::time::getCurrent();
-    if (bAnimateLights)
-    {
-      animateLights(scene, lights, bkk::time::getDifference(timePrev, currentTime));
-    }
+        
 
     //Render next frame
     scene.Render();
-
-    timePrev = currentTime;
   }
 
   render::contextFlush(context);

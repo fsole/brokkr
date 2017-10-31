@@ -114,7 +114,7 @@ int main()
   bkk::render::contextCreate("Textured Quad", "", window, 3, &context);
 
   //Create a quad and a texture
-  bkk::mesh::mesh_t mesh = sample_utils::FullScreenQuad(context);
+  bkk::mesh::mesh_t mesh = sample_utils::fullScreenQuad(context);
   bkk::render::texture_t texture = CreateTexture(context);
 
   //Create descriptor layout

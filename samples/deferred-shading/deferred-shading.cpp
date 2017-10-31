@@ -557,7 +557,7 @@ struct scene_t
     render::vertexFormatCreate(attributes, 2u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes
-    fullScreenQuad_ = sample_utils::FullScreenQuad(context);
+    fullScreenQuad_ = sample_utils::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
     //Create globals uniform buffer
