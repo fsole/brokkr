@@ -342,7 +342,7 @@ namespace bkk
       return v0;
     }
 
-    //Dot product
+    //maths::dot product
     template <typename T, u32 N>
     inline T dot(const Vector<T, N>& v0, const Vector<T, N>& v1)
     {
@@ -354,7 +354,7 @@ namespace bkk
       return result;
     }
 
-    //Cross product. Only for 3-component vectors
+    //maths::cross product. Only for 3-component vectors
     template <typename T>
     inline Vector<T, 3> cross(const Vector<T, 3>& v0, const Vector<T, 3>& v1)
     {
@@ -405,7 +405,7 @@ namespace bkk
     template <typename T, u32 N>
     inline Vector<T, N> reflect(const Vector<T, N>& v, const Vector<T, N>& n)
     {
-      return v - 2.0f * Dot(v, n) * n;
+      return v - 2.0f * maths::dot(v, n) * n;
     }
 
     template <typename T, unsigned int N>
@@ -460,7 +460,7 @@ namespace bkk
 
       Quaternion(const vec3& v0, const vec3& v1)
       {
-        f32 dot = Dot(v0, v1);
+        f32 dot = maths::dot(v0, v1);
         if (dot > 1.0f)
         {
           x = y = z = 0.0f;
@@ -473,12 +473,12 @@ namespace bkk
         }
         else
         {
-          Vector<T, 3> cross = Cross(v0, v1);
+          Vector<T, 3> cross = maths::cross(v0, v1);
           w = 1.0f + dot;
           x = cross.x;
           y = cross.y;
           z = cross.z;
-          Normalize();
+          normalize();
         }
       }
 
@@ -656,6 +656,14 @@ namespace bkk
       Quaternion<T> qConjugate = conjugate(q);
       Quaternion<T> result = q * Quaternion<T>(v.x, v.y, v.z, 0.0) * qConjugate;
       return Vector<T, 3>(result.x, result.y, result.z);
+    }
+
+
+    template <typename T>
+    inline std::ostream& operator<<(std::ostream& o, const Quaternion<T>& q)
+    {
+      o << "["<< q.x << "," << q.y << "," << q.z << "," << q.w; o << "]";
+      return o;
     }
 
     typedef struct Quaternion<f32> quat;
@@ -971,34 +979,34 @@ namespace bkk
 
 
     template <typename T>
-    inline Matrix<T, 4, 4> computeOrthographicProjectionMatrix(T left, T right, T bottom, T top, T near, T far)
+    inline Matrix<T, 4, 4> computeOrthographicProjectionMatrix(T left, T right, T bottom, T top, T nearPlane, T farPlane)
     {
       Matrix<T, 4, 4> result;
 
-      T deltaX = right - left;
-      T deltaY = top - bottom;
-      T deltaZ = far - near;
+      T deltaX = (right - left);
+      T deltaY = (top - bottom);
+      T deltaZ = (farPlane - nearPlane);
 
 
-      result[0] = 2.0f / deltaX;
-      result[1] = 0.0f;
-      result[2] = 0.0f;
-      result[3] = 0.0f;
+      result[0] =  T(2.0 / (right - left));
+      result[1] =  T(0.0);
+      result[2] =  T(0.0);
+      result[3] =  T( -(right + left) / (right - left) );
 
-      result[4] = 0.0f;
-      result[5] = 2.0f / deltaY;
-      result[6] = 0.0f;
-      result[7] = 0.0f;
+      result[4] =  T(0.0);
+      result[5] =  T( 2.0 / (top - bottom) );
+      result[6] =  T(0.0);
+      result[7] =  T( -(top + bottom) / (top - bottom) );
 
-      result[8] = 0.0f;
-      result[9] = 0.0f;
-      result[10] = -2.0f / deltaZ;
-      result[11] = 0.0f;
+      result[8] =  T(0.0);
+      result[9] =  T(0.0);
+      result[10] = T(-2.0 / (farPlane - nearPlane));
+      result[11] = T(-(farPlane + nearPlane) / (farPlane - nearPlane));
 
-      result[12] = -(right + left) / deltaX;
-      result[13] = -(top + bottom) / deltaY;
-      result[14] = -(far + near) / deltaZ;
-      result[15] = 1.0f;
+      result[12] = T(0.0);
+      result[13] = T(0.0);
+      result[14] = T(0.0);
+      result[15] = T(1.0);
 
       return result;
     }
@@ -1007,10 +1015,10 @@ namespace bkk
     inline Vector<T, 4> operator*(const Vector<T, 4>& v, const Matrix<T, 4, 4>& m)
     {
       Vector<T, 4> result;
-      result.x = Dot(v, vec4(m.c00, m.c01, m.c02, m.c03));
-      result.y = Dot(v, vec4(m.c10, m.c11, m.c12, m.c13));
-      result.z = Dot(v, vec4(m.c20, m.c21, m.c22, m.c23));
-      result.w = Dot(v, vec4(m.c30, m.c31, m.c32, m.c33));
+      result.x = maths::dot(v, vec4(m.c00, m.c01, m.c02, m.c03));
+      result.y = maths::dot(v, vec4(m.c10, m.c11, m.c12, m.c13));
+      result.z = maths::dot(v, vec4(m.c20, m.c21, m.c22, m.c23));
+      result.w = maths::dot(v, vec4(m.c30, m.c31, m.c32, m.c33));
 
       return result;
     }
@@ -1019,9 +1027,9 @@ namespace bkk
     inline Vector<T, 3> operator*(const Vector<T, 3>& v, const Matrix<T, 3, 3>& m)
     {
       Vector<T, 3> result;
-      result.x = Dot(v, vec3(m.c00, m.c01, m.c02));
-      result.y = Dot(v, vec3(m.c10, m.c11, m.c12));
-      result.z = Dot(v, vec3(m.c20, m.c21, m.c22));
+      result.x = maths::dot(v, vec3(m.c00, m.c01, m.c02));
+      result.y = maths::dot(v, vec3(m.c10, m.c11, m.c12));
+      result.z = maths::dot(v, vec3(m.c20, m.c21, m.c22));
 
       return result;
     }

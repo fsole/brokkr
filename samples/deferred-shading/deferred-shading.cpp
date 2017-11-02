@@ -778,6 +778,7 @@ struct scene_t
   void Destroy()
   {
     //Clean-up
+    render::contextFlush(*context_);
 
     //Destroy meshes
     packed_freelist_iterator_t<mesh::mesh_t> meshIter = mesh_.begin();
@@ -1070,8 +1071,8 @@ int main()
     timePrev = currentTime;
   }
   
-  render::contextFlush( context );
   scene.Destroy();
+  
   render::contextDestroy( &context );
   window::destroy( &window );
   return 0;
