@@ -326,7 +326,7 @@ static const char* gDirectionalLightPassFragmentShaderSource = {
     postionInLigthClipSpace.xyz /= postionInLigthClipSpace.w;\n\
     postionInLigthClipSpace.xy = 0.5 * postionInLigthClipSpace.xy + 0.5;\n\
     ivec2 shadowMapUV = ivec2( postionInLigthClipSpace.xy * light.shadowMapSize.xy );\n\
-    float bias = 0.01;//0.0005*tan(acos(NdotL));\n\
+    float bias = 0.005;//0.0005*tan(acos(NdotL));\n\
     float attenuation = 0.0;\n\
     attenuation += step( 0.5, float((texelFetch( shadowMap, shadowMapUV+ivec2( 0, 0), 0).r + bias) > postionInLigthClipSpace.z ));\n\
     attenuation += step( 0.5, float((texelFetch( shadowMap, shadowMapUV+ivec2( 1, 0), 0).r + bias) > postionInLigthClipSpace.z ));\n\
@@ -369,10 +369,10 @@ static const char* gShadowPassVertexShaderSource = {
 
 static const char* gShadowPassFragmentShaderSource = {
   "#version 440 core\n \
-  layout(location = 0) out vec4 color;\n \
+  layout(location = 0) out float color;\n \
   void main(void)\n \
   {\n \
-    color = vec4(gl_FragCoord.z, gl_FragCoord.z,gl_FragCoord.z,1.0);\n \
+    color = gl_FragCoord.z;\n \
   }\n"
 };
 
@@ -689,18 +689,18 @@ struct scene_t
     vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &shadowPassComplete_);
 
     //Create render targets 
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT0_);
     render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT1_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT1_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT2_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &finalImage_);    
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
     
     //Shadow map
-    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMap_);
+    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMap_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &shadowMap_);
     render::depthStencilBufferCreate(context, shadowMapSize_, shadowMapSize_, &shadowPassDepthStencilBuffer);
     
@@ -915,7 +915,8 @@ struct scene_t
 
 
     //Create globals uniform buffer
-    camera_.position_ = vec3(0.0f, 0.1f, 0.0f);
+    camera_.position_ = vec3(-1.1f, 0.6f, -0.1f);
+    camera_.angle_ = vec2(0.2f, 1.57f);
     camera_.Update();
     uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.01f, 10.0f);
     computeInverse(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
@@ -1363,7 +1364,7 @@ private:
   render::shader_t presentationFragmentShader_;
 
   //Shadow pass
-  uint32_t shadowMapSize_ = 4096;
+  uint32_t shadowMapSize_ = 8192u;
   VkSemaphore shadowPassComplete_;
   render::command_buffer_t shadowCommandBuffer_;
   render::render_pass_t shadowRenderPass_;
@@ -1404,7 +1405,7 @@ int main()
   scene.load("../resources/sponza/sponza.obj");
 
   //Lights
-  scene.addDirectionalLight(vec3(0.0, 1.5, 0.0), vec3(0.0f, 1.0f, 0.3f), vec3(5.0f, 5.0f, 5.0f), 0.01f);
+  scene.addDirectionalLight(vec3(0.0, 1.5, 0.0), vec3(0.0f, 1.0f, 0.3f), vec3(5.0f, 5.0f, 5.0f), 0.1f);
   scene.addPointLight(vec3(0.0f, 0.1f, 0.0f), 0.5f, vec3(0.5f, 0.0f, 0.0f));
   scene.addPointLight(vec3(-1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.5f, 0.0f));
   scene.addPointLight(vec3(1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.0f, 0.5f));
