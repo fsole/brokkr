@@ -57,7 +57,7 @@ bkk::render::texture_t CreateTexture(const bkk::render::context_t& context)
 {
   bkk::render::texture_t texture;
   bkk::image::image2D_t image = {};
-  if (!bkk::image::load("../resources/brokkr.png", &image))
+  if (!bkk::image::load("../resources/brokkr.png", false, &image))
   {
     printf("Error loading texture\n");
   }

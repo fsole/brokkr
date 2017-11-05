@@ -31,7 +31,7 @@
 using namespace bkk;
 using namespace bkk::image;
 
-bool image::load( const char* path, image2D_t* image )
+bool image::load( const char* path, bool flipVertical, image2D_t* image )
 {
   if( image->data_ != nullptr )
   {
@@ -39,7 +39,7 @@ bool image::load( const char* path, image2D_t* image )
   }
 
   int width, height, componentCount;
-  
+  stbi_set_flip_vertically_on_load(flipVertical);
   uint8_t* data = stbi_load(path, &width, &height, &componentCount, 0);
   if( data == nullptr )
   {

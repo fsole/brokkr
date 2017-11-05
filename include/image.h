@@ -41,7 +41,7 @@ namespace bkk
 			uint8_t* data_;
 		};
 
-		bool load(const char* path, image2D_t* image);
+		bool load(const char* path, bool flipVertical, image2D_t* image);
 		void unload(image2D_t* image);
 
 	} //namespace image

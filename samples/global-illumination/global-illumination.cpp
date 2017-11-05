@@ -528,7 +528,7 @@ struct scene_t
     {
       bkk::image::image2D_t image = {};
       std::string path = "../resources/" + diffuseMap;
-      if(bkk::image::load(path.c_str(), &image))
+      if(bkk::image::load(path.c_str(), true, &image ))
       {      
         //Create the texture
         bkk::render::texture2DCreate(*context_, &image, 1, bkk::render::texture_sampler_t(), &material.diffuseMap_);
