@@ -421,9 +421,9 @@ static const char* gDirectionalLightPassGIFragmentShaderSource = {
       vec3 L = normalize( shadowMapPosition-positionWS );\n\
       float distance = length(shadowMapPosition-positionWS);\n\
       float G = max(0.0, dot(normalWS, L)) * max(0.0,dot(shadowMapNormal,-L)) / distance*distance;\n\
-      indirectRadiance +=  G * shadowMapRadiance ;\n\
+      indirectRadiance +=  G * shadowMapRadiance * light.samples[i].z;\n\
     }\n\
-    return indirectRadiance * 0.005;\n\
+    return indirectRadiance * 0.01;\n\
   }\n\
   void main(void)\n \
   {\n \
