@@ -1647,7 +1647,7 @@ int main()
   scene.load("../resources/sponza/sponza.obj");
 
   //Lights
-  scene.addDirectionalLight(vec3(0.0, 1.5, 0.0), vec3(0.0f, 1.0f, 0.5f), vec3(5.0f, 5.0f, 5.0f), 0.1f);
+  scene.addDirectionalLight(vec3(0.0, 1.5, 0.0), vec3(0.0f, 1.0f, 0.5f), vec3(5.0f, 5.0f, 5.0f), 0.0f);
 
   bool quit = false;
   while (!quit)
