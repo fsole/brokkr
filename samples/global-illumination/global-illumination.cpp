@@ -737,12 +737,12 @@ struct scene_t
       directionalLight_->uniforms_.shadowMapSize_ = vec4((float)shadowMapSize_, (float)shadowMapSize_, 1.0f / (float)shadowMapSize_, 1.0f / (float)shadowMapSize_);
 
       //Generate sampling pattern
+      float maxRadius = 500.0f;
       for (uint32_t i(0); i < 400; ++i)
       {
-        float e1 = rand();// ((double)rand() / (RAND_MAX));
-        float e2 = rand();// ((double)rand() / (RAND_MAX));
-        float rMax = 0.3;
-        directionalLight_->uniforms_.samples_[i] = vec4(rMax * e1 * sinf(2.0f * M_PI * e2), rMax * e1 * cosf(2.0f * M_PI * e2), e1*e1, 0.0f);
+        float e1 =  float((double)rand() / (RAND_MAX));
+        float e2 =  float((double)rand() / (RAND_MAX));        
+        directionalLight_->uniforms_.samples_[i] = vec4(maxRadius * e1 * sinf(2.0f * M_PI * e2), maxRadius * e1 * cosf(2.0f * M_PI * e2), e1*e1, 0.0f);
       }
       //Create uniform buffer and descriptor set
       render::gpuBufferCreate(*context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
@@ -1647,7 +1647,7 @@ int main()
   scene.load("../resources/sponza/sponza.obj");
 
   //Lights
-  scene.addDirectionalLight(vec3(0.0, 1.5, 0.0), vec3(0.0f, 1.0f, 0.5f), vec3(5.0f, 5.0f, 5.0f), 0.0f);
+  scene.addDirectionalLight(vec3(0.0, 1.75, 0.0), vec3(0.0f, 1.0f, 0.5f), vec3(5.0f, 5.0f, 5.0f), 0.0f);
 
   bool quit = false;
   while (!quit)
