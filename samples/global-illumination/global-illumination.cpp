@@ -413,17 +413,19 @@ static const char* gDirectionalLightPassGIFragmentShaderSource = {
   vec3 sampleIndirectLight(in vec3 positionWS, in vec3 normalWS, in ivec2 uv )\n\
   {\n\
     vec3 indirectRadiance = vec3(0.0,0.0,0.0);\n\
-    for( uint i = 0; i<400; ++i )\n\
+    for( uint i = 0; i<light.sampleCount; ++i )\n\
     {\n\
-      vec3 shadowMapNormal =  normalize( texelFetch( shadowMapRT0, clamp(ivec2(uv + light.samples[i].xy), ivec2(0,0),ivec2(light.shadowMapSize.x,light.shadowMapSize.y)), 0 ).yzw );\n\
-      vec3 shadowMapPosition = texelFetch( shadowMapRT1, clamp(ivec2(uv + light.samples[i].xy), ivec2(0,0),ivec2(light.shadowMapSize.x,light.shadowMapSize.y)), 0 ).xyz;\n\
-      vec3 shadowMapRadiance = texelFetch( shadowMapRT2, clamp(ivec2(uv + light.samples[i].xy), ivec2(0,0),ivec2(light.shadowMapSize.x,light.shadowMapSize.y)), 0 ).xyz;\n\
-      vec3 L = normalize( shadowMapPosition-positionWS );\n\
-      float distance = length(shadowMapPosition-positionWS);\n\
-      float G = max(0.0, dot(normalWS, L)) * max(0.0,dot(shadowMapNormal,-L)) / distance*distance;\n\
-      indirectRadiance +=  G * shadowMapRadiance * light.samples[i].z;\n\
+      ivec2 pixelCoord = clamp(ivec2(uv + light.samples[i].xy), ivec2(0),ivec2(light.shadowMapSize.x,light.shadowMapSize.y));\n\
+      vec3 vplNormal =  normalize( texelFetch( shadowMapRT0, pixelCoord, 0 ).yzw );\n\
+      vec3 vplPosition = texelFetch( shadowMapRT1, pixelCoord, 0 ).xyz;\n\
+      vec3 vplRadiance = texelFetch( shadowMapRT2, pixelCoord, 0 ).xyz;\n\
+      vec3 L = vplPosition-positionWS;\n\
+      float distance = length(L);\n\
+      L /= distance;\n\
+      float G = max(0.0, dot(normalWS, L)) * max(0.0,dot(vplNormal,-L)) / distance*distance;\n\
+      indirectRadiance += G * vplRadiance * light.samples[i].z;\n\
     }\n\
-    return indirectRadiance * 0.01;\n\
+    return indirectRadiance / light.sampleCount ;\n\
   }\n\
   void main(void)\n \
   {\n \
@@ -470,12 +472,9 @@ static const char* gDirectionalLightPassGIFragmentShaderSource = {
     attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1,-1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
     attenuation /= 9.0;\n\
     vec3 color = (kD * diffuseColor + specular) * (light.color.rgb * attenuation) * NdotL + ambientColor;\n\
-    //if( attenuation < 0.5 )\n\
-    {\n\
-      vec3 positionWS = (scene.viewToWorld * vec4(positionVS, 1.0 )).xyz;\n\
-      vec3 normalWS = normalize((transpose( inverse( scene.viewToWorld) ) * vec4(RT1Value.xyz,0.0)).xyz);\n \
-      color += sampleIndirectLight(positionWS, normalWS, shadowMapUV);\n\
-    }\n\
+    vec3 positionWS = (scene.viewToWorld * vec4(positionVS, 1.0 )).xyz;\n\
+    vec3 normalWS = normalize((transpose( inverse( scene.viewToWorld) ) * vec4(N,0.0)).xyz);\n \
+    color += sampleIndirectLight(positionWS, normalWS, shadowMapUV);\n\
     color = color / (color + vec3(1.0));\n\
     color = pow(color, vec3(1.0 / 2.2));\n\
     result = vec4(color,1.0);\n\
@@ -537,8 +536,7 @@ static const char* gShadowPassFragmentShaderSource = {
   {\n \
     RT0 = vec4( gl_FragCoord.z, normalize( normalWS ) );\n \
     RT1 = vec4(positionWS, 1.0);\n\
-    vec3 radiance = max( 0.0, dot( normalize(light.direction.xyz), normalize(normalWS) ) ) * material.albedo;\n\
-    RT2 = vec4( radiance, 0.0);\n\
+    RT2 = vec4( max( 0.0, dot( normalize(light.direction.xyz), normalize(normalWS) ) ) * material.albedo, 0.0);\n\
   }\n"
 };
 
@@ -594,10 +592,7 @@ struct scene_t
       maths::vec4 samples_[400];
     };
 
-
     uniforms_t uniforms_;
-    maths::vec3 position_;  //For shadow map rendering
-    maths::mat4 viewProjection_;
     render::gpu_buffer_t ubo_;
     render::descriptor_set_t descriptorSet_;
   };
@@ -655,16 +650,10 @@ struct scene_t
     uint32_t materialCount = mesh::loadMaterials(url, &materialIndex, &materials);
     std::vector<bkk::handle_t> materialHandles(materialCount);
 
-    std::string modelPath = url;
-    modelPath = modelPath.substr(0u, modelPath.find_last_of("/") + 1);
+    
     for (u32 i(0); i < materialCount; ++i)
     {
-      std::string diffuseMapPath = "";
-      if (!materials[i].diffuseMap_.empty())
-      {
-        diffuseMapPath = modelPath + materials[i].diffuseMap_;
-      }
-      materialHandles[i] = addMaterial(materials[i].kd_, 0.0f, vec3(0.1f, 0.1f, 0.1f), 0.5f, diffuseMapPath);
+      materialHandles[i] = addMaterial(vec3(float((double)rand() / (RAND_MAX)), float((double)rand() / (RAND_MAX)), float((double)rand() / (RAND_MAX))), 0.0f, vec3(0.1f, 0.1f, 0.1f), 0.5f );
     }
     delete[] materials;
 
@@ -684,7 +673,7 @@ struct scene_t
     return mesh_.add(mesh);
   }
 
-  bkk::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness, std::string diffuseMap)
+  bkk::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness )
   {
     //Create uniform buffer and descriptor set
     material_t material = {};
@@ -737,8 +726,8 @@ struct scene_t
       directionalLight_->uniforms_.shadowMapSize_ = vec4((float)shadowMapSize_, (float)shadowMapSize_, 1.0f / (float)shadowMapSize_, 1.0f / (float)shadowMapSize_);
 
       //Generate sampling pattern
-      float maxRadius = 500.0f;
-      for (uint32_t i(0); i < 400; ++i)
+      float maxRadius = 25.0f;
+      for (uint32_t i(0); i < directionalLight_->uniforms_.sampleCount_; ++i)
       {
         float e1 =  float((double)rand() / (RAND_MAX));
         float e2 =  float((double)rand() / (RAND_MAX));        
@@ -1103,18 +1092,7 @@ struct scene_t
     fullScreenQuad_ = sample_utils::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
-    //Create default diffuse map
-    image::image2D_t defaultImage = {};
-    defaultImage.width_ = defaultImage.height_ = 1u;
-    defaultImage.componentCount_ = 4u;
-    defaultImage.dataSize_ = 4;
-    defaultImage.data_ = new uint8_t[4];
-    defaultImage.data_[0] = 128u;
-    defaultImage.data_[1] = defaultImage.data_[2] = defaultImage.data_[3] = 0u;
-    render::texture2DCreate(context, &defaultImage, 1u, bkk::render::texture_sampler_t(), &defaultDiffuseMap_);
-    delete[] defaultImage.data_;
-
-
+    
     //Create globals uniform buffer
     camera_.position_ = vec3(-1.1f, 0.6f, -0.1f);
     camera_.angle_ = vec2(0.2f, 1.57f);
@@ -1511,7 +1489,6 @@ struct scene_t
     render::textureDestroy(*context_, &gBufferRT1_);
     render::textureDestroy(*context_, &gBufferRT2_);
     render::textureDestroy(*context_, &finalImage_);
-    render::textureDestroy(*context_, &defaultDiffuseMap_);
     render::depthStencilBufferDestroy(*context_, &depthStencilBuffer_);
     render::textureDestroy(*context_, &shadowMapRT0_);
     render::textureDestroy(*context_, &shadowMapRT1_);
@@ -1618,7 +1595,6 @@ private:
   render::descriptor_set_t shadowGlobalsDescriptorSet_;
   maths::mat4 worldToLightClipSpace_;
 
-  render::texture_t defaultDiffuseMap_;
   mesh::mesh_t sphereMesh_;
   mesh::mesh_t fullScreenQuad_;
 
