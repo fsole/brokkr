@@ -31,7 +31,6 @@
 #include <cstdlib>
 #include <time.h>
 #include <math.h>
-#include <array>
 
 using namespace bkk;
 
@@ -259,7 +258,7 @@ void CreateGeometry()
   attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
 
-  mesh::create( gContext, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &gMesh );
+  mesh::create( gContext, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &gMesh );
 }
 
 void CreateGraphicsPipeline()
@@ -267,10 +266,10 @@ void CreateGraphicsPipeline()
   //Create descriptor layout
   
   render::descriptor_binding_t binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
-  render::descriptorSetLayoutCreate( gContext, 1, &binding, &gDescriptorSetLayout );
+  render::descriptorSetLayoutCreate( gContext, &binding, 1u, &gDescriptorSetLayout );
 
   //Create pipeline layout  
-  render::pipelineLayoutCreate( gContext, 1u, &gDescriptorSetLayout, &gPipelineLayout );
+  render::pipelineLayoutCreate( gContext, &gDescriptorSetLayout, 1u, &gPipelineLayout );
 
   //Create descriptor pool
   render::descriptorPoolCreate(gContext, 2u, 1u, 1u, 0u, 1u, &gDescriptorPool);
@@ -304,10 +303,10 @@ void CreateComputePipeline()
   render::descriptor_binding_t bindings[2] = { render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_IMAGE,  0, render::descriptor_t::stage::COMPUTE },
                                                render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::COMPUTE }};
 
-  render::descriptorSetLayoutCreate(gContext, 2u, bindings, &gComputeDescriptorSetLayout);
+  render::descriptorSetLayoutCreate(gContext, bindings, 2u, &gComputeDescriptorSetLayout);
 
   //Create pipeline layout
-  render::pipelineLayoutCreate(gContext, 1u, &gComputeDescriptorSetLayout, &gComputePipelineLayout);
+  render::pipelineLayoutCreate(gContext, &gComputeDescriptorSetLayout, 1u, &gComputePipelineLayout);
 
   //Create descriptor set
   render::descriptor_t descriptors[2] = { render::getDescriptor(gTexture), render::getDescriptor(gUbo) };
@@ -342,9 +341,9 @@ void BuildCommandBuffers()
 void BuildComputeCommandBuffer()
 {
   //Build compute command buffer
-  render::commandBufferCreate( gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0u, nullptr, nullptr, 0u, nullptr, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer );
+  render::commandBufferCreate( gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer );
 
-  render::commandBufferBegin(gContext, nullptr, 0u, nullptr, gComputeCommandBuffer);
+  render::commandBufferBegin(gContext, nullptr, nullptr, 0u, gComputeCommandBuffer);
   
   bkk::render::computePipelineBind(gComputeCommandBuffer.handle_, gComputePipeline);
   bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer.handle_, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);

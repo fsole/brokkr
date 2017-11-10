@@ -174,12 +174,12 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   bool importUV = (flags & EXPORT_UV) != 0;
   bool importBoneWeights = (flags & EXPORT_BONE_WEIGHTS) != 0;
 
-  if (bHasNormal && importNormals)
+  if (importNormals)
   {
     vertexSize += 3;
     ++attributeCount;
   }
-  if (bHasUV && importUV)
+  if (importUV)
   {
     vertexSize += 2;
     ++attributeCount;
@@ -200,7 +200,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
 
   u32 attribute = 1;
   u32 attributeOffset = 3;
-  if (bHasNormal && importNormals)
+  if (importNormals)
   {
     attributes[attribute].format_ = render::vertex_attribute_t::format::VEC3;
     attributes[attribute].offset_ = sizeof(f32)*attributeOffset;
@@ -208,13 +208,14 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     ++attribute;
     attributeOffset += 3;
   }
-  if (bHasUV && importUV)
+  if (importUV)
   {
     attributes[attribute].format_ = render::vertex_attribute_t::format::VEC2;
     attributes[attribute].offset_ = sizeof(f32)*attributeOffset;
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
     ++attribute;
     attributeOffset += 2;
+
   }
 
   u32 boneWeightOffset = attributeOffset;
@@ -251,16 +252,30 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     vertexData[index++] = aimesh->mVertices[vertex].y;
     vertexData[index++] = aimesh->mVertices[vertex].z;
 
-    if (bHasNormal && importNormals)
+    if(importNormals)
     {
-      vertexData[index++] = aimesh->mNormals[vertex].x;
-      vertexData[index++] = aimesh->mNormals[vertex].y;
-      vertexData[index++] = aimesh->mNormals[vertex].z;
+      if (bHasNormal)
+      {
+        vertexData[index++] = aimesh->mNormals[vertex].x;
+        vertexData[index++] = aimesh->mNormals[vertex].y;
+        vertexData[index++] = aimesh->mNormals[vertex].z;
+      }
+      else
+      {
+        index += 3;
+      }
     }
-    if (bHasUV && importUV)
+    if (importUV)
     {
-      vertexData[index++] = aimesh->mTextureCoords[0][vertex].x;
-      vertexData[index++] = aimesh->mTextureCoords[0][vertex].y;
+      if(bHasUV)
+      {
+        vertexData[index++] = aimesh->mTextureCoords[0][vertex].x;
+        vertexData[index++] = aimesh->mTextureCoords[0][vertex].y;
+      }
+      else
+      {
+        index += 2;
+      }
     }
 
     if (boneCount > 0 && importBoneWeights)
@@ -348,7 +363,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   mesh->aabb_.min_ = aabbMin;
   mesh->aabb_.max_ = aabbMax;
 
-  create(context, indices, indexBufferSize, vertexData, vertexBufferSize, &attributes[0], attributeCount, mesh, allocator);
+  create(context, indices, indexBufferSize, vertexData, vertexBufferSize, &attributes[0], attributeCount, allocator, mesh);
 
   delete[] vertexData;
   delete[] indices;
@@ -365,7 +380,8 @@ void mesh::create( const render::context_t& context,
                    const uint32_t* indexData, uint32_t indexDataSize,
                    const void* vertexData, size_t vertexDataSize,
                    render::vertex_attribute_t* attribute, uint32_t attributeCount,
-                   mesh_t* mesh, render::gpu_memory_allocator_t* allocator )
+                   render::gpu_memory_allocator_t* allocator, 
+                   mesh_t* mesh)
 {
   //Create vertex format
   render::vertexFormatCreate(attribute, attributeCount, &mesh->vertexFormat_);

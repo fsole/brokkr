@@ -688,7 +688,7 @@ void render::endPresentationCommandBuffer(const context_t& context, uint32_t ind
   vkEndCommandBuffer(context.swapChain_.commandBuffer_[index]);
 }
 
-void render::presentNextImage(context_t* context, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore)
+void render::presentNextImage(context_t* context, VkSemaphore* waitSemaphore, uint32_t waitSemaphoreCount)
 {
   //Aquire next image in the swapchain
   context->vkAcquireNextImageKHR(context->device_,
@@ -1473,7 +1473,7 @@ descriptor_t render::getDescriptor(const depth_stencil_buffer_t& depthStencilBuf
 }
 
 
-void render::descriptorSetLayoutCreate(const context_t& context, uint32_t bindingCount, descriptor_binding_t* bindings, descriptor_set_layout_t* descriptorSetLayout)
+void render::descriptorSetLayoutCreate(const context_t& context, descriptor_binding_t* bindings, uint32_t bindingCount, descriptor_set_layout_t* descriptorSetLayout)
 {
   descriptorSetLayout->bindingCount_ = bindingCount;
   descriptorSetLayout->bindings_ = nullptr;
@@ -1513,7 +1513,7 @@ void render::descriptorSetLayoutDestroy(const context_t& context, descriptor_set
   vkDestroyDescriptorSetLayout(context.device_, desriptorSetLayout->handle_, nullptr);
 }
 
-void render::pipelineLayoutCreate(const context_t& context, uint32_t descriptorSetLayoutCount, descriptor_set_layout_t* descriptorSetLayouts, pipeline_layout_t* pipelineLayout)
+void render::pipelineLayoutCreate(const context_t& context, descriptor_set_layout_t* descriptorSetLayouts, uint32_t descriptorSetLayoutCount, pipeline_layout_t* pipelineLayout)
 {
   //Create pipeline layout
   pipelineLayout->descriptorSetLayoutCount_ = descriptorSetLayoutCount;
@@ -1946,9 +1946,9 @@ void render::depthStencilBufferChangeLayout(const context_t& context, VkCommandB
 
 
 void render::renderPassCreate(const context_t& context,
-  uint32_t attachmentCount, render_pass_t::attachment_t* attachments,
-  uint32_t subpassCount, render_pass_t::subpass_t* subpasses,
-  uint32_t dependencyCount, render_pass_t::subpass_dependency_t* dependencies,
+  render_pass_t::attachment_t* attachments, uint32_t attachmentCount,
+  render_pass_t::subpass_t* subpasses, uint32_t subpassCount,
+  render_pass_t::subpass_dependency_t* dependencies, uint32_t dependencyCount,
   render_pass_t* renderPass)
 {
   renderPass->attachment_ = new render_pass_t::attachment_t[attachmentCount];
@@ -2105,7 +2105,7 @@ void render::frameBufferDestroy(const context_t& context, frame_buffer_t* frameB
 }
 
 
-void render::commandBufferCreate(const context_t& context, VkCommandBufferLevel level, uint32_t waitSemaphoreCount, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t signalSemaphoreCount, VkSemaphore* signalSemaphore, command_buffer_t::type type, command_buffer_t* commandBuffer)
+void render::commandBufferCreate(const context_t& context, VkCommandBufferLevel level, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t waitSemaphoreCount, VkSemaphore* signalSemaphore, uint32_t signalSemaphoreCount, command_buffer_t::type type, command_buffer_t* commandBuffer)
 {
   commandBuffer->type_ = type;
   commandBuffer->waitSemaphore_ = nullptr;
@@ -2153,7 +2153,7 @@ void render::commandBufferDestroy(const context_t& context, command_buffer_t* co
   vkDestroyFence(context.device_, commandBuffer->fence_, nullptr);
 }
 
-void render::commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, uint32_t clearValuesCount, VkClearValue* clearValues, const command_buffer_t& commandBuffer)
+void render::commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, uint32_t clearValuesCount, const command_buffer_t& commandBuffer)
 {
   vkWaitForFences(context.device_, 1u, &commandBuffer.fence_, VK_TRUE, UINT64_MAX);
   

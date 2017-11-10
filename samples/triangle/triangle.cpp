@@ -74,7 +74,7 @@ bkk::mesh::mesh_t CreateTriangleGeometry(const bkk::render::context_t& context )
   attributes[1].stride_ = sizeof(Vertex);
 
   bkk::mesh::mesh_t mesh;
-  bkk::mesh::create( context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &mesh );
+  bkk::mesh::create( context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &mesh );
   return mesh;
 }
 
@@ -83,7 +83,7 @@ void CreatePipeline(const bkk::render::context_t& context, const bkk::mesh::mesh
 
 {
   //Create pipeline layout
-  bkk::render::pipelineLayoutCreate( context, 0u, nullptr, layout );
+  bkk::render::pipelineLayoutCreate( context, nullptr, 0u, layout );
 
   //Create pipeline
   bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};

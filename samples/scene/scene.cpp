@@ -648,7 +648,7 @@ struct scene_t
     shadowDependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     shadowDependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-    render::renderPassCreate(context, 2u, shadowAttachments, 1u, &shadowPass, 2u, shadowDependencies, &shadowRenderPass_);
+    render::renderPassCreate(context, shadowAttachments, 2u, &shadowPass, 1u, shadowDependencies, 2u, &shadowRenderPass_);
 
     //Create frame buffer
     VkImageView shadowFbAttachment[2] = { shadowMap_.imageView_, shadowPassDepthStencilBuffer.imageView_ };
@@ -656,11 +656,11 @@ struct scene_t
 
     //Create shadow pipeline layout
     render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
-    render::descriptorSetLayoutCreate(context, 1u, &binding, &shadowGlobalsDescriptorSetLayout_);
+    render::descriptorSetLayoutCreate(context, &binding, 1u, &shadowGlobalsDescriptorSetLayout_);
     render::descriptor_t descriptor = render::getDescriptor(directionalLight_->ubo_);
     render::descriptorSetCreate(context, descriptorPool_, shadowGlobalsDescriptorSetLayout_, &descriptor, &shadowGlobalsDescriptorSet_);
     render::descriptor_set_layout_t shadowDescriptorSetLayouts[2] = { shadowGlobalsDescriptorSetLayout_, objectDescriptorSetLayout_ };
-    render::pipelineLayoutCreate(context, 2, shadowDescriptorSetLayouts, &shadowPipelineLayout_);
+    render::pipelineLayoutCreate(context, shadowDescriptorSetLayouts, 2, &shadowPipelineLayout_);
 
     //Create shadow pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gShadowPassVertexShaderSource, &shadowVertexShader_);
@@ -783,7 +783,7 @@ struct scene_t
     dependencies[3].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     dependencies[3].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-    render::renderPassCreate(context, 5u, attachments, 2u, subpasses, 4u, dependencies, &renderPass_);
+    render::renderPassCreate(context, attachments, 5u, subpasses, 2u, dependencies, 4u, &renderPass_);
 
     //Create frame buffer
     VkImageView fbAttachment[5] = { gBufferRT0_.imageView_, gBufferRT1_.imageView_, gBufferRT2_.imageView_, finalImage_.imageView_, depthStencilBuffer_.imageView_ };
@@ -791,16 +791,16 @@ struct scene_t
 
     //Create descriptorSets layouts
     render::descriptor_binding_t objectBindings = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX };
-    render::descriptorSetLayoutCreate(context, 1u, &objectBindings, &objectDescriptorSetLayout_);
+    render::descriptorSetLayoutCreate(context, &objectBindings, 1u, &objectDescriptorSetLayout_);
 
     render::descriptor_binding_t materialBindings[2] = { { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::FRAGMENT },
     { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 1, render::descriptor_t::stage::FRAGMENT }
     };
-    render::descriptorSetLayoutCreate(context, 2u, materialBindings, &materialDescriptorSetLayout_);
+    render::descriptorSetLayoutCreate(context, materialBindings, 2u, &materialDescriptorSetLayout_);
 
     //Create gBuffer pipeline layout
     render::descriptor_set_layout_t descriptorSetLayouts[3] = { globalsDescriptorSetLayout_, objectDescriptorSetLayout_, materialDescriptorSetLayout_ };
-    render::pipelineLayoutCreate(context, 3, descriptorSetLayouts, &gBufferPipelineLayout_);
+    render::pipelineLayoutCreate(context, descriptorSetLayouts, 3u, &gBufferPipelineLayout_);
 
     //Create geometry pass pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gGeometryPassVertexShaderSource, &gBuffervertexShader_);
@@ -829,10 +829,10 @@ struct scene_t
     bindings[1] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 1, render::descriptor_t::stage::FRAGMENT };
     bindings[2] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2, render::descriptor_t::stage::FRAGMENT };
     bindings[3] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 3, render::descriptor_t::stage::FRAGMENT };
-    render::descriptorSetLayoutCreate(context, 4u, bindings, &lightPassTexturesDescriptorSetLayout_);
+    render::descriptorSetLayoutCreate(context, bindings, 4u, &lightPassTexturesDescriptorSetLayout_);
 
     render::descriptor_binding_t lightBindings = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
-    render::descriptorSetLayoutCreate(context, 1u, &lightBindings, &lightDescriptorSetLayout_);
+    render::descriptorSetLayoutCreate(context, &lightBindings, 1u, &lightDescriptorSetLayout_);
 
     //Create descriptor sets for light pass (GBuffer textures)
     render::descriptor_t descriptors[4];
@@ -844,7 +844,7 @@ struct scene_t
 
     //Create light pass pipeline layout
     render::descriptor_set_layout_t lightPassDescriptorSetLayouts[3] = { globalsDescriptorSetLayout_, lightPassTexturesDescriptorSetLayout_, lightDescriptorSetLayout_ };
-    render::pipelineLayoutCreate(context, 3u, lightPassDescriptorSetLayouts, &lightPipelineLayout_);
+    render::pipelineLayoutCreate(context, lightPassDescriptorSetLayouts, 3u, &lightPipelineLayout_);
 
     //Create point light pass pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gPointLightPassVertexShaderSource, &pointLightVertexShader_);
@@ -929,7 +929,7 @@ struct scene_t
 
     //Create global descriptor set (Scene uniforms)   
     render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
-    render::descriptorSetLayoutCreate(context, 1u, &binding, &globalsDescriptorSetLayout_);
+    render::descriptorSetLayoutCreate(context, &binding, 1u, &globalsDescriptorSetLayout_);
     render::descriptor_t descriptor = render::getDescriptor(globalsUbo_);
     render::descriptorSetCreate(context, descriptorPool_, globalsDescriptorSetLayout_, &descriptor, &globalsDescriptorSet_);
 
@@ -938,8 +938,8 @@ struct scene_t
 
     //Presentation descriptor set layout and pipeline layout
     binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
-    bkk::render::descriptorSetLayoutCreate(context, 1u, &binding, &presentationDescriptorSetLayout_);
-    bkk::render::pipelineLayoutCreate(context, 1u, &presentationDescriptorSetLayout_, &presentationPipelineLayout_);
+    bkk::render::descriptorSetLayoutCreate(context, &binding, 1u, &presentationDescriptorSetLayout_);
+    bkk::render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, &presentationPipelineLayout_);
 
     //Presentation descriptor sets
     descriptor = bkk::render::getDescriptor(finalImage_);
@@ -1004,7 +1004,7 @@ struct scene_t
     }
 
     BuildAndSubmitCommandBuffer();
-    render::presentNextImage(context_, 1u, &renderComplete_);
+    render::presentNextImage(context_, &renderComplete_, 1u);
   }
 
   void BuildAndSubmitCommandBuffer()
@@ -1014,12 +1014,12 @@ struct scene_t
     {
       if (shadowCommandBuffer_.handle_ == VK_NULL_HANDLE)
       {
-        render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0, nullptr, nullptr, 1, &shadowPassComplete_, render::command_buffer_t::GRAPHICS, &shadowCommandBuffer_);
+        render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &shadowPassComplete_, 1u, render::command_buffer_t::GRAPHICS, &shadowCommandBuffer_);
         VkClearValue clearValues[2];
         clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
         clearValues[1].depthStencil = { 1.0f,0 };
 
-        render::commandBufferBegin(*context_, &shadowFrameBuffer_, 2u, clearValues, shadowCommandBuffer_);
+        render::commandBufferBegin(*context_, &shadowFrameBuffer_, clearValues, 2u, shadowCommandBuffer_);
         {
 
           //Shadow pass
@@ -1045,11 +1045,11 @@ struct scene_t
       if (directionalLight_ != nullptr)
       {
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1, &shadowPassComplete_, &waitStage, 1, &renderComplete_, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+        render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &shadowPassComplete_, &waitStage, 1, &renderComplete_, 1, render::command_buffer_t::GRAPHICS, &commandBuffer_);
       }
       else
       {
-        render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, 0, nullptr, nullptr, 1, &renderComplete_, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+        render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0, &renderComplete_, 1, render::command_buffer_t::GRAPHICS, &commandBuffer_);
       }
 
       VkClearValue clearValues[5];
@@ -1059,7 +1059,7 @@ struct scene_t
       clearValues[3].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
       clearValues[4].depthStencil = { 1.0f,0 };
 
-      render::commandBufferBegin(*context_, &frameBuffer_, 5u, clearValues, commandBuffer_);
+      render::commandBufferBegin(*context_, &frameBuffer_, clearValues, 5u, commandBuffer_);
       {
 
         //GBuffer pass

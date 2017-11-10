@@ -166,7 +166,7 @@ bkk::mesh::mesh_t fullScreenQuad(const bkk::render::context_t& context)
   attributes[1].stride_ = sizeof(Vertex);
 
   bkk::mesh::mesh_t mesh;
-  bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &mesh);
+  bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr,  &mesh);
   return mesh;
 }
 

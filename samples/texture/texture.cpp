@@ -120,11 +120,11 @@ int main()
   //Create descriptor layout
   bkk::render::descriptor_set_layout_t descriptorSetLayout;
   bkk::render::descriptor_binding_t binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
-  bkk::render::descriptorSetLayoutCreate(context, 1u, &binding, &descriptorSetLayout);
+  bkk::render::descriptorSetLayoutCreate(context, &binding, 1u, &descriptorSetLayout);
 
   //Create pipeline layout
   bkk::render::pipeline_layout_t pipelineLayout;
-  bkk::render::pipelineLayoutCreate(context, 1u, &descriptorSetLayout, &pipelineLayout);
+  bkk::render::pipelineLayoutCreate(context, &descriptorSetLayout, 1u, &pipelineLayout);
 
   //Create descriptor pool
   bkk::render::descriptor_pool_t descriptorPool;

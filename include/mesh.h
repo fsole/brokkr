@@ -115,7 +115,7 @@ namespace bkk
                 const uint32_t* indexData, uint32_t indexDataSize,
                 const void* vertexData, size_t vertexDataSize,
                 render::vertex_attribute_t* attribute, uint32_t attributeCount,
-                mesh_t* mesh, render::gpu_memory_allocator_t* allocator = nullptr);
+                render::gpu_memory_allocator_t* allocator, mesh_t* mesh );
 
 
     //Load all submeshes from a file

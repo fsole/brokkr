@@ -29,7 +29,6 @@
 #include "maths.h"
 #include "../utility.h"
 #include "timer.h"
-#include <array>
 
 using namespace bkk;
 using namespace maths;
@@ -136,22 +135,22 @@ void CreateGeometry()
 void CreatePipeline()
 {
   //Create descriptor layout  
-  std::array< render::descriptor_binding_t, 2> bindings{ 
+  render::descriptor_binding_t bindings[2] = {
     render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::VERTEX },
     render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 2, render::descriptor_t::stage::VERTEX }
   };
  
-  render::descriptorSetLayoutCreate( gContext, (uint32_t)bindings.size(), &bindings[0], &gDescriptorSetLayout);
+  render::descriptorSetLayoutCreate( gContext,bindings, 2u, &gDescriptorSetLayout);
 
   //Create pipeline layout
-  render::pipelineLayoutCreate( gContext, 1u, &gDescriptorSetLayout, &gPipelineLayout );
+  render::pipelineLayoutCreate( gContext, &gDescriptorSetLayout, 1u, &gPipelineLayout );
 
   //Create descriptor pool
   render::descriptorPoolCreate( gContext, 1u, 0u, 2u, 0u, 0u, &gDescriptorPool );
 
   //Create descriptor set
-  std::array<render::descriptor_t, 2> descriptors = { render::getDescriptor(gUbo), render::getDescriptor(gAnimator.buffer_)};  
-  render::descriptorSetCreate( gContext, gDescriptorPool, gDescriptorSetLayout, &descriptors[0], &gDescriptorSet );
+  render::descriptor_t descriptors[2] = { render::getDescriptor(gUbo), render::getDescriptor(gAnimator.buffer_)};  
+  render::descriptorSetCreate( gContext, gDescriptorPool, gDescriptorSetLayout, descriptors, &gDescriptorSet );
 
   //Load shaders
   bkk::render::shaderCreateFromGLSLSource(gContext, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &gVertexShader);
