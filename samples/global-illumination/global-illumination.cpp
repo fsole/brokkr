@@ -541,7 +541,7 @@ static const char* gShadowPassFragmentShaderSource = {
   {\n \
     RT0 = vec4( gl_FragCoord.z, normalize( normalWS ) );\n \
     RT1 = vec4(positionWS, 1.0);\n\
-    RT2 = vec4( max( 0.0, dot( normalize(light.direction.xyz), normalize(normalWS) ) ) * material.albedo, 0.0);\n\
+    RT2 = vec4( max( 0.0, dot( normalize(light.direction.xyz), normalize(normalWS) ) ) * material.albedo * light.color.rgb, 0.0);\n\
   }\n"
 };
 
@@ -654,8 +654,6 @@ struct scene_t
     uint32_t* materialIndex;
     uint32_t materialCount = mesh::loadMaterials(url, &materialIndex, &materials);
     std::vector<bkk::handle_t> materialHandles(materialCount);
-
-    
     for (u32 i(0); i < materialCount; ++i)
     {
       materialHandles[i] = addMaterial(vec3(float((double)rand() / (RAND_MAX)), float((double)rand() / (RAND_MAX)), float((double)rand() / (RAND_MAX))), 0.0f, vec3(0.1f, 0.1f, 0.1f), 0.5f );
@@ -669,13 +667,6 @@ struct scene_t
     }
 
     delete[] materialIndex;
-  }
-
-  bkk::handle_t addMesh(const char* url)
-  {
-    mesh::mesh_t mesh;
-    mesh::createFromFile(*context_, url, mesh::EXPORT_ALL, &allocator_, 0u, &mesh);
-    return mesh_.add(mesh);
   }
 
   bkk::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness )
@@ -1628,7 +1619,7 @@ int main()
   scene.load("../resources/sponza/sponza.obj");
 
   //Lights
-  scene.addDirectionalLight(vec3(0.0, 1.75, 0.0), vec3(0.0f, 1.0f, 0.1f), vec3(5.0f, 5.0f, 5.0f), 0.0f);
+  scene.addDirectionalLight(vec3(0.0, 1.75, 0.0), vec3(0.0f, 1.0f, 0.1f), vec3(1.0f, 1.0f, 1.0f), 0.0f);
 
   bool quit = false;
   while (!quit)
