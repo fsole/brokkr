@@ -1061,9 +1061,6 @@ struct scene_t
     lightPipelineDesc.vertexShader_ = directionalLightVertexShader_;
     lightPipelineDesc.fragmentShader_ = directionalLightGIFragmentShader_;
     render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, fullScreenQuad_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &directionalLightGIPipeline_);
-
-
-
   }
 
   void initialize(render::context_t& context)
@@ -1080,8 +1077,8 @@ struct scene_t
     //Create vertex format (position + normal)
     uint32_t vertexSize = 2 * sizeof(maths::vec3) + sizeof(maths::vec2);
     render::vertex_attribute_t attributes[3] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize },
-    { render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize },
-    { render::vertex_attribute_t::format::VEC2, 2 * sizeof(maths::vec3), vertexSize } };
+                                                 { render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize },
+                                                 { render::vertex_attribute_t::format::VEC2, 2 * sizeof(maths::vec3), vertexSize } };
     render::vertexFormatCreate(attributes, 3u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes
@@ -1099,7 +1096,6 @@ struct scene_t
     uniforms_.viewToWorldMatrix_ = camera_.tx_;
     uniforms_.imageSize_ = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER, (void*)&uniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
-
 
 
     //Create global descriptor set (Scene uniforms)   
@@ -1195,10 +1191,8 @@ struct scene_t
       if (shadowCommandBuffer_.handle_ == VK_NULL_HANDLE)
       {
         render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &shadowPassComplete_, 1u, render::command_buffer_t::GRAPHICS, &shadowCommandBuffer_);
-      }
 
-      if (generateDeferredCommandBuffer_)
-      {
+
         VkClearValue clearValues[4];
         clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
         clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
@@ -1207,7 +1201,6 @@ struct scene_t
 
         render::commandBufferBegin(*context_, &shadowFrameBuffer_, clearValues, 4u, shadowCommandBuffer_);
         {
-
           //Shadow pass
           bkk::render::graphicsPipelineBind(shadowCommandBuffer_.handle_, shadowPipeline_);
           bkk::render::descriptorSetBindForGraphics(shadowCommandBuffer_.handle_, shadowPipelineLayout_, 0, &shadowGlobalsDescriptorSet_, 1u);
@@ -1222,7 +1215,6 @@ struct scene_t
           }
         }
         render::commandBufferEnd(shadowCommandBuffer_);
-        generateDeferredCommandBuffer_ = false;
       }
 
       render::commandBufferSubmit(*context_, shadowCommandBuffer_);
@@ -1240,16 +1232,15 @@ struct scene_t
         render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &renderComplete_, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer_);
       }
     }
+
     VkClearValue clearValues[5];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[3].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[4].depthStencil = { 1.0f,0 };
-
     render::commandBufferBegin(*context_, &frameBuffer_, clearValues, 5u, commandBuffer_);
     {
-
       //GBuffer pass
       bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
       bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, &globalsDescriptorSet_, 1u);
@@ -1295,9 +1286,6 @@ struct scene_t
       }
     }
     render::commandBufferEnd(commandBuffer_);
-
-
-
     render::commandBufferSubmit(*context_, commandBuffer_);
   }
 
@@ -1360,7 +1348,6 @@ struct scene_t
       case window::key_e::KEY_G:
       {
         globalIllumination_ = !globalIllumination_;
-        generateDeferredCommandBuffer_ = true;
         break;
       }
       default:
@@ -1598,8 +1585,6 @@ private:
   sample_utils::free_camera_t camera_;
   maths::vec2 mousePosition_ = vec2(0.0f, 0.0f);
   bool mouseButtonPressed_ = false;
-
-  bool generateDeferredCommandBuffer_ = true;
   bool globalIllumination_ = true;
 };
 
