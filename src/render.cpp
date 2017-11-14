@@ -698,13 +698,7 @@ void render::presentNextImage(context_t* context, VkSemaphore* waitSemaphore, ui
 
   uint32_t currentImage = context->swapChain_.currentImage_;
 
-  vkWaitForFences(context->device_, 1, &context->swapChain_.frameFence_[currentImage], VK_TRUE, UINT64_MAX);
-  vkResetFences(context->device_, 1, &context->swapChain_.frameFence_[currentImage]);
-
-  
-
   //Submit current command buffer
-
   std::vector<VkSemaphore> waitSemaphoreList(1 + waitSemaphoreCount);
   std::vector<VkPipelineStageFlags> waitStageList(1 + waitSemaphoreCount);
   waitSemaphoreList[0] = context->swapChain_.imageAcquired_;
@@ -712,7 +706,7 @@ void render::presentNextImage(context_t* context, VkSemaphore* waitSemaphore, ui
   for (size_t i(0); i < waitSemaphoreCount; ++i)
   {
     waitSemaphoreList[i+1] = waitSemaphore[i];
-    waitStageList[i+1] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    waitStageList[i+1] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
   }
   VkSubmitInfo submitInfo = {};
   
@@ -736,9 +730,10 @@ void render::presentNextImage(context_t* context, VkSemaphore* waitSemaphore, ui
   presentInfo.pImageIndices = &currentImage;
   context->vkQueuePresentKHR(context->graphicsQueue_.handle_, &presentInfo);
 
-  //Submit presentation and place a fence so next time we try to update currentImage_ image
-  //we know that previous submited image has already been presented  
+  //Submit presentation
+  vkResetFences(context->device_, 1, &context->swapChain_.frameFence_[currentImage]);
   vkQueueSubmit(context->graphicsQueue_.handle_, 0, nullptr, context->swapChain_.frameFence_[currentImage]);
+  vkWaitForFences(context->device_, 1, &context->swapChain_.frameFence_[currentImage], VK_TRUE, UINT64_MAX);
 }
 
 bool render::shaderCreateFromSPIRV(const context_t& context, shader_t::type type, const char* file, shader_t* shader)

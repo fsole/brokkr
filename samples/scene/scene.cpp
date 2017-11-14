@@ -1044,7 +1044,7 @@ struct scene_t
     {
       if (directionalLight_ != nullptr)
       {
-        VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
         render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &shadowPassComplete_, &waitStage, 1, &renderComplete_, 1, render::command_buffer_t::GRAPHICS, &commandBuffer_);
       }
       else
