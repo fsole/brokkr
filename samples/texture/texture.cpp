@@ -71,27 +71,9 @@ bkk::render::texture_t CreateTexture(const bkk::render::context_t& context)
   return texture;
 }
 
-void CreatePipeline(const bkk::render::context_t& context, const bkk::render::vertex_format_t& vertexFormat, const bkk::render::shader_t& vertexShader, const bkk::render::shader_t& fragmentShader,
-                    const bkk::render::pipeline_layout_t& layout, bkk::render::graphics_pipeline_t* pipeline)
-{
-  //Create pipeline
-  bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
-  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-  pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-  pipelineDesc.blendState_.resize(1);
-  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-  pipelineDesc.depthTestEnabled_ = false;
-  pipelineDesc.depthWriteEnabled_ = false;
-  pipelineDesc.vertexShader_ = vertexShader;
-  pipelineDesc.fragmentShader_ = fragmentShader;
-  bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, vertexFormat, layout, pipelineDesc, pipeline);
-}
-
 void BuildCommandBuffers(const bkk::render::context_t& context,const bkk::mesh::mesh_t& mesh,
-  bkk::render::pipeline_layout_t* layout, bkk::render::descriptor_set_t* descriptorSet,
-  bkk::render::graphics_pipeline_t* pipeline)
+                         bkk::render::descriptor_set_t* descriptorSet,
+                         bkk::render::pipeline_layout_t* layout, bkk::render::graphics_pipeline_t* pipeline)
 {
   for (unsigned i(0); i<3; ++i)
   {
@@ -135,14 +117,29 @@ int main()
   bkk::render::descriptor_t descriptor = bkk::render::getDescriptor(texture);
   bkk::render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &descriptor, &descriptorSet);
 
-  //Load shaders
+  
+  //Create pipeline
   bkk::render::shader_t vertexShader, fragmentShader;
   bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader);
   bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);
 
-  bkk::render::graphics_pipeline_t pipeline = {};
-  CreatePipeline(context, mesh.vertexFormat_, vertexShader, fragmentShader, pipelineLayout, &pipeline);
-  BuildCommandBuffers(context, mesh, &pipelineLayout, &descriptorSet, &pipeline);
+  //Create pipeline
+  bkk::render::graphics_pipeline_t pipeline;
+  bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
+  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
+  pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
+  pipelineDesc.blendState_.resize(1);
+  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+  pipelineDesc.depthTestEnabled_ = false;
+  pipelineDesc.depthWriteEnabled_ = false;
+  pipelineDesc.vertexShader_ = vertexShader;
+  pipelineDesc.fragmentShader_ = fragmentShader;
+  bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
+
+  //Build command buffers
+  BuildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
 
   bool quit = false;
   while (!quit)
@@ -158,12 +155,11 @@ int main()
       {
         bkk::window::event_resize_t* resizeEvent = (bkk::window::event_resize_t*)event;
         swapchainResize(&context, resizeEvent->width_, resizeEvent->height_);
-        BuildCommandBuffers(context, mesh, &pipelineLayout, &descriptorSet, &pipeline);
+        BuildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
       }
     }
 
-    //Render next image
-    bkk::render::presentNextImage(&context);
+    bkk::render::presentFrame(&context);
   }
 
   //Wait for all pending operations to be finished

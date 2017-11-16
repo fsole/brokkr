@@ -113,7 +113,7 @@ bool CreateUniformBuffer()
   render::gpuBufferCreate( gContext, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                            render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                            (void*)&matrices, 2*sizeof(mat4),
-                           &gUbo );
+                           nullptr, &gUbo );
   return true;
 }
 
@@ -192,7 +192,7 @@ void Exit()
   //Destroy all resources
   mesh::destroy( gContext, &gMesh );
   mesh::animatorDestroy( gContext, &gAnimator );
-  render::gpuBufferDestroy( gContext, &gUbo );
+  render::gpuBufferDestroy( gContext, nullptr, &gUbo );
 
   render::shaderDestroy(gContext, &gVertexShader);
   render::shaderDestroy(gContext, &gFragmentShader);
@@ -271,7 +271,7 @@ int main()
   CreatePipeline();
   BuildCommandBuffers();
 
-  auto timePrev = bkk::time::getCurrent();
+  auto timePrev = bkk::timer::getCurrent();
   auto currentTime = timePrev;
   f32 timeInSecond = 0;
 
@@ -321,10 +321,10 @@ int main()
     }
 
     //Update animator
-    currentTime = bkk::time::getCurrent();
-    timeInSecond += bkk::time::getDifference( timePrev, currentTime ) * 0.001f;
+    currentTime = bkk::timer::getCurrent();
+    timeInSecond += bkk::timer::getDifference( timePrev, currentTime ) * 0.001f;
     mesh::animatorUpdate( gContext, timeInSecond, &gAnimator );
-    render::presentNextImage( &gContext );
+    render::presentFrame( &gContext );
     timePrev = currentTime;
   }
 

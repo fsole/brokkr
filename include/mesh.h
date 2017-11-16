@@ -111,6 +111,8 @@ namespace bkk
       
     };
 
+    ///Mesh API
+
     void create(const render::context_t& context,
                 const uint32_t* indexData, uint32_t indexDataSize,
                 const void* vertexData, size_t vertexDataSize,

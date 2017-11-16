@@ -282,9 +282,9 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
   field.aabbMax = maths::vec4(aabbMaxScaled.x, aabbMaxScaled.y, aabbMaxScaled.z, 0.0f);
 
   render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage::STORAGE_BUFFER,
-    render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
-    nullptr, sizeof(DistanceFieldBufferData) + sizeof(float) * width * height * depth,
-    buffer);
+                          render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
+                          nullptr, sizeof(DistanceFieldBufferData) + sizeof(float) * width * height * depth,
+                          nullptr, buffer);
 
   render::gpuBufferUpdate(gContext, (void*)&field, 0, sizeof(DistanceFieldBufferData), buffer);
   render::gpuBufferUpdate(gContext, data, sizeof(DistanceFieldBufferData), sizeof(float) * width * height * depth, buffer);
@@ -314,9 +314,9 @@ bool CreateUniformBuffer()
  
   //Create uniform buffer
   render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
-    render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
-    (void*)&data, sizeof(data),
-    &gUbo);
+                          render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
+                          (void*)&data, sizeof(data),
+                          nullptr, &gUbo);
    
   
   return true;
@@ -455,8 +455,8 @@ void Exit()
 
   mesh::destroy(gContext, &gFSQuad);
   render::textureDestroy(gContext, &gTexture);
-  render::gpuBufferDestroy(gContext, &gUbo);
-  render::gpuBufferDestroy(gContext, &gDistanceField);
+  render::gpuBufferDestroy(gContext, nullptr, &gUbo);
+  render::gpuBufferDestroy(gContext, nullptr, &gDistanceField);
 
   render::shaderDestroy(gContext, &gVertexShader);
   render::shaderDestroy(gContext, &gFragmentShader);
@@ -482,10 +482,9 @@ void Exit()
 
 void Render()
 {
-  //render::gpuBufferUpdate(gContext, (void*)&gSampleCount, 0, sizeof(u32), &gUbo);
   ++gSampleCount;
 
-  render::presentNextImage(&gContext);
+  render::presentFrame(&gContext);
 
   //Submit compute command buffer
   render::commandBufferSubmit(gContext, gComputeCommandBuffer);

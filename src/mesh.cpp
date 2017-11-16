@@ -460,8 +460,8 @@ uint32_t mesh::loadMaterials(const char* file, uint32_t** materialIndices, mater
 
 void mesh::destroy( const render::context_t& context, mesh_t* mesh, render::gpu_memory_allocator_t* allocator )
 {
-  render::gpuBufferDestroy(context, &mesh->indexBuffer_, allocator);
-  render::gpuBufferDestroy(context, &mesh->vertexBuffer_, allocator);
+  render::gpuBufferDestroy(context, allocator, &mesh->indexBuffer_);
+  render::gpuBufferDestroy(context, allocator, &mesh->vertexBuffer_);
 
   if( mesh->skeleton_ )
   {
@@ -519,7 +519,7 @@ void mesh::animatorCreate( const render::context_t& context, const mesh_t& mesh,
   render::gpuBufferCreate( context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                            render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                            nullptr, sizeof(maths::mat4) * mesh.skeleton_->boneCount_,
-                           &animator->buffer_ );
+                           nullptr, &animator->buffer_ );
 }
 
 
@@ -590,5 +590,5 @@ void mesh::animatorDestroy( const render::context_t& context, skeletal_animator_
     delete[] animator->globalPose_;          //Final transformation of each node
     delete[] animator->boneTransform_;
 
-    render::gpuBufferDestroy( context, &animator->buffer_ );
+    render::gpuBufferDestroy( context, nullptr, &animator->buffer_ );
 }

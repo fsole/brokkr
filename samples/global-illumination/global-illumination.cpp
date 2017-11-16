@@ -1180,7 +1180,7 @@ struct scene_t
     }
 
     BuildAndSubmitCommandBuffer();
-    render::presentNextImage(context_, &renderComplete_, 1u);
+    render::presentFrame(context_, &renderComplete_, 1u);
   }
 
   void BuildAndSubmitCommandBuffer()
@@ -1391,7 +1391,7 @@ struct scene_t
     packed_freelist_iterator_t<material_t> materialIter = material_.begin();
     while (materialIter != material_.end())
     {
-      render::gpuBufferDestroy(*context_, &materialIter.get().ubo_, &allocator_);
+      render::gpuBufferDestroy(*context_, &allocator_, &materialIter.get().ubo_);
       if (&materialIter.get().diffuseMap_.image_ != VK_NULL_HANDLE)
       {
         render::textureDestroy(*context_, &materialIter.get().diffuseMap_);
@@ -1404,7 +1404,7 @@ struct scene_t
     packed_freelist_iterator_t<object_t> objectIter = object_.begin();
     while (objectIter != object_.end())
     {
-      render::gpuBufferDestroy(*context_, &objectIter.get().ubo_, &allocator_);
+      render::gpuBufferDestroy(*context_, &allocator_, &objectIter.get().ubo_);
       render::descriptorSetDestroy(*context_, &objectIter.get().descriptorSet_);
       ++objectIter;
     }
@@ -1413,14 +1413,14 @@ struct scene_t
     packed_freelist_iterator_t<point_light_t> lightIter = pointLight_.begin();
     while (lightIter != pointLight_.end())
     {
-      render::gpuBufferDestroy(*context_, &lightIter.get().ubo_, &allocator_);
+      render::gpuBufferDestroy(*context_, &allocator_, &lightIter.get().ubo_);
       render::descriptorSetDestroy(*context_, &lightIter.get().descriptorSet_);
       ++lightIter;
     }
 
     if (directionalLight_ != nullptr)
     {
-      render::gpuBufferDestroy(*context_, &directionalLight_->ubo_, &allocator_);
+      render::gpuBufferDestroy(*context_, &allocator_, &directionalLight_->ubo_);
       render::descriptorSetDestroy(*context_, &directionalLight_->descriptorSet_);
       delete directionalLight_;
     }
@@ -1490,7 +1490,7 @@ struct scene_t
     render::renderPassDestroy(*context_, &shadowRenderPass_);
 
     render::vertexFormatDestroy(&vertexFormat_);
-    render::gpuBufferDestroy(*context_, &globalsUbo_, &allocator_);
+    render::gpuBufferDestroy(*context_, &allocator_, &globalsUbo_);
     render::gpuAllocatorDestroy(*context_, &allocator_);
     render::descriptorPoolDestroy(*context_, &descriptorPool_);
     vkDestroySemaphore(context_->device_, renderComplete_, nullptr);

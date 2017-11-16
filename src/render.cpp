@@ -592,7 +592,7 @@ void render::contextDestroy(context_t* context)
   //Destroy depthstencil buffer
   vkDestroyImageView(context->device_, context->swapChain_.depthStencil_.imageView_, nullptr);
   vkDestroyImage(context->device_, context->swapChain_.depthStencil_.image_, nullptr);
-  gpuMemoryDeallocate(*context, context->swapChain_.depthStencil_.memory_);
+  gpuMemoryDeallocate(*context, nullptr, context->swapChain_.depthStencil_.memory_);
 
   vkDestroyCommandPool(context->device_, context->commandPool_, nullptr);
   vkDestroyRenderPass(context->device_, context->swapChain_.renderPass_, nullptr);
@@ -626,7 +626,7 @@ void render::swapchainResize(context_t* context, uint32_t width, uint32_t height
   //Destroy depthstencil buffer
   vkDestroyImageView(context->device_, context->swapChain_.depthStencil_.imageView_, nullptr);
   vkDestroyImage(context->device_, context->swapChain_.depthStencil_.image_, nullptr);
-  gpuMemoryDeallocate(*context, context->swapChain_.depthStencil_.memory_);
+  gpuMemoryDeallocate(*context, nullptr, context->swapChain_.depthStencil_.memory_);
 
   //Recreate swapchain with the new size
   vkDestroyRenderPass(context->device_, context->swapChain_.renderPass_, nullptr);
@@ -688,7 +688,7 @@ void render::endPresentationCommandBuffer(const context_t& context, uint32_t ind
   vkEndCommandBuffer(context.swapChain_.commandBuffer_[index]);
 }
 
-void render::presentNextImage(context_t* context, VkSemaphore* waitSemaphore, uint32_t waitSemaphoreCount)
+void render::presentFrame(context_t* context, VkSemaphore* waitSemaphore, uint32_t waitSemaphoreCount)
 {
   //Aquire next image in the swapchain
   context->vkAcquireNextImageKHR(context->device_,
@@ -884,7 +884,7 @@ gpu_memory_t render::gpuMemoryAllocate(const context_t& context,
   return result;
 }
 
-void render::gpuMemoryDeallocate(const context_t& context, gpu_memory_t memory, gpu_memory_allocator_t* allocator)
+void render::gpuMemoryDeallocate(const context_t& context, gpu_memory_allocator_t* allocator, gpu_memory_t memory)
 {
   if (allocator == nullptr)
   {
@@ -896,7 +896,14 @@ void render::gpuMemoryDeallocate(const context_t& context, gpu_memory_t memory, 
   }
 }
 
-void* render::gpuMemoryMap(const context_t& context, gpu_memory_t memory, VkDeviceSize offset, VkDeviceSize size, VkMemoryMapFlags flags)
+void* render::gpuMemoryMap(const context_t& context, gpu_memory_t memory)
+{
+  void* result = nullptr;
+  vkMapMemory(context.device_, memory.handle_, memory.offset_, memory.size_, 0u, &result);
+  return result;
+}
+
+void* render::gpuMemoryMap(const context_t& context, VkDeviceSize offset, VkDeviceSize size, VkMemoryMapFlags flags, gpu_memory_t memory)
 {
   if (size == VK_WHOLE_SIZE)
   {
@@ -907,6 +914,7 @@ void* render::gpuMemoryMap(const context_t& context, gpu_memory_t memory, VkDevi
   vkMapMemory(context.device_, memory.handle_, memory.offset_ + offset, size, flags, &result);
   return result;
 }
+
 
 void render::gpuMemoryUnmap(const context_t& context, gpu_memory_t memory)
 {
@@ -1081,7 +1089,7 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
   vkWaitForFences(context.device_, 1u, &fence, VK_TRUE, UINT64_MAX);
   vkDestroyFence(context.device_, fence, nullptr);
   vkFreeCommandBuffers(context.device_, context.commandPool_, 1, &uploadCommandBuffer);
-  gpuMemoryDeallocate(context, stagingBufferMemory);
+  gpuMemoryDeallocate(context, nullptr, stagingBufferMemory);
   vkDestroyBuffer(context.device_, stagingBuffer, nullptr);
 
   //Create imageview
@@ -1206,7 +1214,7 @@ void render::textureDestroy(const context_t& context, texture_t* texture)
   vkDestroyImageView(context.device_, texture->imageView_, nullptr);
   vkDestroyImage(context.device_, texture->image_, nullptr);
   vkDestroySampler(context.device_, texture->sampler_, nullptr);
-  gpuMemoryDeallocate(context, texture->memory_);
+  gpuMemoryDeallocate(context, nullptr, texture->memory_);
 }
 
 void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
@@ -1380,7 +1388,7 @@ void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layo
 
 void render::gpuBufferCreate(const context_t& context,
   gpu_buffer_t::usage usage, uint32_t memoryType, void* data,
-  size_t size, gpu_buffer_t* buffer, gpu_memory_allocator_t* allocator)
+  size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
 {
   //Create the buffer
   VkBufferCreateInfo bufferCreateInfo = {};
@@ -1419,18 +1427,18 @@ void render::gpuBufferCreate(const context_t& context,
 
 void render::gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
 {
-  return gpuBufferCreate(context, usage, HOST_VISIBLE, data, size, buffer, allocator);
+  return gpuBufferCreate(context, usage, HOST_VISIBLE, data, size, allocator, buffer);
 }
 
-void render::gpuBufferDestroy(const context_t& context, gpu_buffer_t* buffer, gpu_memory_allocator_t* allocator)
+void render::gpuBufferDestroy(const context_t& context, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
 {
   vkDestroyBuffer(context.device_, buffer->handle_, nullptr);
-  gpuMemoryDeallocate(context, buffer->memory_, allocator);
+  gpuMemoryDeallocate(context, allocator, buffer->memory_);
 }
 
 void render::gpuBufferUpdate(const context_t& context, void* data, size_t offset, size_t size, gpu_buffer_t* buffer)
 {
-  void* mapping = gpuMemoryMap(context, buffer->memory_, offset, size);
+  void* mapping = gpuMemoryMap(context, offset, size, 0u, buffer->memory_);
   assert(mapping);
   memcpy(mapping, data, size);
   gpuMemoryUnmap(context, buffer->memory_);
@@ -1438,7 +1446,7 @@ void render::gpuBufferUpdate(const context_t& context, void* data, size_t offset
 
 void* render::gpuBufferMap(const context_t& context, const gpu_buffer_t& buffer)
 {
-  return gpuMemoryMap(context, buffer.memory_, buffer.memory_.offset_, buffer.memory_.size_);
+  return gpuMemoryMap(context, buffer.memory_.offset_, buffer.memory_.size_, 0u, buffer.memory_);
 }
 
 void render::gpuBufferUnmap(const context_t& context, const gpu_buffer_t& buffer)
@@ -1861,7 +1869,7 @@ void render::depthStencilBufferDestroy(const context_t& context, depth_stencil_b
   vkDestroyImageView(context.device_, depthStencilBuffer->imageView_, nullptr);
   vkDestroyImage(context.device_, depthStencilBuffer->image_, nullptr);
   vkDestroySampler(context.device_, depthStencilBuffer->descriptor_.sampler, nullptr);
-  gpuMemoryDeallocate(context, depthStencilBuffer->memory_);
+  gpuMemoryDeallocate(context, nullptr, depthStencilBuffer->memory_);
 }
 
 

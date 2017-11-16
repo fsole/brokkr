@@ -227,7 +227,7 @@ bool CreateResources()
   render::gpuBufferCreate( gContext, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                            render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                            (void*)&data, sizeof(data),
-                           &gUbo );
+                           nullptr, &gUbo );
 
   return true;
 }
@@ -363,7 +363,7 @@ void Exit()
 
   mesh::destroy( gContext, &gMesh );
   render::textureDestroy( gContext, &gTexture );
-  render::gpuBufferDestroy( gContext, &gUbo );
+  render::gpuBufferDestroy( gContext, nullptr, &gUbo );
 
   render::shaderDestroy(gContext, &gVertexShader);
   render::shaderDestroy(gContext, &gFragmentShader);
@@ -390,7 +390,7 @@ void Exit()
 
 void Render()
 {
-  render::presentNextImage( &gContext );
+  render::presentFrame( &gContext );
 
   if (gSampleCount < 1000.0f)
   {

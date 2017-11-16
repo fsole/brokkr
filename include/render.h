@@ -411,6 +411,8 @@ namespace bkk
       render_pass_t renderPass_;
     };
 
+    ///Render API
+
     //Context
     void contextCreate(const char* applicationName, const char* engineName, const window::window_t& window, uint32_t swapChainImageCount, context_t* context);
     void contextDestroy(context_t* context);
@@ -418,7 +420,7 @@ namespace bkk
     void swapchainResize(context_t* context, uint32_t width, uint32_t height);
     VkCommandBuffer beginPresentationCommandBuffer(const context_t& context, uint32_t index, VkClearValue* clearValues);
     void endPresentationCommandBuffer(const context_t& context, uint32_t index);
-    void presentNextImage(context_t* context, VkSemaphore* waitSemaphore = nullptr, uint32_t waitSemaphoreCount = 0u);
+    void presentFrame(context_t* context, VkSemaphore* waitSemaphore = nullptr, uint32_t waitSemaphoreCount = 0u);
 
     //Shaders
     bool shaderCreateFromSPIRV(const context_t& context, shader_t::type type, const char* file, shader_t* shader);
@@ -428,8 +430,9 @@ namespace bkk
 
     //GPU memory
     gpu_memory_t gpuMemoryAllocate(const context_t& context, VkDeviceSize size, VkDeviceSize alignment, uint32_t memoryTypes, uint32_t flags, gpu_memory_allocator_t* allocator = nullptr);
-    void gpuMemoryDeallocate(const context_t& context, gpu_memory_t memory, gpu_memory_allocator_t* allocator = nullptr);
-    void* gpuMemoryMap(const context_t& context, gpu_memory_t memory, VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE, VkMemoryMapFlags = 0);
+    void gpuMemoryDeallocate(const context_t& context, gpu_memory_allocator_t* allocator, gpu_memory_t memory);
+    void* gpuMemoryMap(const context_t& context, gpu_memory_t memory);
+    void* gpuMemoryMap(const context_t& context, VkDeviceSize offset, VkDeviceSize size, VkMemoryMapFlags flags, gpu_memory_t memory);
     void gpuMemoryUnmap(const context_t& context, gpu_memory_t memory);
     void gpuAllocatorCreate(const context_t& context, size_t size, uint32_t memoryTypes, uint32_t flags, gpu_memory_allocator_t* allocator);
     void gpuAllocatorDestroy(const context_t& context, gpu_memory_allocator_t* allocator);
@@ -442,9 +445,9 @@ namespace bkk
     void textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture);
 
     //Buffers
-    void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, uint32_t memoryType, void* data, size_t size, gpu_buffer_t* buffer, gpu_memory_allocator_t* allocator = nullptr);
+    void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, uint32_t memoryType, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
     void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
-    void gpuBufferDestroy(const context_t& context, gpu_buffer_t* buffer, gpu_memory_allocator_t* allocator = nullptr);
+    void gpuBufferDestroy(const context_t& context, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
     void gpuBufferUpdate(const context_t& context, void* data, size_t offset, size_t size, gpu_buffer_t* buffer);
     void* gpuBufferMap(const context_t& context, const gpu_buffer_t& buffer);
     void gpuBufferUnmap(const context_t& context, const gpu_buffer_t& buffer);
@@ -454,7 +457,11 @@ namespace bkk
     descriptor_t getDescriptor(const texture_t& texture);
     descriptor_t getDescriptor(const depth_stencil_buffer_t& depthStencilBuffer);
 
-    void descriptorPoolCreate(const context_t& context, uint32_t descriptorSetsCount, uint32_t combinedImageSamplersCount, uint32_t uniformBuffersCount, uint32_t storageBuffersCount, uint32_t storageImagesCount, descriptor_pool_t* descriptorPool);
+    void descriptorPoolCreate(const context_t& context, uint32_t descriptorSetsCount, 
+                              uint32_t combinedImageSamplersCount, uint32_t uniformBuffersCount, 
+                              uint32_t storageBuffersCount, uint32_t storageImagesCount, 
+                              descriptor_pool_t* descriptorPool);
+
     void descriptorPoolDestroy(const context_t& context, descriptor_pool_t* descriptorPool);
 
     void descriptorSetCreate(const context_t& context, const descriptor_pool_t& descriptorPool, const descriptor_set_layout_t& descriptorSetLayout, descriptor_t* descriptors, descriptor_set_t* descriptorSet);
@@ -469,7 +476,11 @@ namespace bkk
     void pipelineLayoutCreate(const context_t& context, descriptor_set_layout_t* descriptorSetLayouts, uint32_t descriptorSetLayoutCount, pipeline_layout_t* pipelineLayout);
     void pipelineLayoutDestroy(const context_t& context, pipeline_layout_t* pipelineLayout);
 
-    void graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, uint32_t subpass, const render::vertex_format_t& vertexFormat, const pipeline_layout_t& pipelineLayout, const graphics_pipeline_t::description_t& pipelineDesc, graphics_pipeline_t* pipeline);
+    void graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, uint32_t subpass, 
+                                const render::vertex_format_t& vertexFormat, 
+                                const pipeline_layout_t& pipelineLayout, const graphics_pipeline_t::description_t& pipelineDesc, 
+                                graphics_pipeline_t* pipeline);
+
     void graphicsPipelineDestroy(const context_t& context, graphics_pipeline_t* pipeline);
     void graphicsPipelineBind( VkCommandBuffer commandBuffer, const graphics_pipeline_t& pipeline);
 
@@ -483,7 +494,11 @@ namespace bkk
 
     //Command buffers
     //@TODO Allow user to specify command buffer pool from which command buffers are allocated (Command buffers are allocated from global command buffer pool from the context)
-    void commandBufferCreate(const context_t& context, VkCommandBufferLevel level, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t waitSemaphoreCount, VkSemaphore* signalSemaphore, uint32_t signalSemaphoreCount, command_buffer_t::type type, command_buffer_t* commandBuffer);
+    void commandBufferCreate(const context_t& context, VkCommandBufferLevel level, 
+                             VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t waitSemaphoreCount, 
+                             VkSemaphore* signalSemaphore, uint32_t signalSemaphoreCount, command_buffer_t::type type, 
+                             command_buffer_t* commandBuffer);
+
     void commandBufferDestroy(const context_t& context, command_buffer_t* commandBuffer );
     void commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, uint32_t clearValuesCount, const command_buffer_t& commandBuffer);
     void commandBufferNextSubpass(const command_buffer_t& commandBuffer);

@@ -389,14 +389,14 @@ struct scene_t
     attachments[0].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[0].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
-    attachments[1].format_ = gBufferRT1_.format_;;
+    attachments[1].format_ = gBufferRT1_.format_;
     attachments[1].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[1].finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[1].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[1].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[1].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
-    attachments[2].format_ = gBufferRT2_.format_;;
+    attachments[2].format_ = gBufferRT2_.format_;
     attachments[2].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[2].finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     attachments[2].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
@@ -641,7 +641,7 @@ struct scene_t
     }
     
     BuildAndSubmitCommandBuffer();        
-    render::presentNextImage( context_, &renderComplete_, 1u);
+    render::presentFrame( context_, &renderComplete_, 1u);
   }
 
   void BuildAndSubmitCommandBuffer()
@@ -790,7 +790,7 @@ struct scene_t
     packed_freelist_iterator_t<material_t> materialIter = material_.begin();
     while( materialIter != material_.end() )
     {
-      render::gpuBufferDestroy(*context_, &materialIter.get().ubo_, &allocator_ );
+      render::gpuBufferDestroy(*context_, &allocator_, &materialIter.get().ubo_ );
       render::descriptorSetDestroy(*context_, &materialIter.get().descriptorSet_ );
       ++materialIter;
     }
@@ -799,7 +799,7 @@ struct scene_t
     packed_freelist_iterator_t<object_t> objectIter = object_.begin();
     while( objectIter != object_.end() )
     {
-      render::gpuBufferDestroy(*context_, &objectIter.get().ubo_, &allocator_ );
+      render::gpuBufferDestroy(*context_, &allocator_, &objectIter.get().ubo_ );
       render::descriptorSetDestroy(*context_, &objectIter.get().descriptorSet_ );
       ++objectIter;
     }
@@ -808,7 +808,7 @@ struct scene_t
     packed_freelist_iterator_t<light_t> lightIter = light_.begin();
     while (lightIter != light_.end())
     {
-      render::gpuBufferDestroy(*context_, &lightIter.get().ubo_, &allocator_);
+      render::gpuBufferDestroy(*context_, &allocator_, &lightIter.get().ubo_);
       render::descriptorSetDestroy(*context_, &lightIter.get().descriptorSet_);
       ++lightIter;
     }
@@ -855,7 +855,7 @@ struct scene_t
     render::commandBufferDestroy(*context_, &commandBuffer_);
     render::renderPassDestroy(*context_, &renderPass_);
     render::vertexFormatDestroy(&vertexFormat_);
-    render::gpuBufferDestroy(*context_, &globalsUbo_, &allocator_);
+    render::gpuBufferDestroy(*context_, &allocator_, &globalsUbo_);
     render::gpuAllocatorDestroy(*context_, &allocator_);
     render::descriptorPoolDestroy(*context_, &descriptorPool_);
     vkDestroySemaphore(context_->device_, renderComplete_, nullptr);
@@ -1010,7 +1010,7 @@ int main()
   lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 0.5f)));
 
   bool bAnimateLights = true;
-  auto timePrev = bkk::time::getCurrent();
+  auto timePrev = bkk::timer::getCurrent();
   bool quit = false;
   while( !quit )
   {
@@ -1057,10 +1057,10 @@ int main()
       }
     }
 
-    auto currentTime = bkk::time::getCurrent();
+    auto currentTime = bkk::timer::getCurrent();
     if (bAnimateLights)
     {
-      animateLights(scene, lights, bkk::time::getDifference(timePrev, currentTime));
+      animateLights(scene, lights, bkk::timer::getDifference(timePrev, currentTime));
     }
     
     //Render next frame

@@ -29,7 +29,7 @@
 
 namespace bkk
 {
-  namespace time
+  namespace timer
   {
     static std::chrono::time_point<std::chrono::high_resolution_clock> getCurrent()
     {
@@ -42,7 +42,7 @@ namespace bkk
     {
       return (float)std::chrono::duration<double, std::milli>(tEnd - tStart).count();
     }
-  }
+  }//namespace timer
 
 }//namespace bkk
 #endif  /*  TIMER_H  */

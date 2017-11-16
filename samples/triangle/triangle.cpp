@@ -82,32 +82,17 @@ void CreatePipeline(const bkk::render::context_t& context, const bkk::mesh::mesh
   bkk::render::pipeline_layout_t* layout, bkk::render::graphics_pipeline_t* pipeline )
 
 {
-  //Create pipeline layout
-  bkk::render::pipelineLayoutCreate( context, nullptr, 0u, layout );
-
-  //Create pipeline
-  bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
-  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f};
-  pipelineDesc.scissorRect_ = { {0,0}, {context.swapChain_.imageWidth_,context.swapChain_.imageHeight_} };
-  pipelineDesc.blendState_.resize(1);
-  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-  pipelineDesc.depthTestEnabled_ = false;
-  pipelineDesc.depthWriteEnabled_ = false;
-  pipelineDesc.vertexShader_ = vertexShader;
-  pipelineDesc.fragmentShader_ = fragmentShader;
-  bkk::render::graphicsPipelineCreate( context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, *layout, pipelineDesc, pipeline );
+  
 }
 
 void BuildCommandBuffers(const bkk::render::context_t& context, const bkk::mesh::mesh_t& mesh, const bkk::render::graphics_pipeline_t& pipeline )
 {
-  for( unsigned i(0); i<3; ++i )
+  for (unsigned i(0); i<3; ++i)
   {
-    VkCommandBuffer cmdBuffer = bkk::render::beginPresentationCommandBuffer( context, i, nullptr );
+    VkCommandBuffer cmdBuffer = bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
     bkk::render::graphicsPipelineBind(cmdBuffer, pipeline);
     bkk::mesh::draw(cmdBuffer, mesh);
-    bkk::render::endPresentationCommandBuffer( context, i );
+    bkk::render::endPresentationCommandBuffer(context, i);
   }
 }
 
@@ -121,15 +106,32 @@ int main()
   bkk::render::context_t context;
   bkk::render::contextCreate( "Hello triangle", "", window, 3, &context );
 
+  //Create a mesh
   bkk::mesh::mesh_t mesh = CreateTriangleGeometry( context );
+  
+  //Create pipeline layout
+  bkk::render::pipeline_layout_t pipelineLayout;
+  bkk::render::pipelineLayoutCreate(context, nullptr, 0u, &pipelineLayout);
 
+  //Create pipeline
+  bkk::render::graphics_pipeline_t pipeline;
   bkk::render::shader_t vertexShader, fragmentShader;
   bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader);
-  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);
+  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);  
+  bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
+  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
+  pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
+  pipelineDesc.blendState_.resize(1);
+  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+  pipelineDesc.depthTestEnabled_ = false;
+  pipelineDesc.depthWriteEnabled_ = false;
+  pipelineDesc.vertexShader_ = vertexShader;
+  pipelineDesc.fragmentShader_ = fragmentShader;
+  bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
 
-  bkk::render::pipeline_layout_t pipelineLayout;
-  bkk::render::graphics_pipeline_t pipeline = {};
-  CreatePipeline(context, mesh, vertexShader, fragmentShader, &pipelineLayout, &pipeline );
+  //Build command buffers
   BuildCommandBuffers(context, mesh, pipeline);
   
   bool quit = false;
@@ -150,8 +152,7 @@ int main()
       }
     }
 
-    //Render next image
-    bkk::render::presentNextImage( &context );
+    bkk::render::presentFrame( &context );
   }
 
   //Wait for all pending operations to be finished
