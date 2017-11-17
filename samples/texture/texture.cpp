@@ -141,8 +141,6 @@ int main()
   //Build command buffers
   BuildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
 
-  sample_utils::frame_counter_t frameCounter;
-  frameCounter.init(&window);
   bool quit = false;
   while (!quit)
   {
@@ -162,7 +160,6 @@ int main()
     }
 
     bkk::render::presentFrame(&context);
-    frameCounter.endFrame();
   }
 
   //Wait for all pending operations to be finished

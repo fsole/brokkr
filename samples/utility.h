@@ -32,7 +32,7 @@
 #include "window.h"
 #include <string>
 #include <sstream>
-
+#include <iomanip>
 
 using namespace bkk;
 using namespace maths;
@@ -180,43 +180,42 @@ struct frame_counter_t
 {
   typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point_t;
 
-  void init( window::window_t* window )
+  void init( window::window_t* window, uint32_t displayInterval = 1000u )
   {
     window_ = window;
     windowTitle_ = window->title_;
     timePrev_ = timer::getCurrent();
-    frameCount_ = 0u;
-    fps_ = 0.0f;
+    displayInterval_ = displayInterval;
+
+    std::ostringstream titleWithFps;
+    titleWithFps << windowTitle_ << "     0.0ms (0 fps)";
+    window::setTitle(titleWithFps.str(), window_);
   }
 
   void endFrame()
   {
-    frameCount_++;
-
     time_point_t t = timer::getCurrent();
-    timeAccum_ += timer::getDifference(timePrev_, t);
+    float timeFrame = timer::getDifference(timePrev_, t);
     timePrev_ = t;
-
-
-    if (timeAccum_ >= 1000.0f)
+    timeAccum_ += timeFrame;
+    if (timeAccum_ >= displayInterval_ )
     {
-      fps_ = frameCount_ / (timeAccum_ / 1000.0f);
-      frameCount_ = 0u;
       timeAccum_ = 0.0f;
 
       std::ostringstream titleWithFps;
-      titleWithFps << windowTitle_ << " (" << (uint32_t)fps_ << " fps)";
+      titleWithFps << windowTitle_ << "     " << std::setprecision(3)  << timeFrame << "ms (" << (uint32_t)(1000 / timeFrame ) << " fps)";
       window::setTitle(titleWithFps.str(), window_ );
     }
   };
 
 
-  time_point_t timePrev_;
-  float timeAccum_ = 0.0f;
-  uint32_t frameCount_ = 0u;
-  float fps_;
   window::window_t* window_;
   std::string windowTitle_;
+
+  time_point_t timePrev_;
+  uint32_t displayInterval_;
+  float timeAccum_ = 0.0f;
+  
 };
 
 
