@@ -577,6 +577,8 @@ int main()
   BuildCommandBuffers();
   BuildComputeCommandBuffer();
 
+  sample_utils::frame_counter_t frameCounter;
+  frameCounter.init(&gWindow);
   bool quit = false;
   while (!quit)
   {
@@ -621,6 +623,7 @@ int main()
     }
 
     Render();
+    frameCounter.endFrame();
   }
 
 

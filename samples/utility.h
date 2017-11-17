@@ -28,6 +28,11 @@
 #include "mesh.h"
 #include "render.h"
 #include "maths.h"
+#include "timer.h"
+#include "window.h"
+#include <string>
+#include <sstream>
+
 
 using namespace bkk;
 using namespace maths;
@@ -169,6 +174,51 @@ bkk::mesh::mesh_t fullScreenQuad(const bkk::render::context_t& context)
   bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr,  &mesh);
   return mesh;
 }
+
+
+struct frame_counter_t
+{
+  typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point_t;
+
+  void init( window::window_t* window )
+  {
+    window_ = window;
+    windowTitle_ = window->title_;
+    timePrev_ = timer::getCurrent();
+    frameCount_ = 0u;
+    fps_ = 0.0f;
+  }
+
+  void endFrame()
+  {
+    frameCount_++;
+
+    time_point_t t = timer::getCurrent();
+    timeAccum_ += timer::getDifference(timePrev_, t);
+    timePrev_ = t;
+
+
+    if (timeAccum_ >= 1000.0f)
+    {
+      fps_ = frameCount_ / (timeAccum_ / 1000.0f);
+      frameCount_ = 0u;
+      timeAccum_ = 0.0f;
+
+      std::ostringstream titleWithFps;
+      titleWithFps << windowTitle_ << " (" << (uint32_t)fps_ << " fps)";
+      window::setTitle(titleWithFps.str(), window_ );
+    }
+  };
+
+
+  time_point_t timePrev_;
+  float timeAccum_ = 0.0f;
+  uint32_t frameCount_ = 0u;
+  float fps_;
+  window::window_t* window_;
+  std::string windowTitle_;
+};
+
 
 }
 

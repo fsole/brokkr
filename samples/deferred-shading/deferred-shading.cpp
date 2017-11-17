@@ -1011,6 +1011,9 @@ int main()
 
   bool bAnimateLights = true;
   auto timePrev = bkk::timer::getCurrent();
+
+  sample_utils::frame_counter_t frameCounter;
+  frameCounter.init(&window);
   bool quit = false;
   while( !quit )
   {
@@ -1066,6 +1069,7 @@ int main()
     //Render next frame
     scene.Render();
 
+    frameCounter.endFrame();
     timePrev = currentTime;
   }
   

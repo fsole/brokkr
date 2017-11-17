@@ -275,6 +275,8 @@ int main()
   auto currentTime = timePrev;
   f32 timeInSecond = 0;
 
+  sample_utils::frame_counter_t frameCounter;
+  frameCounter.init(&gWindow);
   bool quit = false;
   while( !quit )
   {
@@ -326,6 +328,8 @@ int main()
     mesh::animatorUpdate( gContext, timeInSecond, &gAnimator );
     render::presentFrame( &gContext );
     timePrev = currentTime;
+
+    frameCounter.endFrame();
   }
 
   Exit();

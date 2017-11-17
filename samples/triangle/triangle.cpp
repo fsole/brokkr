@@ -78,13 +78,6 @@ bkk::mesh::mesh_t CreateTriangleGeometry(const bkk::render::context_t& context )
   return mesh;
 }
 
-void CreatePipeline(const bkk::render::context_t& context, const bkk::mesh::mesh_t& mesh, const bkk::render::shader_t& vertexShader, const bkk::render::shader_t& fragmentShader,
-  bkk::render::pipeline_layout_t* layout, bkk::render::graphics_pipeline_t* pipeline )
-
-{
-  
-}
-
 void BuildCommandBuffers(const bkk::render::context_t& context, const bkk::mesh::mesh_t& mesh, const bkk::render::graphics_pipeline_t& pipeline )
 {
   for (unsigned i(0); i<3; ++i)

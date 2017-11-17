@@ -1605,6 +1605,8 @@ int main()
   //Lights
   scene.addDirectionalLight(vec3(0.0, 1.75, 0.0), vec3(0.0f, 1.0f, 0.1f), vec3(1.0f, 1.0f, 1.0f), 0.0f);
 
+  sample_utils::frame_counter_t frameCounter;
+  frameCounter.init(&window);
   bool quit = false;
   while (!quit)
   {
@@ -1649,6 +1651,7 @@ int main()
 
     //Render next frame
     scene.Render();
+    frameCounter.endFrame();
   }
 
   scene.Destroy();

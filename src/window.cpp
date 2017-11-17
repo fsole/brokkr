@@ -158,6 +158,7 @@ void window::create(const std::string& title, unsigned int width, unsigned int h
   window->width_ = width;
   window->height_ = height;
   window->activeEvent_ = nullptr;
+  window->title_ = title;
 
   WNDCLASSEX wndClass;
   wndClass.cbSize = sizeof(WNDCLASSEX);
@@ -211,6 +212,15 @@ event_t* window::getNextEvent(window_t* window)
 
   return window->activeEvent_;
 }
+
+void window::setTitle(const std::string& title, window_t* window )
+{
+  if (SetWindowText(window->handle_, title.c_str()))
+  {
+    window->title_ = title;
+  }
+}
+
 
 void window::destroy(window_t* window)
 {

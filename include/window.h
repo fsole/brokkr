@@ -155,6 +155,7 @@ namespace bkk
 		{
 			uint32_t width_;
 			uint32_t height_;
+      std::string title_;
 #ifdef WIN32
 			HINSTANCE instance_;
 			HWND handle_;
@@ -176,6 +177,7 @@ namespace bkk
 		};
 
 		void create(const std::string& title, unsigned int width, unsigned int height, window_t* window);
+    void setTitle(const std::string& title, window_t* window);    
 		event_t* getNextEvent(window_t* window);
 		void destroy(window_t* window);
 

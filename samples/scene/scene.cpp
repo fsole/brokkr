@@ -1394,11 +1394,11 @@ int main()
   //Create a window
   window::window_t window;
   window::create("Scene", 1200u, 800u, &window);
-
+  
   //Initialize context
   render::context_t context;
   render::contextCreate("Scene", "", window, 3, &context);
-
+  
   //Initialize scene
   scene_t scene;
   scene.initialize(context);
@@ -1410,6 +1410,8 @@ int main()
   scene.addPointLight(vec3(-1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.5f, 0.0f));
   scene.addPointLight(vec3(1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.0f, 0.5f));
 
+  sample_utils::frame_counter_t frameCounter;
+  frameCounter.init( &window );
   bool quit = false;
   while (!quit)
   {
@@ -1454,6 +1456,7 @@ int main()
 
     //Render next frame
     scene.Render();
+    frameCounter.endFrame();
   }
 
   scene.Destroy();
