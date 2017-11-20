@@ -176,8 +176,8 @@ namespace bkk
 			event_unknow_t unknowEvent_;
 		};
 
-		void create(const std::string& title, unsigned int width, unsigned int height, window_t* window);
-    void setTitle(const std::string& title, window_t* window);    
+		void create(const char* title, unsigned int width, unsigned int height, window_t* window);
+    void setTitle(const char* title, window_t* window);    
 		event_t* getNextEvent(window_t* window);
 		void destroy(window_t* window);
 

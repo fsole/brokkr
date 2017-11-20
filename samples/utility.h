@@ -189,7 +189,7 @@ struct frame_counter_t
 
     std::ostringstream titleWithFps;
     titleWithFps << windowTitle_ << "     0.0ms (0 fps)";
-    window::setTitle(titleWithFps.str(), window_);
+    window::setTitle(titleWithFps.str().c_str(), window_);
   }
 
   void endFrame()
@@ -204,7 +204,7 @@ struct frame_counter_t
 
       std::ostringstream titleWithFps;
       titleWithFps << windowTitle_ << "     " << std::setprecision(3)  << timeFrame << "ms (" << (uint32_t)(1000 / timeFrame ) << " fps)";
-      window::setTitle(titleWithFps.str(), window_ );
+      window::setTitle(titleWithFps.str().c_str(), window_ );
     }
   };
 
@@ -218,6 +218,117 @@ struct frame_counter_t
   
 };
 
+
+class application_t
+{
+public:
+  application_t( const char* title, u32 width, u32 height, u32 imageCount )
+  {
+    window::create(title, width, height, &window_);
+    render::contextCreate(title, "", window_, imageCount, &context_);
+    frameCounter_.init(&window_);
+    timeDelta_ = 0.0f;
+  }
+
+  ~application_t()
+  {
+    render::contextDestroy(&context_);
+    window::destroy(&window_);
+  }
+
+  void loop()
+  {
+    auto timePrev = bkk::timer::getCurrent();
+    auto currentTime = timePrev;
+
+    bool quit = false;
+    while (!quit)
+    { 
+      currentTime = bkk::timer::getCurrent();
+      timeDelta_ = timer::getDifference(timePrev, currentTime);
+      
+      window::event_t* event = nullptr;
+      while ((event = window::getNextEvent(&window_)))
+      {
+        switch (event->type_)
+        {
+        case window::EVENT_QUIT:
+        {
+          quit = true;
+          break;
+        }
+        case window::EVENT_RESIZE:
+        {
+          window::event_resize_t* resizeEvent = (window::event_resize_t*)event;
+          render::swapchainResize(&context_, resizeEvent->width_, resizeEvent->height_);
+          onResize(resizeEvent->width_, resizeEvent->height_);
+          break;
+        }
+        case window::EVENT_KEY:
+        {
+          window::event_key_t* keyEvent = (window::event_key_t*)event;
+          onKeyEvent(keyEvent->keyCode_, keyEvent->pressed_);
+          break;
+        }
+        case window::EVENT_MOUSE_BUTTON:
+        {
+          window::event_mouse_button_t* buttonEvent = (window::event_mouse_button_t*)event;
+          
+          mouseButtonPressed_ = buttonEvent->pressed_;
+          vec2 prevPos = mouseCurrentPos_;
+          mouseCurrentPos_ = vec2((float)buttonEvent->x_, (float)buttonEvent->y_);
+          onMouseButton(buttonEvent->pressed_, mouseCurrentPos_, mousePrevPos_);
+          mousePrevPos_ = prevPos;
+          break;
+        }
+        case window::EVENT_MOUSE_MOVE:
+        {
+          window::event_mouse_move_t* moveEvent = (window::event_mouse_move_t*)event;
+          vec2 prevPos = mouseCurrentPos_;
+          mouseCurrentPos_ = vec2((float)moveEvent->x_, (float)moveEvent->y_);
+          onMouseMove( mouseCurrentPos_, mousePrevPos_, mouseButtonPressed_ );
+          mousePrevPos_ = prevPos;
+          break;
+        }
+        default:
+          break;
+        }
+      }
+
+      render();      
+      frameCounter_.endFrame();
+      timePrev = currentTime;
+    }
+
+    render::contextFlush(context_);
+    onQuit();
+  }
+  
+  //Callbacks
+  virtual void onQuit() {}
+  virtual void onResize(u32 width, u32 height) {}
+  virtual void onKeyEvent(window::key_e key, bool pressed) {}
+  virtual void onMouseButton(bool pressed, const vec2& mousePos, const vec2& mousePrevPos) {}
+  virtual void onMouseMove(const vec2& mousePos, const vec2& mousePrevPos, bool buttonPressed) {}
+  virtual void render() {}
+
+ 
+  render::context_t& getRenderContext() { return context_;  }
+  window::window_t& getWindow() { return window_;  }
+  f32 getTimeDelta() { return timeDelta_; }  
+  uvec2 getWindowSize() { return uvec2(window_.width_, window_.height_); }
+
+private:
+  window::window_t window_;
+  render::context_t context_;
+
+  float timeDelta_;
+  frame_counter_t frameCounter_;
+  maths::vec2 mouseCurrentPos_ = vec2(0.0f, 0.0f);
+  maths::vec2 mousePrevPos_ = vec2(0.0f, 0.0f);
+  bool mouseButtonPressed_ = false;
+
+};
 
 }
 

@@ -163,10 +163,10 @@ namespace bkk
 
       void normalize()
       {
-        f32 inverseLenght = 1.0f / lenght(*this);
-        x *= inverseLenght;
-        y *= inverseLenght;
-        z *= inverseLenght;
+        f32 inverselength = 1.0f / length(*this);
+        x *= inverselength;
+        y *= inverselength;
+        z *= inverselength;
       }
 
       union
@@ -191,11 +191,11 @@ namespace bkk
 
       void normalize()
       {
-        f32 inverseLenght = 1.0f / Lenght(*this);
-        x *= inverseLenght;
-        y *= inverseLenght;
-        z *= inverseLenght;
-        w *= inverseLenght;
+        f32 inverselength = 1.0f / length(*this);
+        x *= inverselength;
+        y *= inverselength;
+        z *= inverselength;
+        w *= inverselength;
       }
 
       union
@@ -365,23 +365,23 @@ namespace bkk
       return result;
     }
 
-    //LenghtSquared
+    //lengthSquared
     template <typename T, u32 N>
-    inline f32 lenghtSquared(const Vector<T, N>& v)
+    inline f32 lengthSquared(const Vector<T, N>& v)
     {
-      f32 lenghtSquared(0.0f);
+      f32 lengthSquared(0.0f);
       for (u32 i(0); i < N; ++i)
       {
-        lenghtSquared += v.data[i] * v.data[i];
+        lengthSquared += v.data[i] * v.data[i];
       }
-      return lenghtSquared;
+      return lengthSquared;
     }
 
-    //Lenght
+    //length
     template <typename T, u32 N>
-    inline f32 lenght(const Vector<T, N>& v)
+    inline f32 length(const Vector<T, N>& v)
     {
-      return sqrtf(lenghtSquared(v));
+      return sqrtf(lengthSquared(v));
     }
 
     //Normalization
@@ -389,13 +389,13 @@ namespace bkk
     inline Vector<T, N> normalize(const Vector<T, N>& v)
     {
       Vector<T, N> result;
-      f32 vLenght = lenght(v);
-      if (vLenght != 0.0f)
+      f32 vlength = length(v);
+      if (vlength != 0.0f)
       {
-        const f32 inverseLenght = 1.0f / vLenght;
+        const f32 inverselength = 1.0f / vlength;
         for (u32 i(0); i < N; ++i)
         {
-          result[i] = v.data[i] * inverseLenght;
+          result[i] = v.data[i] * inverselength;
         }
       }
       return result;

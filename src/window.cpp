@@ -152,7 +152,7 @@ static long __stdcall WindowProcedure(HWND hWnd, unsigned int msg, WPARAM wp, LP
   return 0;
 }
 
-void window::create(const std::string& title, unsigned int width, unsigned int height, window_t* window)
+void window::create(const char* title, unsigned int width, unsigned int height, window_t* window)
 {
   window->instance_ = GetModuleHandle(0);
   window->width_ = width;
@@ -171,7 +171,7 @@ void window::create(const std::string& title, unsigned int width, unsigned int h
   wndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
   wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
   wndClass.lpszMenuName = NULL;
-  wndClass.lpszClassName = title.c_str();
+  wndClass.lpszClassName = title;
   wndClass.hIconSm = LoadIcon(NULL, IDI_WINLOGO);
   RegisterClassEx(&wndClass);
   DWORD dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
@@ -184,7 +184,7 @@ void window::create(const std::string& title, unsigned int width, unsigned int h
   windowRect.bottom = (long)height;
 
   AdjustWindowRectEx(&windowRect, dwStyle, FALSE, dwExStyle);
-  window->handle_ = CreateWindowEx(0, title.c_str(), title.c_str(),
+  window->handle_ = CreateWindowEx(0, title, title,
     dwStyle | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
     0, 0, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
     NULL, NULL, window->instance_, NULL);
@@ -213,9 +213,9 @@ event_t* window::getNextEvent(window_t* window)
   return window->activeEvent_;
 }
 
-void window::setTitle(const std::string& title, window_t* window )
+void window::setTitle(const char* title, window_t* window )
 {
-  if (SetWindowText(window->handle_, title.c_str()))
+  if (SetWindowText(window->handle_, title))
   {
     window->title_ = title;
   }
@@ -258,7 +258,7 @@ static window::key_e KeyFromKeyCode(xcb_keycode_t keycode)
   return KEY_COUNT;
 }
 
-void window::create(const std::string& title, unsigned int width, unsigned int height, window_t* window)
+void window::create(const char* title, unsigned int width, unsigned int height, window_t* window)
 {
   const xcb_setup_t *setup;
   xcb_screen_iterator_t iter;
@@ -311,7 +311,7 @@ void window::create(const std::string& title, unsigned int width, unsigned int h
 
   xcb_change_property(window->connection_, XCB_PROP_MODE_REPLACE,
     window->handle_, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8,
-    title.size(), title.c_str());
+    strlen(title), title);
 
   free(reply);
 

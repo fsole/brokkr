@@ -198,7 +198,7 @@ static float signedDistancePointTriangle(const maths::vec3& point, const maths::
   maths::vec3 normal = cross(b-a, c-a);
   float sign = dot(normal, v) < 0.0f ? 1.0f : -1.0f;
 
-  return sign * lenght(v);
+  return sign * length(v);
 }
 
 static float signedDistancePointMesh(const maths::vec3& point, uint32_t* index, uint32_t indexCount, vec3* vertex, uint32_t vertexCount )

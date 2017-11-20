@@ -33,6 +33,7 @@
 
 using namespace bkk;
 using namespace maths;
+using namespace sample_utils;
 
 static const char* gGeometryPassVertexShaderSource = {
   "#version 440 core\n \
@@ -224,7 +225,7 @@ static const char* gPresentationFragmentShaderSource = {
   }\n"
 };
 
-struct scene_t
+struct deferred_shading_sample_t : public application_t
 {
   struct light_t
   {
@@ -272,6 +273,79 @@ struct scene_t
     vec4 imageSize_;
   };
 
+  deferred_shading_sample_t()
+  :application_t("Deferred shading", 1200u, 800u, 3u)
+  {
+    render::context_t& context = getRenderContext();
+    uvec2 size = getWindowSize();
+
+    //Create allocator for uniform buffers and meshes
+    render::gpuAllocatorCreate(context, 100 * 1024 * 1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_);
+
+    //Create descriptor pool
+    render::descriptorPoolCreate(context, 1000u, 1000u, 1000u, 0u, 0u, &descriptorPool_);
+
+    //Create vertex format (position + normal)
+    uint32_t vertexSize = 2 * sizeof(maths::vec3);
+    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize },{ render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize } };
+    render::vertexFormatCreate(attributes, 2u, &vertexFormat_);
+
+    //Load full-screen quad and sphere meshes
+    fullScreenQuad_ = sample_utils::fullScreenQuad(context);
+    mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
+
+    //Create globals uniform buffer
+    camera_.position_ = vec3(0.0f, 2.5f, 8.5f);
+    camera_.Update();
+    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
+    computeInverse(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
+    uniforms_.viewMatrix_ = camera_.view_;
+    uniforms_.imageSize_ = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER, (void*)&uniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
+
+    //Create global descriptor set (Scene uniforms)   
+    render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
+    render::descriptorSetLayoutCreate(context, &binding, 1u, &globalsDescriptorSetLayout_);
+    render::descriptor_t descriptor = render::getDescriptor(globalsUbo_);
+    render::descriptorSetCreate(context, descriptorPool_, globalsDescriptorSetLayout_, &descriptor, &globalsDescriptorSet_);
+
+    //Initialize off-screen render pass
+    initializeOffscreenPass(context, size);
+
+    //Presentation descriptor set layout and pipeline layout
+    binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
+    bkk::render::descriptorSetLayoutCreate(context, &binding, 1u, &presentationDescriptorSetLayout_);
+    bkk::render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, &presentationPipelineLayout_);
+
+    //Presentation descriptor sets
+    descriptor = bkk::render::getDescriptor(finalImage_);
+    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[0]);
+    descriptor = bkk::render::getDescriptor(gBufferRT0_);
+    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[1]);
+    descriptor = bkk::render::getDescriptor(gBufferRT1_);
+    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[2]);
+    descriptor = bkk::render::getDescriptor(gBufferRT2_);
+    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[3]);
+
+    //Create presentation pipeline
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gPresentationVertexShaderSource, &presentationVertexShader_);
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gPresentationFragmentShaderSource, &presentationFragmentShader_);
+    render::graphics_pipeline_t::description_t pipelineDesc = {};
+    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
+    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
+    pipelineDesc.blendState_.resize(1);
+    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+    pipelineDesc.depthTestEnabled_ = false;
+    pipelineDesc.depthWriteEnabled_ = false;
+    pipelineDesc.vertexShader_ = presentationVertexShader_;
+    pipelineDesc.fragmentShader_ = presentationFragmentShader_;
+    bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
+
+    buildPresentationCommandBuffers();
+  }
+
   bkk::handle_t addQuadMesh()
   {
     struct Vertex
@@ -293,52 +367,58 @@ struct scene_t
     attributes[1] = { render::vertex_attribute_t::format::VEC3, offsetof(Vertex, normal), sizeof(Vertex) };
 
     mesh::mesh_t mesh;
-    mesh::create( *context_, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &allocator_, &mesh );
+    mesh::create( getRenderContext(), indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &allocator_, &mesh );
     return mesh_.add( mesh );
   }
 
   bkk::handle_t addMesh(const char* url )
   {
     mesh::mesh_t mesh;
-    mesh::createFromFile( *context_, url, mesh::EXPORT_NORMALS, &allocator_, 0u, &mesh);
+    mesh::createFromFile( getRenderContext(), url, mesh::EXPORT_NORMALS, &allocator_, 0u, &mesh);
     return mesh_.add( mesh );
   }
 
   bkk::handle_t addMaterial( const vec3& albedo, float metallic, const vec3& F0, float roughness )
   {
+    render::context_t& context = getRenderContext();
+
     //Create uniform buffer and descriptor set
     material_t material = {};
     material.uniforms_.albedo_ = albedo;
     material.uniforms_.metallic_ = metallic;
     material.uniforms_.F0_ = F0;
     material.uniforms_.roughness_ = roughness;
-    render::gpuBufferCreate(  *context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(  context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                               &material.uniforms_, sizeof(material_t::uniforms_t),
                               &allocator_, &material.ubo_);
 
     render::descriptor_t descriptor = render::getDescriptor(material.ubo_);
-    render::descriptorSetCreate( *context_, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_ );
+    render::descriptorSetCreate( context, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_ );
     return material_.add( material );
   }
 
   bkk::handle_t addObject( bkk::handle_t meshId, bkk::handle_t materialId, const maths::mat4& transform )
   {
+    render::context_t& context = getRenderContext();
+
     bkk::handle_t transformId = transformManager_.createTransform( transform );
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
-    render::gpuBufferCreate( *context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate( context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
                              nullptr, sizeof(mat4),
                              &allocator_, &ubo );
 
     object_t object = { meshId, materialId, transformId, ubo };
     render::descriptor_t descriptor = render::getDescriptor(object.ubo_);
-    render::descriptorSetCreate(*context_, descriptorPool_, objectDescriptorSetLayout_, &descriptor, &object.descriptorSet_ );
+    render::descriptorSetCreate(context, descriptorPool_, objectDescriptorSetLayout_, &descriptor, &object.descriptorSet_ );
     return object_.add( object );
   }
 
   bkk::handle_t addLight(const maths::vec3& position,float radius, const maths::vec3& color )
   {
+    render::context_t& context = getRenderContext();
+
     light_t light;
 
     light.uniforms_.position_ = maths::vec4(position,1.0);
@@ -346,21 +426,199 @@ struct scene_t
     light.uniforms_.radius_ = radius;
 
     //Create uniform buffer and descriptor set
-    render::gpuBufferCreate(*context_, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
       &light.uniforms_, sizeof(light_t::uniforms_t),
       &allocator_, &light.ubo_);
 
     
     render::descriptor_t descriptor = render::getDescriptor(light.ubo_);
-    render::descriptorSetCreate(*context_, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &light.descriptorSet_);
+    render::descriptorSetCreate(context, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &light.descriptorSet_);
     return light_.add(light);
   }
 
-  light_t* getLight(bkk::handle_t lightId)
+  void Resize( uint32_t width, uint32_t height )
   {
-    return light_.get(lightId);
+    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.2f, (f32)width / (f32)height,0.1f,100.0f );
+    buildPresentationCommandBuffers();
   }
 
+  void render()
+  {
+    render::context_t& context = getRenderContext();
+        
+    //Update scene
+    animateLights();
+    transformManager_.update();
+    uniforms_.viewMatrix_ = camera_.view_;
+    render::gpuBufferUpdate(context, (void*)&uniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
+
+    //Update modelview matrices
+    std::vector<object_t>& object( object_.getData() );
+    for (u32 i(0); i < object.size(); ++i)
+    {
+      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_ );
+    }
+
+    //Update lights position
+    std::vector<light_t>& light(light_.getData());
+    for (u32 i(0); i<light.size(); ++i)
+    {
+      render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
+    }
+    
+    buildAndSubmitCommandBuffer();        
+    render::presentFrame( &context, &renderComplete_, 1u);
+  }
+
+  virtual void onKeyEvent(window::key_e key, bool pressed)
+  {
+    if (pressed)
+    {
+      switch (key)
+      {
+      case window::key_e::KEY_UP:
+      case 'w':
+      {
+        camera_.Move(0.0f, -0.5f);
+        break;
+      }
+      case window::key_e::KEY_DOWN:
+      case 's':
+      {
+        camera_.Move(0.0f, 0.5f);
+        break;
+      }
+      case window::key_e::KEY_LEFT:
+      case 'a':
+      {
+        camera_.Move(-0.5f, 0.0f);
+        break;
+      }
+      case window::key_e::KEY_RIGHT:
+      case 'd':
+      {
+        camera_.Move(0.5f, 0.0f);
+        break;
+      }
+      case window::key_e::KEY_1:
+      case window::key_e::KEY_2:
+      case window::key_e::KEY_3:
+      case window::key_e::KEY_4:
+      {
+        currentPresentationDescriptorSet_ = key - window::key_e::KEY_1;
+        render::contextFlush(getRenderContext());
+        buildPresentationCommandBuffers();
+        break;
+      }
+      case window::key_e::KEY_P:
+      {
+        bAnimateLights_ = !bAnimateLights_;
+        break;
+      }
+      default:
+        break;
+      }
+    }
+  }
+
+  void onMouseMove(const vec2& mousePos, const vec2& mousePrevPos, bool buttonPressed)
+  {
+    if (buttonPressed)
+    {
+      camera_.Rotate((mousePos.y - mousePrevPos.y) * 0.01f, (mousePos.x - mousePrevPos.x) * 0.01f);
+    }
+  }
+
+  void onQuit()
+  {
+   
+    render::context_t& context = getRenderContext();
+
+    //Destroy meshes
+    packed_freelist_iterator_t<mesh::mesh_t> meshIter = mesh_.begin();
+    while( meshIter != mesh_.end() )
+    {
+      mesh::destroy( context, &meshIter.get(), &allocator_ );
+      ++meshIter;
+    }
+
+    //Destroy material resources
+    packed_freelist_iterator_t<material_t> materialIter = material_.begin();
+    while( materialIter != material_.end() )
+    {
+      render::gpuBufferDestroy(context, &allocator_, &materialIter.get().ubo_ );
+      render::descriptorSetDestroy(context, &materialIter.get().descriptorSet_ );
+      ++materialIter;
+    }
+
+    //Destroy object resources
+    packed_freelist_iterator_t<object_t> objectIter = object_.begin();
+    while( objectIter != object_.end() )
+    {
+      render::gpuBufferDestroy(context, &allocator_, &objectIter.get().ubo_ );
+      render::descriptorSetDestroy(context, &objectIter.get().descriptorSet_ );
+      ++objectIter;
+    }
+
+    //Destroy lights resources
+    packed_freelist_iterator_t<light_t> lightIter = light_.begin();
+    while (lightIter != light_.end())
+    {
+      render::gpuBufferDestroy(context, &allocator_, &lightIter.get().ubo_);
+      render::descriptorSetDestroy(context, &lightIter.get().descriptorSet_);
+      ++lightIter;
+    }
+
+    
+    render::shaderDestroy(context, &gBuffervertexShader_);
+    render::shaderDestroy(context, &gBufferfragmentShader_);
+    render::shaderDestroy(context, &lightVertexShader_);
+    render::shaderDestroy(context, &lightFragmentShader_);
+    render::shaderDestroy(context, &presentationVertexShader_);
+    render::shaderDestroy(context, &presentationFragmentShader_);
+    
+    render::graphicsPipelineDestroy(context, &gBufferPipeline_);
+    render::graphicsPipelineDestroy(context, &lightPipeline_);
+    render::graphicsPipelineDestroy(context, &presentationPipeline_);
+
+    render::pipelineLayoutDestroy(context, &presentationPipelineLayout_);
+    render::pipelineLayoutDestroy(context, &gBufferPipelineLayout_);
+    render::pipelineLayoutDestroy(context, &lightPipelineLayout_);
+    
+    render::descriptorSetDestroy(context, &globalsDescriptorSet_);
+    render::descriptorSetDestroy(context, &lightPassTexturesDescriptorSet_);
+    render::descriptorSetDestroy(context, &presentationDescriptorSet_[0]);
+    render::descriptorSetDestroy(context, &presentationDescriptorSet_[1]);
+    render::descriptorSetDestroy(context, &presentationDescriptorSet_[2]);
+
+    render::descriptorSetLayoutDestroy(context, &globalsDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(context, &materialDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(context, &objectDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(context, &lightDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(context, &lightPassTexturesDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(context, &presentationDescriptorSetLayout_);
+
+    render::textureDestroy(context, &gBufferRT0_);
+    render::textureDestroy(context, &gBufferRT1_);
+    render::textureDestroy(context, &gBufferRT2_);
+    render::textureDestroy(context, &finalImage_);
+    render::depthStencilBufferDestroy(context, &depthStencilBuffer_);
+    
+    mesh::destroy(context, &fullScreenQuad_);
+    mesh::destroy(context, &sphereMesh_);
+
+    render::frameBufferDestroy(context, &frameBuffer_);
+    render::commandBufferDestroy(context, &commandBuffer_);
+    render::renderPassDestroy(context, &renderPass_);
+    render::vertexFormatDestroy(&vertexFormat_);
+    render::gpuBufferDestroy(context, &allocator_, &globalsUbo_);
+    render::gpuAllocatorDestroy(context, &allocator_);
+    render::descriptorPoolDestroy(context, &descriptorPool_);
+    vkDestroySemaphore(context.device_, renderComplete_, nullptr);
+  }
+  
+private:
+  ///Helper methods
   void initializeOffscreenPass(render::context_t& context, const uvec2& size)
   {
     //Semaphore to indicate rendering has completed
@@ -378,7 +636,7 @@ struct scene_t
     render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &finalImage_);
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
-    
+
     //Create offscreen render pass (GBuffer + light subpasses)
     renderPass_ = {};
     render::render_pass_t::attachment_t attachments[5];
@@ -436,7 +694,7 @@ struct scene_t
     dependencies[0].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
     dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    
+
     dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
     dependencies[1].dstSubpass = 1;
     dependencies[1].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
@@ -457,9 +715,9 @@ struct scene_t
     dependencies[3].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     dependencies[3].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
     dependencies[3].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    
+
     render::renderPassCreate(context, attachments, 5u, subpasses, 2u, dependencies, 4u, &renderPass_);
-    
+
     //Create frame buffer
     VkImageView fbAttachment[5] = { gBufferRT0_.imageView_, gBufferRT1_.imageView_, gBufferRT2_.imageView_, finalImage_.imageView_, depthStencilBuffer_.imageView_ };
     render::frameBufferCreate(context, size.x, size.y, renderPass_, fbAttachment, &frameBuffer_);
@@ -495,7 +753,7 @@ struct scene_t
     pipelineDesc.vertexShader_ = gBuffervertexShader_;
     pipelineDesc.fragmentShader_ = gBufferfragmentShader_;
     render::graphicsPipelineCreate(context, renderPass_.handle_, 0u, vertexFormat_, gBufferPipelineLayout_, pipelineDesc, &gBufferPipeline_);
-        
+
     //Create light pass descriptorSet layouts
     render::descriptor_binding_t bindings[3];
     bindings[0] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
@@ -540,127 +798,25 @@ struct scene_t
     render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, sphereMesh_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
   }
 
-  void initialize( render::context_t& context )
+  void buildAndSubmitCommandBuffer()
   {
-    context_ = &context;
-    uvec2 size = uvec2(context.swapChain_.imageWidth_, context.swapChain_.imageHeight_);
+    render::context_t& context = getRenderContext();
 
-    //Create allocator for uniform buffers and meshes
-    render::gpuAllocatorCreate(context, 100 * 1024 * 1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_);
-
-    //Create descriptor pool
-    render::descriptorPoolCreate(context, 1000u, 1000u, 1000u, 0u, 0u, &descriptorPool_);
-
-    //Create vertex format (position + normal)
-    uint32_t vertexSize = 2 * sizeof(maths::vec3);
-    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize },{ render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize } };
-    render::vertexFormatCreate(attributes, 2u, &vertexFormat_);
-
-    //Load full-screen quad and sphere meshes
-    fullScreenQuad_ = sample_utils::fullScreenQuad(context);
-    mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
-
-    //Create globals uniform buffer
-    camera_.position_ = vec3(0.0f, 2.5f, 8.5f);
-    camera_.Update();
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
-    computeInverse(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
-    uniforms_.viewMatrix_ = camera_.view_;
-    uniforms_.imageSize_ = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER, (void*)&uniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
-
-    //Create global descriptor set (Scene uniforms)   
-    render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
-    render::descriptorSetLayoutCreate(context, &binding, 1u, &globalsDescriptorSetLayout_);
-    render::descriptor_t descriptor = render::getDescriptor(globalsUbo_);
-    render::descriptorSetCreate(context, descriptorPool_, globalsDescriptorSetLayout_, &descriptor, &globalsDescriptorSet_);
-    
-    //Initialize off-screen render pass
-    initializeOffscreenPass(context, size);
-
-    //Presentation descriptor set layout and pipeline layout
-    binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };    
-    bkk::render::descriptorSetLayoutCreate(context, &binding, 1u, &presentationDescriptorSetLayout_);
-    bkk::render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, &presentationPipelineLayout_);
-
-    //Presentation descriptor sets
-    descriptor = bkk::render::getDescriptor(finalImage_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[0]);
-    descriptor = bkk::render::getDescriptor(gBufferRT0_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[1]);
-    descriptor = bkk::render::getDescriptor(gBufferRT1_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[2]);
-    descriptor = bkk::render::getDescriptor(gBufferRT2_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[3]);
-    
-    //Create presentation pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gPresentationVertexShaderSource, &presentationVertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gPresentationFragmentShaderSource, &presentationFragmentShader_);
-    render::graphics_pipeline_t::description_t pipelineDesc = {};
-    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-    pipelineDesc.blendState_.resize(1);
-    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-    pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-    pipelineDesc.depthTestEnabled_ = false;
-    pipelineDesc.depthWriteEnabled_ = false;
-    pipelineDesc.vertexShader_ = presentationVertexShader_;
-    pipelineDesc.fragmentShader_ = presentationFragmentShader_;
-    bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
-
-    BuildPresentationCommandBuffers();
-  }
-
-  void Resize( uint32_t width, uint32_t height )
-  {
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.2f, (f32)width / (f32)height,0.1f,100.0f );
-    render::swapchainResize( context_, width, height );
-    BuildPresentationCommandBuffers();
-  }
-
-  void Render()
-  {
-    //Update scene
-    transformManager_.update();
-    uniforms_.viewMatrix_ = camera_.view_;
-    render::gpuBufferUpdate(*context_, (void*)&uniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
-
-    //Update modelview matrices
-    std::vector<object_t>& object( object_.getData() );
-    for (u32 i(0); i < object.size(); ++i)
-    {
-      render::gpuBufferUpdate(*context_, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_ );
-    }
-
-    //Update lights position
-    std::vector<light_t>& light(light_.getData());
-    for (u32 i(0); i<light.size(); ++i)
-    {
-      render::gpuBufferUpdate(*context_, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
-    }
-    
-    BuildAndSubmitCommandBuffer();        
-    render::presentFrame( context_, &renderComplete_, 1u);
-  }
-
-  void BuildAndSubmitCommandBuffer()
-  { 
     if (commandBuffer_.handle_ == VK_NULL_HANDLE)
     {
-      render::commandBufferCreate(*context_, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &renderComplete_, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer_); 
+      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &renderComplete_, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer_);
     }
-    
+
     VkClearValue clearValues[5];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[1].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
-    clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };    
+    clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[3].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[4].depthStencil = { 1.0f,0 };
 
-    render::commandBufferBegin(*context_, &frameBuffer_, clearValues, 5u, commandBuffer_);
+    render::commandBufferBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
     {
-      
+
       //GBuffer pass
       bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
@@ -677,13 +833,13 @@ struct scene_t
       }
 
       bkk::render::commandBufferNextSubpass(commandBuffer_);
-      
+
       //Light pass      
       bkk::render::graphicsPipelineBind(commandBuffer_.handle_, lightPipeline_);
       descriptorSets[1] = lightPassTexturesDescriptorSet_;
       packed_freelist_iterator_t<light_t> lightIter = light_.begin();
       while (lightIter != light_.end())
-      {      
+      {
         descriptorSets[2] = lightIter.get().descriptorSet_;
         bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 0u, descriptorSets, 3u);
         mesh::draw(commandBuffer_.handle_, sphereMesh_);
@@ -692,179 +848,58 @@ struct scene_t
     }
 
     render::commandBufferEnd(commandBuffer_);
-    render::commandBufferSubmit(*context_, commandBuffer_);
-   }
+    render::commandBufferSubmit(context, commandBuffer_);
+  }
 
-  void BuildPresentationCommandBuffers()
+  void buildPresentationCommandBuffers()
   {
+    render::context_t& context = getRenderContext();
+
     //Presentation command buffers
     for (unsigned i(0); i<3; ++i)
     {
-      VkCommandBuffer cmdBuffer = bkk::render::beginPresentationCommandBuffer(*context_, i, nullptr);
+      VkCommandBuffer cmdBuffer = bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
       bkk::render::graphicsPipelineBind(cmdBuffer, presentationPipeline_);
       bkk::render::descriptorSetBindForGraphics(cmdBuffer, presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
       bkk::mesh::draw(cmdBuffer, fullScreenQuad_);
-      bkk::render::endPresentationCommandBuffer(*context_, i);
+      bkk::render::endPresentationCommandBuffer(context, i);
     }
   }
 
-  void OnKeyEvent(window::key_e key, bool pressed, scene_t& scene)
+  void animateLights()
   {
-    if (pressed)
+    if (!bAnimateLights_)
+      return;
+
+    static const vec3 light_path[] =
     {
-      switch (key)
-      {
-      case window::key_e::KEY_UP:
-      case 'w':
-      {
-        camera_.Move(0.0f, -0.5f);
-        break;
-      }
-      case window::key_e::KEY_DOWN:
-      case 's':
-      {
-        camera_.Move(0.0f, 0.5f);
-        break;
-      }
-      case window::key_e::KEY_LEFT:
-      case 'a':
-      {
-        camera_.Move(-0.5f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_RIGHT:
-      case 'd':
-      {
-        camera_.Move(0.5f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_1:
-      case window::key_e::KEY_2:
-      case window::key_e::KEY_3:
-      case window::key_e::KEY_4:
-      {
-        currentPresentationDescriptorSet_ = key - window::key_e::KEY_1;
-        render::contextFlush(*context_);
-        BuildPresentationCommandBuffers();
-        break;
-      }
-      default:
-        break;
-      }
+      vec3(-3.0f,  3.0f, 4.0f),
+      vec3(-3.0f,  3.0f, -3.0f),
+      vec3(3.0f,   3.0f, -3.0f),
+      vec3(3.0f,   3.0f, 4.0f),
+      vec3(-3.0f,  3.0f, 4.0f)
+    };
+
+    static f32 totalTime = 0.0f;
+    totalTime += getTimeDelta()*0.001f;
+    std::vector<light_t>& lights = light_.getData();
+    for (u32 i(0); i < lights.size(); ++i)
+    {
+      float t = totalTime + i* 5.0f / lights.size();
+      int baseFrame = (int)t;
+      float f = t - baseFrame;
+
+      vec3 p0 = light_path[(baseFrame + 0) % 5];
+      vec3 p1 = light_path[(baseFrame + 1) % 5];
+      vec3 p2 = light_path[(baseFrame + 2) % 5];
+      vec3 p3 = light_path[(baseFrame + 3) % 5];
+
+      lights[i].uniforms_.position_ = vec4(maths::cubicInterpolation(p0, p1, p2, p3, f), 1.0);
     }
   }
 
-  void OnMouseButton( bool pressed, uint32_t x, uint32_t y )
-  {
-    mouseButtonPressed_ = pressed;
-    mousePosition_.x = (f32)x;
-    mousePosition_.y = (f32)y;
-  }
-
-  void OnMouseMove(uint32_t x, uint32_t y)
-  {
-    if (mouseButtonPressed_)
-    {
-      f32 angleY = ((f32)x - mousePosition_.x) * 0.01f;
-      f32 angleX = ((f32)y - mousePosition_.y) * 0.01f;
-      mousePosition_.x = (f32)x;
-      mousePosition_.y = (f32)y;
-      camera_.Rotate(angleX, angleY);
-    }
-  }
-
-  void Destroy()
-  {
-    //Clean-up
-    render::contextFlush(*context_);
-
-    //Destroy meshes
-    packed_freelist_iterator_t<mesh::mesh_t> meshIter = mesh_.begin();
-    while( meshIter != mesh_.end() )
-    {
-      mesh::destroy( *context_, &meshIter.get(), &allocator_ );
-      ++meshIter;
-    }
-
-    //Destroy material resources
-    packed_freelist_iterator_t<material_t> materialIter = material_.begin();
-    while( materialIter != material_.end() )
-    {
-      render::gpuBufferDestroy(*context_, &allocator_, &materialIter.get().ubo_ );
-      render::descriptorSetDestroy(*context_, &materialIter.get().descriptorSet_ );
-      ++materialIter;
-    }
-
-    //Destroy object resources
-    packed_freelist_iterator_t<object_t> objectIter = object_.begin();
-    while( objectIter != object_.end() )
-    {
-      render::gpuBufferDestroy(*context_, &allocator_, &objectIter.get().ubo_ );
-      render::descriptorSetDestroy(*context_, &objectIter.get().descriptorSet_ );
-      ++objectIter;
-    }
-
-    //Destroy lights resources
-    packed_freelist_iterator_t<light_t> lightIter = light_.begin();
-    while (lightIter != light_.end())
-    {
-      render::gpuBufferDestroy(*context_, &allocator_, &lightIter.get().ubo_);
-      render::descriptorSetDestroy(*context_, &lightIter.get().descriptorSet_);
-      ++lightIter;
-    }
-
-    
-    render::shaderDestroy(*context_, &gBuffervertexShader_);
-    render::shaderDestroy(*context_, &gBufferfragmentShader_);
-    render::shaderDestroy(*context_, &lightVertexShader_);
-    render::shaderDestroy(*context_, &lightFragmentShader_);
-    render::shaderDestroy(*context_, &presentationVertexShader_);
-    render::shaderDestroy(*context_, &presentationFragmentShader_);
-    
-    render::graphicsPipelineDestroy(*context_, &gBufferPipeline_);
-    render::graphicsPipelineDestroy(*context_, &lightPipeline_);
-    render::graphicsPipelineDestroy(*context_, &presentationPipeline_);
-
-    render::pipelineLayoutDestroy(*context_, &presentationPipelineLayout_);
-    render::pipelineLayoutDestroy(*context_, &gBufferPipelineLayout_);
-    render::pipelineLayoutDestroy(*context_, &lightPipelineLayout_);
-    
-    render::descriptorSetDestroy(*context_, &globalsDescriptorSet_);
-    render::descriptorSetDestroy(*context_, &lightPassTexturesDescriptorSet_);
-    render::descriptorSetDestroy(*context_, &presentationDescriptorSet_[0]);
-    render::descriptorSetDestroy(*context_, &presentationDescriptorSet_[1]);
-    render::descriptorSetDestroy(*context_, &presentationDescriptorSet_[2]);
-
-    render::descriptorSetLayoutDestroy(*context_, &globalsDescriptorSetLayout_);
-    render::descriptorSetLayoutDestroy(*context_, &materialDescriptorSetLayout_);
-    render::descriptorSetLayoutDestroy(*context_, &objectDescriptorSetLayout_);
-    render::descriptorSetLayoutDestroy(*context_, &lightDescriptorSetLayout_);
-    render::descriptorSetLayoutDestroy(*context_, &lightPassTexturesDescriptorSetLayout_);
-    render::descriptorSetLayoutDestroy(*context_, &presentationDescriptorSetLayout_);
-
-    render::textureDestroy(*context_, &gBufferRT0_);
-    render::textureDestroy(*context_, &gBufferRT1_);
-    render::textureDestroy(*context_, &gBufferRT2_);
-    render::textureDestroy(*context_, &finalImage_);
-    render::depthStencilBufferDestroy(*context_, &depthStencilBuffer_);
-    
-    mesh::destroy(*context_, &fullScreenQuad_);
-    mesh::destroy(*context_, &sphereMesh_);
-
-    render::frameBufferDestroy(*context_, &frameBuffer_);
-    render::commandBufferDestroy(*context_, &commandBuffer_);
-    render::renderPassDestroy(*context_, &renderPass_);
-    render::vertexFormatDestroy(&vertexFormat_);
-    render::gpuBufferDestroy(*context_, &allocator_, &globalsUbo_);
-    render::gpuAllocatorDestroy(*context_, &allocator_);
-    render::descriptorPoolDestroy(*context_, &descriptorPool_);
-    vkDestroySemaphore(context_->device_, renderComplete_, nullptr);
-  }
-  
 private:
-  
-  render::context_t* context_;
-
+  ///Member variables
   bkk::transform_manager_t transformManager_;
   render::gpu_memory_allocator_t allocator_;
 
@@ -920,55 +955,15 @@ private:
   mesh::mesh_t sphereMesh_;
   mesh::mesh_t fullScreenQuad_;
   
-  sample_utils::free_camera_t camera_;
-  maths::vec2 mousePosition_ = vec2(0.0f, 0.0f);
-  bool mouseButtonPressed_ = false;  
+  free_camera_t camera_;
+  bool bAnimateLights_ =  true;
 };
-
-void animateLights( scene_t& scene, std::vector< bkk::handle_t >& lights, f32 timeDelta )
-{
-  static const vec3 light_path[] =
-  {
-    vec3(-3.0f,  3.0f, 4.0f),
-    vec3(-3.0f,  3.0f, -3.0f),    
-    vec3(3.0f,   3.0f, -3.0f),
-    vec3(3.0f,   3.0f, 4.0f),
-    vec3(-3.0f,  3.0f, 4.0f)
-  };
-
-  static f32 totalTime = 0.0f;
-  totalTime += timeDelta*0.001f;
-
-  for (u32 i(0); i<lights.size(); ++i)
-  {
-    float t = totalTime + i* 5.0f / lights.size();
-    int baseFrame = (int)t;
-    float f = t - baseFrame;
-
-    vec3 p0 = light_path[(baseFrame + 0) % 5];
-    vec3 p1 = light_path[(baseFrame + 1) % 5];
-    vec3 p2 = light_path[(baseFrame + 2) % 5];
-    vec3 p3 = light_path[(baseFrame + 3) % 5];
-
-    scene.getLight(lights[i])->uniforms_.position_ = vec4(maths::cubicInterpolation(p0, p1, p2, p3, f),1.0);
-  }
-}
 
 
 int main()
 {
-  //Create a window
-  window::window_t window;
-  window::create( "Deferred Shading", 1200u, 800u, &window );
-
-  //Initialize context
-  render::context_t context;
-  render::contextCreate( "Deferred Shading", "", window, 3, &context );
-
-  //Initialize scene
-  scene_t scene;
-  scene.initialize( context );
-
+  deferred_shading_sample_t scene;
+  
   //Materials  
   bkk::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f),0.7f);
   bkk::handle_t redWall = scene.addMaterial( vec3(0.5f,0.0f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
@@ -1001,81 +996,13 @@ int main()
   scene.addObject(teapot, gold, maths::computeTransform(maths::vec3(2.0f, 0.0f, -3.0f), maths::vec3(0.5f, 0.5f, 0.5f), maths::QUAT_UNIT));
 
   //Lights
-  std::vector < bkk::handle_t > lights;
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f,0.0f,0.0f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.5f, 0.0f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 0.5f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f, 0.0f, 0.0f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.5f, 0.0f)));
-  lights.push_back(scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 0.5f)));
-
-  bool bAnimateLights = true;
-  auto timePrev = bkk::timer::getCurrent();
-
-  sample_utils::frame_counter_t frameCounter;
-  frameCounter.init(&window);
-  bool quit = false;
-  while( !quit )
-  {
-    window::event_t* event = nullptr;
-    while( (event = window::getNextEvent( &window )) )
-    {
-      switch( event->type_)
-      {
-        case window::EVENT_QUIT:
-        {
-          quit = true;
-          break;
-        }
-        case window::EVENT_RESIZE:
-        {
-          window::event_resize_t* resizeEvent = (window::event_resize_t*)event;
-          scene.Resize( resizeEvent->width_, resizeEvent->height_ );
-          break;
-        }
-        case window::EVENT_KEY:
-        {
-          window::event_key_t* keyEvent = (window::event_key_t*)event;
-          scene.OnKeyEvent( keyEvent->keyCode_, keyEvent->pressed_, scene );
-          if(keyEvent->pressed_ && keyEvent->keyCode_ == 'p')
-          {
-            bAnimateLights = !bAnimateLights;
-          }
-          break;
-        }
-        case window::EVENT_MOUSE_BUTTON:
-        {
-          window::event_mouse_button_t* buttonEvent = (window::event_mouse_button_t*)event;
-          scene.OnMouseButton(buttonEvent->pressed_, buttonEvent->x_, buttonEvent->y_);
-          break;
-        }
-        case window::EVENT_MOUSE_MOVE:
-        {
-          window::event_mouse_move_t* moveEvent = (window::event_mouse_move_t*)event;
-          scene.OnMouseMove( moveEvent->x_, moveEvent->y_);
-          break;
-        }
-        default:
-          break;
-      }
-    }
-
-    auto currentTime = bkk::timer::getCurrent();
-    if (bAnimateLights)
-    {
-      animateLights(scene, lights, bkk::timer::getDifference(timePrev, currentTime));
-    }
-    
-    //Render next frame
-    scene.Render();
-
-    frameCounter.endFrame();
-    timePrev = currentTime;
-  }
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f,0.0f,0.0f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.5f, 0.0f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 0.5f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f, 0.0f, 0.0f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.5f, 0.0f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 0.5f));
   
-  scene.Destroy();
-  
-  render::contextDestroy( &context );
-  window::destroy( &window );
+  scene.loop();
   return 0;
 }
