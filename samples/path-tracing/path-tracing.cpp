@@ -27,10 +27,6 @@
 #include "image.h"
 #include "mesh.h"
 #include "../utility.h"
-#include <cstddef>
-#include <cstdlib>
-#include <time.h>
-#include <math.h>
 
 static const char* gVertexShaderSource = {
   "#version 440 core\n \
@@ -40,7 +36,7 @@ static const char* gVertexShaderSource = {
   void main(void)\n \
   {\n \
     gl_Position = vec4(aPosition, 1.0);\n \
-    uv = aTexCoord;\n \
+    uv = vec2(aTexCoord.x, -aTexCoord.y + 1.0);\n \
   }\n"
 };
 
@@ -110,7 +106,6 @@ public:
   :application_t("Path tracing", width, height, 3u ),
   imageSize_(width, height)
   {
-    createGeometry();
     createResources();
     createGraphicsPipeline();
     createComputePipeline();
@@ -121,28 +116,26 @@ public:
   void onQuit()
   {
     render::context_t& context = getRenderContext();
-
-    //Destroy all resources
-    render::commandBufferDestroy(context, &computeCommandBuffer_);
-
-    mesh::destroy(context, &mesh_);
-    render::textureDestroy(context, &texture_);
+    
+    mesh::destroy(context, &fullscreenQuadmesh_);
+    render::textureDestroy(context, &renderedImage_);
     render::gpuBufferDestroy(context, nullptr, &ubo_);
 
     render::shaderDestroy(context, &vertexShader_);
     render::shaderDestroy(context, &fragmentShader_);
     render::shaderDestroy(context, &computeShader_);
 
-    render::graphicsPipelineDestroy(context, &pipeline_);
-    render::descriptorSetLayoutDestroy(context, &descriptorSetLayout_);
+    
     render::descriptorSetDestroy(context, &descriptorSet_);
+    render::descriptorSetLayoutDestroy(context, &descriptorSetLayout_);    
     render::pipelineLayoutDestroy(context, &pipelineLayout_);
+    render::graphicsPipelineDestroy(context, &pipeline_);
 
-    render::computePipelineDestroy(context, &computePipeline_);
-
-    render::descriptorSetLayoutDestroy(context, &computeDescriptorSetLayout_);
     render::descriptorSetDestroy(context, &computeDescriptorSet_);
+    render::descriptorSetLayoutDestroy(context, &computeDescriptorSetLayout_);    
+    render::computePipelineDestroy(context, &computePipeline_);
     render::pipelineLayoutDestroy(context, &computePipelineLayout_);
+    render::commandBufferDestroy(context, &computeCommandBuffer_);
 
     render::descriptorPoolDestroy(context, &descriptorPool_);
   }
@@ -161,6 +154,11 @@ public:
       render::commandBufferSubmit(context, computeCommandBuffer_);
       vkQueueWaitIdle(context.computeQueue_.handle_);
     }
+  }
+
+  void onResize(u32 width, u32 height)
+  {
+    buildPresentationCommandBuffers();
   }
 
   void onKeyEvent(window::key_e key, bool pressed)
@@ -203,21 +201,16 @@ public:
     }
   }
   
-  void onMouseMove(const vec2& mousePos, const vec2& mousePrevPos, bool buttonPressed)
+  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos, bool buttonPressed)
   {    
     if (buttonPressed)
     {
-      camera_.Rotate((mousePos.y - mousePrevPos.y) * 0.01f, (mousePos.x - mousePrevPos.x) * 0.01f);
+      camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
       updateCameraTransform();
     }    
   }
 
 private:
-
-  f32 random()
-  {
-    return (f32)(rand() / (RAND_MAX + 1.0));
-  }
 
   void generateScene(u32 sphereCount, const maths::vec3& extents, scene_t* scene)
   {
@@ -267,8 +260,8 @@ private:
       do
       {
         ok = true;
-        radius = random() + 0.4f;
-        center = vec3((2.0f * random() - 1.0f) * extents.x, radius - 1.0001f, (2.0f * random() - 1.0f) * extents.z);
+        radius = maths::random(0.0f, 1.0f) + 0.4f;
+        center = vec3((2.0f * maths::random(0.0f, 1.0f) - 1.0f) * extents.x, radius - 1.0001f, (2.0f * maths::random(0.0f, 1.0f) - 1.0f) * extents.z);
         for (u32 j(0); j<i; ++j)
         {
           f32 distance = length(center - scene->sphere[j].origin);
@@ -282,7 +275,7 @@ private:
 
       scene->sphere[i].radius = radius;
       scene->sphere[i].origin = center;
-      scene->sphere[i].material = materials[u32(random() * 5)];
+      scene->sphere[i].material = materials[u32(maths::random(0.0f, 1.0f) * 5.0f)];
     }
   }
 
@@ -290,9 +283,12 @@ private:
   {
     render::context_t& context = getRenderContext();
 
-    //Create the texture
-    render::texture2DCreate(context, imageSize_.x, imageSize_.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &texture_);
-    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, &texture_);
+    //Create a full screen quad to display the image
+    fullscreenQuadmesh_ = fullScreenQuad(context);
+    
+    //Create the texture that will be updated by the compute shader
+    render::texture2DCreate(context, imageSize_.x, imageSize_.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &renderedImage_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, &renderedImage_);
 
     //Create data to be passed to the gpu
     buffer_data_t data;
@@ -308,41 +304,12 @@ private:
     //Create uniform buffer
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
-      (void*)&data, sizeof(data),
+      (void*)&data, sizeof(buffer_data_t),
       nullptr, &ubo_);
 
     return true;
   }
-
-  void createGeometry()
-  {
-    struct Vertex
-    {
-      float position[3];
-      float uv[2];
-    };
-
-    //WARNING: In Vulkan, Y is pointing down in NDC!
-    static const Vertex vertices[] = { { { -1.0f, +1.0f, +0.0f },{ 0.0f, 0.0f } },
-    { { +1.0f, +1.0f, +0.0f },{ 1.0f, 0.0f } },
-    { { +1.0f, -1.0f, +0.0f },{ 1.0f, 1.0f } },
-    { { -1.0f, -1.0f, +0.0f },{ 0.0f, 1.0f } }
-    };
-
-    static const uint32_t indices[] = { 0,1,2,0,2,3 };
-
-
-    static render::vertex_attribute_t attributes[2];
-    attributes[0].format_ = render::vertex_attribute_t::format::VEC3;
-    attributes[0].offset_ = 0;
-    attributes[0].stride_ = sizeof(Vertex);
-    attributes[1].format_ = render::vertex_attribute_t::format::VEC2;;
-    attributes[1].offset_ = offsetof(Vertex, uv);
-    attributes[1].stride_ = sizeof(Vertex);
-
-    mesh::create(getRenderContext(), indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &mesh_);
-  }
-
+  
   void createGraphicsPipeline()
   {
     render::context_t& context = getRenderContext();
@@ -358,7 +325,7 @@ private:
     render::descriptorPoolCreate(context, 2u, 1u, 1u, 0u, 1u, &descriptorPool_);
 
     //Create descriptor set
-    render::descriptor_t descriptor = render::getDescriptor(texture_);
+    render::descriptor_t descriptor = render::getDescriptor(renderedImage_);
     render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, &descriptor, &descriptorSet_);
 
     //Load shaders
@@ -377,7 +344,7 @@ private:
     pipelineDesc.depthWriteEnabled_ = false;
     pipelineDesc.vertexShader_ = vertexShader_;
     pipelineDesc.fragmentShader_ = fragmentShader_;
-    render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
+    render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullscreenQuadmesh_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
   }
 
   void createComputePipeline()
@@ -394,7 +361,7 @@ private:
     render::pipelineLayoutCreate(context, &computeDescriptorSetLayout_, 1u, &computePipelineLayout_);
 
     //Create descriptor set
-    render::descriptor_t descriptors[2] = { render::getDescriptor(texture_), render::getDescriptor(ubo_) };
+    render::descriptor_t descriptors[2] = { render::getDescriptor(renderedImage_), render::getDescriptor(ubo_) };
     render::descriptorSetCreate(context, descriptorPool_, computeDescriptorSetLayout_, descriptors, &computeDescriptorSet_);
 
     //Create pipeline
@@ -411,7 +378,7 @@ private:
       VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer(context, i, nullptr);
       bkk::render::graphicsPipelineBind(cmdBuffer, pipeline_);
       bkk::render::descriptorSetBindForGraphics(cmdBuffer, pipelineLayout_, 0, &descriptorSet_, 1u);
-      mesh::draw(cmdBuffer, mesh_);
+      mesh::draw(cmdBuffer, fullscreenQuadmesh_);
       render::endPresentationCommandBuffer(context, i);
     }
   }
@@ -437,8 +404,8 @@ private:
 
 private:
     
-  render::texture_t texture_;
-  mesh::mesh_t mesh_;
+  render::texture_t renderedImage_;
+  mesh::mesh_t fullscreenQuadmesh_;
 
   render::descriptor_pool_t descriptorPool_;
 
@@ -452,10 +419,10 @@ private:
   render::descriptor_set_layout_t computeDescriptorSetLayout_;
   render::descriptor_set_t computeDescriptorSet_;
   render::compute_pipeline_t computePipeline_;
-  render::gpu_buffer_t ubo_;
-
   render::command_buffer_t computeCommandBuffer_;
 
+  render::gpu_buffer_t ubo_;
+  
   render::shader_t vertexShader_;
   render::shader_t fragmentShader_;
   render::shader_t computeShader_;

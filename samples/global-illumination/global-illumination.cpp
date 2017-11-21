@@ -823,8 +823,6 @@ public:
 
   void onResize(uint32_t width, uint32_t height)
   {
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)width / (f32)height, 0.1f, 100.0f);
-    uniforms_.imageSize_ = vec4((f32)width, (f32)height, 1.0f / (f32)width, 1.0f / (f32)height);    
     buildPresentationCommandBuffers();
   }
 
@@ -911,11 +909,11 @@ public:
     }
   }
 
-  void onMouseMove(const vec2& mousePos, const vec2& mousePrevPos, bool buttonPressed)
+  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos, bool buttonPressed)
   {
     if (buttonPressed)
     {
-      camera_.Rotate((mousePos.y - mousePrevPos.y) * 0.01f, (mousePos.x - mousePrevPos.x) * 0.01f);
+      camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
     }
   }
 

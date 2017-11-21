@@ -26,11 +26,6 @@
 #define MATH_H
 
 #include <string.h>
-#ifdef WIN32
-#define NOMINMAX
-#define _USE_MATH_DEFINES
-
-#endif
 #include <math.h>
 #include <iostream>
 
@@ -50,7 +45,7 @@ namespace bkk
 {
   namespace maths
   {
-
+    //Utility functions
     template <typename T>
     inline T degreeToRadian(T angle)
     {
@@ -96,7 +91,23 @@ namespace bkk
     template <typename T>
     inline T lerp(const T& a, const T& b, f32 t)
     {
-      return a + t * (b - a);
+      return a + T(t) * (b - a);
+    }
+
+    template <typename T>
+    inline T cubicInterpolation(const T& p0, const T& p1, const T&  p2, const T&  p3, f32 progress)
+    {
+      T a3 = p3 * T(0.5) - p2*T(1.5) + p1 * T(1.5) - p0 * T(0.5);
+      T a2 = p0 - p1*T(2.5) + p2*T(2.0) - p3 * T(0.5);
+      T a1 = (p2 - p0) * T(0.5);
+
+      return progress*progress*progress*a3 + progress*progress*a2 + progress*a1 + p1;
+    }
+
+    template <typename T>
+    inline T random(T minValue, T maxValue)
+    {
+      return (T)( (rand() / (RAND_MAX + 1.0)) * (maxValue - minValue) + minValue);
     }
 
     //// VECTORS
@@ -132,6 +143,7 @@ namespace bkk
       //Constructors
       Vector<T, 2>() : x(T(0.0)), y(T(0.0)) {}
       Vector<T, 2>(const T a, const T b) : x(a), y(b) {}
+      Vector<T, 2>(const T a) : x(a), y(a) {}
 
       //Destructor
       ~Vector<T, 2>() {}
@@ -155,6 +167,7 @@ namespace bkk
     {
       Vector<T, 3>() : x(T(0.0)), y(T(0.0)), z(T(0.0)) {}
       Vector<T, 3>(const T a, const T b, const T c) : x(a), y(b), z(c) {}
+      Vector<T, 3>(const T a) : x(a), y(a), z(a) {}
 
       ~Vector<T, 3>() {}
 
@@ -184,6 +197,8 @@ namespace bkk
       Vector<T, 4>() : x(T(0.0)), y(T(0.0)), z(T(0.0)), w(T(0.0)) {}
       Vector<T, 4>(const T a, const T b, const T c, const T d) : x(a), y(b), z(c), w(d) {}
       Vector<T, 4>(const Vector<T, 3>& v, T d) : x(v.x), y(v.y), z(v.z), w(d) {}
+      Vector<T, 4>(const T a) : x(a), y(a), z(a), w(a) {}
+
       ~Vector<T, 4>() {}
 
       T& operator[](u32 n) { return data[n]; }
@@ -407,17 +422,7 @@ namespace bkk
     {
       return v - 2.0f * maths::dot(v, n) * n;
     }
-
-    template <typename T, unsigned int N>
-    inline Vector<T, N> cubicInterpolation(const Vector<T, N>& p0, const Vector<T, N>& p1, const Vector<T, N>&  p2, const Vector<T, N>&  p3, float progress)
-    {
-      Vector<T, N> a3 = 0.5f*p3 - 1.5f*p2 + 1.5f*p1 - 0.5f*p0;
-      Vector<T, N> a2 = p0 - 2.5f*p1 + 2.0f*p2 - 0.5f*p3;
-      Vector<T, N> a1 = 0.5f*(p2 - p0);
-
-      return progress*progress*progress*a3 + progress*progress*a2 + progress*a1 + p1;
-    }
-
+    
     //Print
     template <typename T, u32 N>
     inline std::ostream& operator<<(std::ostream& o, const Vector<T, N>& v)

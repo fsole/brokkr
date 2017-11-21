@@ -44,14 +44,16 @@ struct orbiting_camera_t
 {
   orbiting_camera_t()
   :offset_(0.0f),
-   angle_(vec2(0.0f,0.0f))
+   angle_(vec2(0.0f,0.0f)),
+   rotationSensitivity_(0.01f)
   {
     Update();
   }
 
-  orbiting_camera_t( const f32 offset, const vec2& angle )
+  orbiting_camera_t( const f32 offset, const vec2& angle, f32 rotationSensitivity )
   :offset_(offset),
-   angle_(angle)
+   angle_(angle),
+   rotationSensitivity_(rotationSensitivity)
   {
     Update();
   }
@@ -69,8 +71,8 @@ struct orbiting_camera_t
 
   void Rotate( f32 angleY, f32 angleZ )
   {
-    angle_.x =  angle_.x + angleY;
-    angleZ = angle_.y + angleZ;
+    angle_.x =  angle_.x + angleY * rotationSensitivity_;
+    angleZ = angle_.y + angleZ * rotationSensitivity_;
     if( angleZ < M_PI_2 && angleZ > -M_PI_2 )
     {
       angle_.y = angleZ;
@@ -90,6 +92,7 @@ struct orbiting_camera_t
   mat4 view_;
   f32 offset_;
   vec2 angle_;
+  f32 rotationSensitivity_;
 };
 
 
@@ -98,15 +101,17 @@ struct free_camera_t
   free_camera_t()
   :position_(0.0f,0.0f,0.0f),
    angle_(0.0f,0.0f),
-   velocity_(1.0f)
+   velocity_(1.0f),
+   rotationSensitivity_(0.01f)
   {
     Update();
   }
 
-  free_camera_t( const vec3& position, const vec2& angle, f32 velocity )
-  :position_(position),
-   angle_(angle),
-   velocity_(velocity)
+  free_camera_t(const vec3& position, const vec2& angle, f32 velocity, f32 rotationSensitivity)
+    :position_(position),
+    angle_(angle),
+    velocity_(velocity),
+    rotationSensitivity_(rotationSensitivity)
   {
     Update();
   }
@@ -117,10 +122,10 @@ struct free_camera_t
     Update();
   }
 
-  void Rotate( f32 angleX, f32 angleY )
+  void Rotate( f32 angleY, f32 angleX )
   {    
-    angle_.y = angle_.y + angleY;
-    angleX = angle_.x + angleX;
+    angle_.y = angle_.y + angleY * rotationSensitivity_;
+    angleX = angle_.x + angleX * rotationSensitivity_;
     if(angleX < M_PI_2 && angleX > -M_PI_2 )
     {
       angle_.x = angleX;
@@ -141,6 +146,7 @@ struct free_camera_t
   vec3 position_;  
   vec2 angle_;
   f32  velocity_; //Units per second
+  f32 rotationSensitivity_;
 };
 
 bkk::mesh::mesh_t fullScreenQuad(const bkk::render::context_t& context)
@@ -286,7 +292,7 @@ public:
           window::event_mouse_move_t* moveEvent = (window::event_mouse_move_t*)event;
           vec2 prevPos = mouseCurrentPos_;
           mouseCurrentPos_ = vec2((float)moveEvent->x_, (float)moveEvent->y_);
-          onMouseMove( mouseCurrentPos_, mousePrevPos_, mouseButtonPressed_ );
+          onMouseMove( mouseCurrentPos_, mouseCurrentPos_ - mousePrevPos_, mouseButtonPressed_ );
           mousePrevPos_ = prevPos;
           break;
         }
@@ -309,7 +315,7 @@ public:
   virtual void onResize(u32 width, u32 height) {}
   virtual void onKeyEvent(window::key_e key, bool pressed) {}
   virtual void onMouseButton(bool pressed, const vec2& mousePos, const vec2& mousePrevPos) {}
-  virtual void onMouseMove(const vec2& mousePos, const vec2& mousePrevPos, bool buttonPressed) {}
+  virtual void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos, bool buttonPressed) {}
   virtual void render() {}
 
  

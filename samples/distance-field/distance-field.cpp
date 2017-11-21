@@ -29,11 +29,6 @@
 #include "image.h"
 #include "mesh.h"
 #include "../utility.h"
-#include <cstddef>
-#include <cstdlib>
-#include <time.h>
-#include <math.h>
-
 
 using namespace bkk;
 
@@ -79,7 +74,7 @@ static render::shader_t gVertexShader;
 static render::shader_t gFragmentShader;
 static render::shader_t gComputeShader;
 
-static sample_utils::free_camera_t gCamera( vec3(0.0f,0.0f,5.0f), vec2(0.0f,0.0f), 1.0f);
+static sample_utils::free_camera_t gCamera( vec3(0.0f,0.0f,5.0f), vec2(0.0f,0.0f), 1.0f, 0.01f);
 static maths::vec2 gMousePosition = vec2(0.0f, 0.0f);
 static bool gMouseButtonPressed = false;
 
@@ -548,13 +543,12 @@ void OnMouseMove(uint32_t x, uint32_t y)
 {
   if (gMouseButtonPressed)
   {
-    f32 angleY = (x - gMousePosition.x) * 0.01f;
-    f32 angleX = (y - gMousePosition.y) * 0.01f;
-    gCamera.Rotate(angleX, angleY);
-    gMousePosition.x = (f32)x;
-    gMousePosition.y = (f32)y;
+    gCamera.Rotate(x - gMousePosition.x, y - gMousePosition.y);    
     UpdateCameraTransform();
   }
+
+  gMousePosition.x = (f32)x;
+  gMousePosition.y = (f32)y;
 }
 
 int main()

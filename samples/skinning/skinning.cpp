@@ -153,13 +153,11 @@ public:
     }
   }
 
-  void onMouseMove(const vec2& mousePos, const vec2& mousePrevPos, bool buttonPressed) 
+  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos, bool buttonPressed)
   {
     if (buttonPressed)
     {
-      f32 angleY = (mousePos.x - mousePrevPos.x) * 0.01f;
-      f32 angleX = (mousePos.y - mousePrevPos.y) * 0.01f;
-      camera_.Rotate(angleY, angleX);
+      camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
       updateUniformBuffer();
     }
   }
