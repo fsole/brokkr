@@ -91,7 +91,7 @@ namespace bkk
     template <typename T>
     inline T lerp(const T& a, const T& b, f32 t)
     {
-      return a + T(t) * (b - a);
+      return a + t * (b - a);
     }
 
     template <typename T>
