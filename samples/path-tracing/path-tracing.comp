@@ -39,14 +39,14 @@ struct Sphere
 layout (binding = 0, rgba32f) uniform image2D result;
 
 //Data sent from the client
-layout (std140, binding = 1) uniform UBO
+layout (std140, binding = 1) buffer SSBO
 {
   uint sampleCount;
   uint maxBounces;
   uvec2 imageSize;
   Camera camera;
-  Sphere sphere[50];
   uint sphereCount;
+  Sphere sphere[];  
 }data;
 
 //Pseudo-random number generation

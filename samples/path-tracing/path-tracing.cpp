@@ -89,8 +89,9 @@ public:
 
   struct scene_t
   {
-    sphere_t sphere[50];
     u32 sphereCount;
+    u32 padding[3];
+    sphere_t sphere[200];    
   };
 
   struct buffer_data_t
@@ -119,7 +120,7 @@ public:
     
     mesh::destroy(context, &fullscreenQuadmesh_);
     render::textureDestroy(context, &renderedImage_);
-    render::gpuBufferDestroy(context, nullptr, &ubo_);
+    render::gpuBufferDestroy(context, nullptr, &sceneBuffer_);
 
     render::shaderDestroy(context, &vertexShader_);
     render::shaderDestroy(context, &fragmentShader_);
@@ -148,7 +149,7 @@ public:
     if (sampleCount_ < 1000.0f)
     {
       //Submit compute command buffer
-      render::gpuBufferUpdate(context, (void*)&sampleCount_, 0, sizeof(u32), &ubo_);
+      render::gpuBufferUpdate(context, (void*)&sampleCount_, 0, sizeof(u32), &sceneBuffer_);
       ++sampleCount_;
 
       render::commandBufferSubmit(context, computeCommandBuffer_);
@@ -292,20 +293,20 @@ private:
 
     //Create data to be passed to the gpu
     buffer_data_t data;
-    data.sampleCount = sampleCount_;
-    data.maxBounces = 3;
+    data.sampleCount = 0u;
+    data.maxBounces = 3u;
     data.imageSize = imageSize_;
     data.camera.tx.setIdentity();
     data.camera.verticalFov = (f32)M_PI_2;
     data.camera.focalDistance = 5.0f;
-    data.camera.aperture = 0.05f;
-    generateScene(45u, vec3(15.0f, 0.0f, 15.0f), &data.scene);
+    data.camera.aperture = 0.1f;
+    generateScene(150u, vec3(25.0f, 0.0f, 25.0f), &data.scene);
 
-    //Create uniform buffer
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    //Create scene buffer
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::STORAGE_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
       (void*)&data, sizeof(buffer_data_t),
-      nullptr, &ubo_);
+      nullptr, &sceneBuffer_);
 
     return true;
   }
@@ -353,7 +354,7 @@ private:
 
     //Create descriptor layout
     render::descriptor_binding_t bindings[2] = { { render::descriptor_t::type::STORAGE_IMAGE,  0, render::descriptor_t::stage::COMPUTE },
-                                                 { render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::COMPUTE } };
+                                                 { render::descriptor_t::type::STORAGE_BUFFER, 1, render::descriptor_t::stage::COMPUTE } };
 
     render::descriptorSetLayoutCreate(context, bindings, 2u, &computeDescriptorSetLayout_);
 
@@ -361,7 +362,7 @@ private:
     render::pipelineLayoutCreate(context, &computeDescriptorSetLayout_, 1u, &computePipelineLayout_);
 
     //Create descriptor set
-    render::descriptor_t descriptors[2] = { render::getDescriptor(renderedImage_), render::getDescriptor(ubo_) };
+    render::descriptor_t descriptors[2] = { render::getDescriptor(renderedImage_), render::getDescriptor(sceneBuffer_) };
     render::descriptorSetCreate(context, descriptorPool_, computeDescriptorSetLayout_, descriptors, &computeDescriptorSet_);
 
     //Create pipeline
@@ -398,7 +399,7 @@ private:
 
   void updateCameraTransform()
   {
-    render::gpuBufferUpdate(getRenderContext(), (void*)&camera_.tx_, offsetof(buffer_data_t, camera), sizeof(mat4), &ubo_);
+    render::gpuBufferUpdate(getRenderContext(), (void*)&camera_.tx_, offsetof(buffer_data_t, camera), sizeof(mat4), &sceneBuffer_);
     sampleCount_ = 0;
   }
 
@@ -421,7 +422,7 @@ private:
   render::compute_pipeline_t computePipeline_;
   render::command_buffer_t computeCommandBuffer_;
 
-  render::gpu_buffer_t ubo_;
+  render::gpu_buffer_t sceneBuffer_;
   
   render::shader_t vertexShader_;
   render::shader_t fragmentShader_;
