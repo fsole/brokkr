@@ -64,7 +64,7 @@ namespace bkk
     struct skeletal_animator_t
     {
       f32 cursor_;
-      float duration_;
+      float duration_;  //In ms
 
       const skeleton_t* skeleton_;
       const skeletal_animation_t* animation_;
@@ -133,8 +133,8 @@ namespace bkk
     void destroy(const render::context_t& context, mesh_t* mesh, render::gpu_memory_allocator_t* allocator = nullptr);
         
     //Animator
-    void animatorCreate(const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float duration, skeletal_animator_t* animator);
-    void animatorUpdate(const render::context_t& context, f32 time, skeletal_animator_t* animator);
+    void animatorCreate(const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float durationInMs, skeletal_animator_t* animator);
+    void animatorUpdate(const render::context_t& context, f32 deltaTimeInMs, skeletal_animator_t* animator);
     void animatorDestroy(const render::context_t& context, skeletal_animator_t* animator);
 
   } //mesh namespace

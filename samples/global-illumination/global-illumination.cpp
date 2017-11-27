@@ -1500,7 +1500,7 @@ private:
   }
 
 private:
-  ///Memeber varaibles
+  ///Memeber variables
   bkk::transform_manager_t transformManager_;
   render::gpu_memory_allocator_t allocator_;
 

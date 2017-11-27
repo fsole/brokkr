@@ -502,11 +502,11 @@ void mesh::draw( VkCommandBuffer commandBuffer, const mesh_t& mesh )
 }
 
 
-void mesh::animatorCreate( const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float duration, skeletal_animator_t* animator )
+void mesh::animatorCreate( const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float durationInMs, skeletal_animator_t* animator )
 {
   // @TODO
   animator->cursor_ = 0.0f;
-  animator->duration_ = duration;
+  animator->duration_ = durationInMs;
 
   animator->skeleton_ = mesh.skeleton_;
   animator->animation_ = &mesh.animations_[animationIndex];
@@ -523,15 +523,16 @@ void mesh::animatorCreate( const render::context_t& context, const mesh_t& mesh,
 }
 
 
-void mesh::animatorUpdate(const render::context_t& context, f32 time, skeletal_animator_t* animator )
+void mesh::animatorUpdate(const render::context_t& context, f32 deltaTime, skeletal_animator_t* animator )
 {
-  while( time > animator->duration_ )
+  animator->cursor_ += deltaTime / animator->duration_;
+
+  if(animator->cursor_ > 1.0f )
   {
-    time -= animator->duration_;
+    animator->cursor_ -= 1.0f;
   }
 
-  animator->cursor_ = time / animator->duration_;
-
+  
   //Find out frames between which we need to interpolate
   u32 frameCount = animator->animation_->frameCount_ - 1 ;
   u32 frame0 = (u32)floor( (frameCount) * animator->cursor_ );

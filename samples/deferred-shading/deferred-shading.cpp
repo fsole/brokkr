@@ -274,7 +274,10 @@ struct deferred_shading_sample_t : public application_t
   };
 
   deferred_shading_sample_t()
-  :application_t("Deferred shading", 1200u, 800u, 3u)
+  :application_t("Deferred shading", 1200u, 800u, 3u),
+   currentPresentationDescriptorSet_(0u),
+   camera_( vec3(0.0f, 2.5f, 8.5f), vec2(0.0f,0.0f), 1.0f, 0.01f),
+   bAnimateLights_( true )
   {
     render::context_t& context = getRenderContext();
     uvec2 size = getWindowSize();
@@ -294,14 +297,12 @@ struct deferred_shading_sample_t : public application_t
     fullScreenQuad_ = sample_utils::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
-    //Create globals uniform buffer
-    camera_.position_ = vec3(0.0f, 2.5f, 8.5f);
-    camera_.Update();
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
-    computeInverse(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
-    uniforms_.viewMatrix_ = camera_.view_;
-    uniforms_.imageSize_ = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER, (void*)&uniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
+    //Create globals uniform buffer    
+    sceneUniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
+    computeInverse(sceneUniforms_.projectionMatrix_, sceneUniforms_.projectionInverseMatrix_);
+    sceneUniforms_.viewMatrix_ = camera_.view_;
+    sceneUniforms_.imageSize_ = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER, (void*)&sceneUniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
 
     //Create global descriptor set (Scene uniforms)   
     render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
@@ -438,7 +439,7 @@ struct deferred_shading_sample_t : public application_t
 
   void onResize( uint32_t width, uint32_t height )
   {
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.2f, (f32)width / (f32)height,0.1f,100.0f );
+    sceneUniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.2f, (f32)width / (f32)height,0.1f,100.0f );
     buildPresentationCommandBuffers();
   }
 
@@ -449,8 +450,8 @@ struct deferred_shading_sample_t : public application_t
     //Update scene
     animateLights();
     transformManager_.update();
-    uniforms_.viewMatrix_ = camera_.view_;
-    render::gpuBufferUpdate(context, (void*)&uniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
+    sceneUniforms_.viewMatrix_ = camera_.view_;
+    render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
     std::vector<object_t>& object( object_.getData() );
@@ -916,7 +917,7 @@ private:
   render::descriptor_set_layout_t lightPassTexturesDescriptorSetLayout_;
   render::descriptor_set_layout_t presentationDescriptorSetLayout_;
   
-  uint32_t currentPresentationDescriptorSet_ = 0u;
+  uint32_t currentPresentationDescriptorSet_;
   render::descriptor_set_t presentationDescriptorSet_[4];
   render::descriptor_set_t globalsDescriptorSet_;
   render::descriptor_set_t lightPassTexturesDescriptorSet_;
@@ -935,7 +936,7 @@ private:
   render::command_buffer_t commandBuffer_;
   render::render_pass_t renderPass_;
 
-  scene_uniforms_t uniforms_;  
+  scene_uniforms_t sceneUniforms_;  
   render::gpu_buffer_t globalsUbo_;
 
   render::frame_buffer_t frameBuffer_;
@@ -956,7 +957,7 @@ private:
   mesh::mesh_t fullScreenQuad_;
   
   free_camera_t camera_;
-  bool bAnimateLights_ =  true;
+  bool bAnimateLights_;
 };
 
 
