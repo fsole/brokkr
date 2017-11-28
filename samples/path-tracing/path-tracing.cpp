@@ -374,12 +374,14 @@ private:
   void buildPresentationCommandBuffers()
   {
     render::context_t& context = getRenderContext();
-    for (unsigned i(0); i<3; ++i)
+    const VkCommandBuffer* commandBuffers;
+    uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
+    for (uint32_t i(0); i<count; ++i)
     {
-      VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer(context, i, nullptr);
-      bkk::render::graphicsPipelineBind(cmdBuffer, pipeline_);
-      bkk::render::descriptorSetBindForGraphics(cmdBuffer, pipelineLayout_, 0, &descriptorSet_, 1u);
-      mesh::draw(cmdBuffer, fullscreenQuadmesh_);
+      bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
+      bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline_);
+      bkk::render::descriptorSetBindForGraphics(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
+      mesh::draw(commandBuffers[i], fullscreenQuadmesh_);
       render::endPresentationCommandBuffer(context, i);
     }
   }

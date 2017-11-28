@@ -32,8 +32,31 @@
 
 using namespace bkk;
 
+static const char* gVertexShaderSource = {
+  "#version 440 core\n \
+  layout(location = 0) in vec3 aPosition;\n \
+  layout(location = 1) in vec2 aTexCoord;\n \
+  out vec2 uv;\n \
+  void main(void)\n \
+  {\n \
+    gl_Position = vec4(aPosition, 1.0);\n \
+    uv = vec2(aTexCoord.x, -aTexCoord.y + 1.0);\n \
+  }\n"
+};
 
-struct Camera
+static const char* gFragmentShaderSource = {
+  "#version 440 core\n \
+  in vec2 uv;\n \
+  layout(binding = 0) uniform sampler2D uTexture; \n \
+  layout(location = 0) out vec4 color; \n \
+  void main(void)\n \
+  {\n \
+    vec4 texColor = texture(uTexture, uv);\n \
+    color = texColor;\n \
+  }\n"
+};
+
+struct camera_t
 {
   maths::mat4 tx;
   f32 verticalFov;
@@ -41,12 +64,12 @@ struct Camera
   f32 aperture;
 };
 
-struct UniformBufferData
+struct buffer_data_t
 {
   u32 sampleCount;
   u32 maxBounces;
   maths::uvec2 imageSize;
-  Camera camera;
+  camera_t camera;
 };
 
 static render::context_t gContext;
@@ -82,32 +105,7 @@ static maths::uvec2 gImageSize = { 1200u,800u };
 static u32 gSampleCount = 0u;
 
 
-static const char* gVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec2 aTexCoord;\n \
-  out vec2 uv;\n \
-  void main(void)\n \
-  {\n \
-    gl_Position = vec4(aPosition, 1.0);\n \
-    uv = aTexCoord;\n \
-  }\n"
-};
-
-static const char* gFragmentShaderSource = {
-  "#version 440 core\n \
-  in vec2 uv;\n \
-  layout(binding = 0) uniform sampler2D uTexture; \n \
-  layout(location = 0) out vec4 color; \n \
-  void main(void)\n \
-  {\n \
-    vec4 texColor = texture(uTexture, uv);\n \
-    color = texColor;\n \
-  }\n"
-};
-
-
-static bkk::mesh::mesh_t CreateCube(const render::context_t& context, u32 width, u32 height, u32 depth)
+static bkk::mesh::mesh_t createCube(const render::context_t& context, u32 width, u32 height, u32 depth)
 {
   float hw = width / 2.0f;
   float hh = height / 2.0f;
@@ -257,7 +255,7 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
   }
   
   //Upload data to the buffer
-  struct DistanceFieldBufferData
+  struct distance_field_buffer_data_t
   {
     mat4 tx;
     u32 width;
@@ -268,7 +266,7 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
     vec4 aabbMax;
   };
 
-  DistanceFieldBufferData field;
+  distance_field_buffer_data_t field;
   field.tx.setIdentity();
   field.width = width;
   field.height = height;
@@ -278,11 +276,11 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
 
   render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage::STORAGE_BUFFER,
                           render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
-                          nullptr, sizeof(DistanceFieldBufferData) + sizeof(float) * width * height * depth,
+                          nullptr, sizeof(distance_field_buffer_data_t) + sizeof(float) * width * height * depth,
                           nullptr, buffer);
 
-  render::gpuBufferUpdate(gContext, (void*)&field, 0, sizeof(DistanceFieldBufferData), buffer);
-  render::gpuBufferUpdate(gContext, data, sizeof(DistanceFieldBufferData), sizeof(float) * width * height * depth, buffer);
+  render::gpuBufferUpdate(gContext, (void*)&field, 0, sizeof(distance_field_buffer_data_t), buffer);
+  render::gpuBufferUpdate(gContext, data, sizeof(distance_field_buffer_data_t), sizeof(float) * width * height * depth, buffer);
 
   
   free(index);
@@ -291,14 +289,14 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
   free(data);
 }
 
-bool CreateUniformBuffer()
+bool createUniformBuffer()
 {
   //Create the texture
   render::texture2DCreate(gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &gTexture);
   render::textureChangeLayoutNow(gContext, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, &gTexture);
 
   //Create data to be passed to the gpu
-  UniformBufferData data;
+  buffer_data_t data;
   data.sampleCount = gSampleCount;
   data.maxBounces = 3;
   data.imageSize = gImageSize;
@@ -317,7 +315,7 @@ bool CreateUniformBuffer()
   return true;
 }
 
-void CreateFullscreenQuad( mesh::mesh_t* quad )
+void createFullscreenQuad( mesh::mesh_t* quad )
 {
   struct Vertex
   {
@@ -346,7 +344,7 @@ void CreateFullscreenQuad( mesh::mesh_t* quad )
   mesh::create(gContext, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, quad);
 }
 
-void CreateGraphicsPipeline()
+void createGraphicsPipeline()
 {
   //Create descriptor layout
   render::descriptor_binding_t binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
@@ -381,7 +379,7 @@ void CreateGraphicsPipeline()
   render::graphicsPipelineCreate(gContext, gContext.swapChain_.renderPass_, 0u, gFSQuad.vertexFormat_, gPipelineLayout, pipelineDesc, &gPipeline);
 }
 
-void CreateComputePipeline()
+void createComputePipeline()
 {
   //Create descriptor layout
     render::descriptor_binding_t bindings[3] = {  
@@ -405,27 +403,27 @@ void CreateComputePipeline()
   render::computePipelineCreate(gContext, gComputePipelineLayout, &gComputePipeline);
 }
 
-void CreatePipelines()
+void createPipelines()
 {
-  CreateGraphicsPipeline();
-  CreateComputePipeline();
+  createGraphicsPipeline();
+  createComputePipeline();
 }
 
-void BuildCommandBuffers()
+void buildCommandBuffers()
 {
-  for (unsigned i(0); i<3; ++i)
+  const VkCommandBuffer* commandBuffers;
+  uint32_t count = bkk::render::getPresentationCommandBuffers(gContext, &commandBuffers);
+  for (unsigned i(0); i<count; ++i)
   {
-    VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer(gContext, i, nullptr);
-
-    bkk::render::graphicsPipelineBind(cmdBuffer, gPipeline);
-    bkk::render::descriptorSetBindForGraphics(cmdBuffer, gPipelineLayout, 0, &gDescriptorSet, 1u);
-    mesh::draw(cmdBuffer, gFSQuad);
-
+    bkk::render::beginPresentationCommandBuffer(gContext, i, nullptr);
+    bkk::render::graphicsPipelineBind(commandBuffers[i], gPipeline);
+    bkk::render::descriptorSetBindForGraphics(commandBuffers[i], gPipelineLayout, 0, &gDescriptorSet, 1u);
+    mesh::draw(commandBuffers[i], gFSQuad);
     render::endPresentationCommandBuffer(gContext, i);
   }
 }
 
-void BuildComputeCommandBuffer()
+void buildComputeCommandBuffer()
 {
   //Build compute command buffer
   render::commandBufferCreate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer);
@@ -440,7 +438,7 @@ void BuildComputeCommandBuffer()
   render::commandBufferEnd(gComputeCommandBuffer);
 }
 
-void Exit()
+void exit()
 {
   //Wait for all pending operations to be finished
   render::contextFlush(gContext);
@@ -475,7 +473,7 @@ void Exit()
   window::destroy(&gWindow);
 }
 
-void Render()
+void renderFrame()
 {
   ++gSampleCount;
 
@@ -486,13 +484,13 @@ void Render()
   vkQueueWaitIdle(gContext.computeQueue_.handle_);
 }
 
-void UpdateCameraTransform()
+void updateCameraTransform()
 {
-  render::gpuBufferUpdate(gContext, (void*)&gCamera.tx_, offsetof(UniformBufferData, camera), sizeof(mat4), &gUbo);
+  render::gpuBufferUpdate(gContext, (void*)&gCamera.tx_, offsetof(buffer_data_t, camera), sizeof(mat4), &gUbo);
   gSampleCount = 0;
 }
 
-void OnKeyEvent(window::key_e key, bool pressed)
+void onKeyEvent(window::key_e key, bool pressed)
 {
   if (pressed)
   {
@@ -502,28 +500,28 @@ void OnKeyEvent(window::key_e key, bool pressed)
     case 'w':
     {
       gCamera.Move(0.0f, -1.0f);
-      UpdateCameraTransform();
+      updateCameraTransform();
       break;
     }
     case window::key_e::KEY_DOWN:
     case 's':
     {
       gCamera.Move(0.0f, 1.0f);
-      UpdateCameraTransform();
+      updateCameraTransform();
       break;
     }
     case window::key_e::KEY_LEFT:
     case 'a':
     {
       gCamera.Move(-1.0f, 0.0f);
-      UpdateCameraTransform();
+      updateCameraTransform();
       break;
     }
     case window::key_e::KEY_RIGHT:
     case 'd':
     {
       gCamera.Move(1.0f, 0.0f);
-      UpdateCameraTransform();
+      updateCameraTransform();
       break;
     }
     default:
@@ -532,19 +530,19 @@ void OnKeyEvent(window::key_e key, bool pressed)
   }
 }
 
-void OnMouseButton(window::mouse_button_e button, uint32_t x, uint32_t y, bool pressed)
+void onMouseButton(window::mouse_button_e button, uint32_t x, uint32_t y, bool pressed)
 {
   gMouseButtonPressed = pressed;
   gMousePosition.x = (f32)x;
   gMousePosition.y = (f32)y;
 }
 
-void OnMouseMove(uint32_t x, uint32_t y)
+void onMouseMove(uint32_t x, uint32_t y)
 {
   if (gMouseButtonPressed)
   {
     gCamera.Rotate(x - gMousePosition.x, y - gMousePosition.y);    
-    UpdateCameraTransform();
+    updateCameraTransform();
   }
 
   gMousePosition.x = (f32)x;
@@ -559,17 +557,17 @@ int main()
   //Initialize gContext
   render::contextCreate("Distance Field", "", gWindow, 3, &gContext);
   
-  CreateFullscreenQuad( &gFSQuad );
-  CreateUniformBuffer();
+  gFSQuad = sample_utils::fullScreenQuad(gContext);
+  createUniformBuffer();
   
   //Create distance field buffer
-  bkk::mesh::mesh_t cube = CreateCube(gContext, 1u, 1u, 1u);
+  bkk::mesh::mesh_t cube = createCube(gContext, 1u, 1u, 1u);
   distanceFieldFromMesh(gContext, 50, 50, 50, cube, &gDistanceField);
   mesh::destroy(gContext, &cube);
 
-  CreatePipelines();
-  BuildCommandBuffers();
-  BuildComputeCommandBuffer();
+  createPipelines();
+  buildCommandBuffers();
+  buildComputeCommandBuffer();
 
   sample_utils::frame_counter_t frameCounter;
   frameCounter.init(&gWindow);
@@ -590,25 +588,25 @@ int main()
       {
         window::event_resize_t* resizeEvent = (window::event_resize_t*)event;
         render::swapchainResize(&gContext, resizeEvent->width_, resizeEvent->height_);
-        BuildCommandBuffers();
+        buildCommandBuffers();
         break;
       }
       case window::EVENT_KEY:
       {
         window::event_key_t* keyEvent = (window::event_key_t*)event;
-        OnKeyEvent(keyEvent->keyCode_, keyEvent->pressed_);
+        onKeyEvent(keyEvent->keyCode_, keyEvent->pressed_);
         break;
       }
       case window::EVENT_MOUSE_BUTTON:
       {
         window::event_mouse_button_t* buttonEvent = (window::event_mouse_button_t*)event;
-        OnMouseButton(buttonEvent->button_, buttonEvent->x_, buttonEvent->y_, buttonEvent->pressed_);
+        onMouseButton(buttonEvent->button_, buttonEvent->x_, buttonEvent->y_, buttonEvent->pressed_);
         break;
       }
       case window::EVENT_MOUSE_MOVE:
       {
         window::event_mouse_move_t* moveEvent = (window::event_mouse_move_t*)event;
-        OnMouseMove(moveEvent->x_, moveEvent->y_);
+        onMouseMove(moveEvent->x_, moveEvent->y_);
         break;
       }
       default:
@@ -616,12 +614,12 @@ int main()
       }
     }
 
-    Render();
+    renderFrame();
     frameCounter.endFrame();
   }
 
 
-  Exit();
+  exit();
 
   return 0;
 }

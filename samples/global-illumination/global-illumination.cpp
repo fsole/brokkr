@@ -1488,13 +1488,15 @@ private:
   void buildPresentationCommandBuffers()
   {
     render::context_t& context = getRenderContext();
-    //Presentation command buffers
-    for (unsigned i(0); i<3; ++i)
+    
+    const VkCommandBuffer* commandBuffers;
+    uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
+    for (uint32_t i(0); i<count; ++i)
     {
-      VkCommandBuffer cmdBuffer = bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
-      bkk::render::graphicsPipelineBind(cmdBuffer, presentationPipeline_);
-      bkk::render::descriptorSetBindForGraphics(cmdBuffer, presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
-      bkk::mesh::draw(cmdBuffer, fullScreenQuad_);
+      bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
+      bkk::render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
+      bkk::render::descriptorSetBindForGraphics(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
+      bkk::mesh::draw(commandBuffers[i], fullScreenQuad_);
       bkk::render::endPresentationCommandBuffer(context, i);
     }
   }

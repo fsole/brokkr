@@ -53,7 +53,7 @@ static const char* gFragmentShaderSource = {
 };
 
 
-bkk::render::texture_t CreateTexture(const bkk::render::context_t& context)
+bkk::render::texture_t createTexture(const bkk::render::context_t& context)
 {
   bkk::render::texture_t texture;
   bkk::image::image2D_t image = {};
@@ -71,16 +71,18 @@ bkk::render::texture_t CreateTexture(const bkk::render::context_t& context)
   return texture;
 }
 
-void BuildCommandBuffers(const bkk::render::context_t& context,const bkk::mesh::mesh_t& mesh,
+void buildCommandBuffers(const bkk::render::context_t& context,const bkk::mesh::mesh_t& mesh,
                          bkk::render::descriptor_set_t* descriptorSet,
                          bkk::render::pipeline_layout_t* layout, bkk::render::graphics_pipeline_t* pipeline)
 {
-  for (unsigned i(0); i<3; ++i)
+  const VkCommandBuffer* commandBuffers;
+  uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
+  for (uint32_t i(0); i<count; ++i)
   {
-    VkCommandBuffer cmdBuffer = bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
-    bkk::render::graphicsPipelineBind(cmdBuffer, *pipeline);
-    bkk::render::descriptorSetBindForGraphics(cmdBuffer, *layout, 0, descriptorSet, 1u);
-    bkk::mesh::draw(cmdBuffer, mesh);
+    bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
+    bkk::render::graphicsPipelineBind(commandBuffers[i], *pipeline);
+    bkk::render::descriptorSetBindForGraphics(commandBuffers[i], *layout, 0, descriptorSet, 1u);
+    bkk::mesh::draw(commandBuffers[i], mesh);
     bkk::render::endPresentationCommandBuffer(context, i);
   }
 }
@@ -97,7 +99,7 @@ int main()
 
   //Create a quad and a texture
   bkk::mesh::mesh_t mesh = sample_utils::fullScreenQuad(context);
-  bkk::render::texture_t texture = CreateTexture(context);
+  bkk::render::texture_t texture = createTexture(context);
 
   //Create descriptor layout
   bkk::render::descriptor_set_layout_t descriptorSetLayout;
@@ -139,7 +141,7 @@ int main()
   bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
 
   //Build command buffers
-  BuildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
+  buildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
 
   bool quit = false;
   while (!quit)
@@ -155,7 +157,7 @@ int main()
       {
         bkk::window::event_resize_t* resizeEvent = (bkk::window::event_resize_t*)event;
         swapchainResize(&context, resizeEvent->width_, resizeEvent->height_);
-        BuildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
+        buildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
       }
     }
 

@@ -165,7 +165,7 @@ public:
     mat4 matrices[2];
     matrices[0] = modelTx_ * camera_.view_;
     matrices[1] = matrices[0] * projectionTx_;
-    render::gpuBufferUpdate(getRenderContext(), (void*)&matrices, 0, sizeof(matrices), &globalUnifomBuffer_);
+    render::gpuBufferUpdate(context, (void*)&matrices, 0, sizeof(matrices), &globalUnifomBuffer_);
     
     //Update animator
     mesh::animatorUpdate(context, getTimeDelta(), &animator_);
@@ -216,16 +216,19 @@ public:
   void buildCommandBuffers()
   {
     render::context_t& context = getRenderContext();
-
+    
     VkClearValue clearValues[2];
     clearValues[0].color = { { 0.0f, 0.0f, 1.0f, 1.0f } };
-    clearValues[1].depthStencil = { 1.0f,0 };    
-    for (unsigned i(0); i<3; ++i)
+
+    clearValues[1].depthStencil = { 1.0f,0 };
+    const VkCommandBuffer* commandBuffers;
+    uint32_t count = render::getPresentationCommandBuffers(context, &commandBuffers);
+    for (uint32_t i(0); i<count; ++i)
     {
-      VkCommandBuffer cmdBuffer = render::beginPresentationCommandBuffer(context, i, clearValues);
-      bkk::render::graphicsPipelineBind(cmdBuffer, pipeline_);
-      bkk::render::descriptorSetBindForGraphics(cmdBuffer, pipelineLayout_, 0, &descriptorSet_, 1u);
-      mesh::draw(cmdBuffer, mesh_);
+      render::beginPresentationCommandBuffer(context, i, clearValues);
+      bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline_);
+      bkk::render::descriptorSetBindForGraphics(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
+      mesh::draw(commandBuffers[i], mesh_);
       render::endPresentationCommandBuffer(context, i);
     }
   }

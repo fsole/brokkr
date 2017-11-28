@@ -682,6 +682,12 @@ VkCommandBuffer render::beginPresentationCommandBuffer(const context_t& context,
   return context.swapChain_.commandBuffer_[index];
 }
 
+uint32_t render::getPresentationCommandBuffers(const context_t& context, const VkCommandBuffer** commandBuffers)
+{
+  *commandBuffers = context.swapChain_.commandBuffer_.data();
+  return (uint32_t)context.swapChain_.commandBuffer_.size();
+}
+
 void render::endPresentationCommandBuffer(const context_t& context, uint32_t index)
 {
   vkCmdEndRenderPass(context.swapChain_.commandBuffer_[index]);

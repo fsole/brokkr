@@ -49,7 +49,7 @@ static const char* gFragmentShaderSource = {
   }\n"
 };
 
-bkk::mesh::mesh_t CreateTriangleGeometry(const bkk::render::context_t& context )
+bkk::mesh::mesh_t createTriangleGeometry(const bkk::render::context_t& context )
 {
   struct Vertex
   {
@@ -78,13 +78,15 @@ bkk::mesh::mesh_t CreateTriangleGeometry(const bkk::render::context_t& context )
   return mesh;
 }
 
-void BuildCommandBuffers(const bkk::render::context_t& context, const bkk::mesh::mesh_t& mesh, const bkk::render::graphics_pipeline_t& pipeline )
+void buildCommandBuffers(const bkk::render::context_t& context, const bkk::mesh::mesh_t& mesh, const bkk::render::graphics_pipeline_t& pipeline )
 {
-  for (unsigned i(0); i<3; ++i)
+  const VkCommandBuffer* commandBuffers;
+  uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
+  for (uint32_t i(0); i<count; ++i)
   {
-    VkCommandBuffer cmdBuffer = bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
-    bkk::render::graphicsPipelineBind(cmdBuffer, pipeline);
-    bkk::mesh::draw(cmdBuffer, mesh);
+    bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
+    bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline);
+    bkk::mesh::draw(commandBuffers[i], mesh);
     bkk::render::endPresentationCommandBuffer(context, i);
   }
 }
@@ -100,7 +102,7 @@ int main()
   bkk::render::contextCreate( "Hello triangle", "", window, 3, &context );
 
   //Create a mesh
-  bkk::mesh::mesh_t mesh = CreateTriangleGeometry( context );
+  bkk::mesh::mesh_t mesh = createTriangleGeometry( context );
   
   //Create pipeline layout
   bkk::render::pipeline_layout_t pipelineLayout;
@@ -125,7 +127,7 @@ int main()
   bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
 
   //Build command buffers
-  BuildCommandBuffers(context, mesh, pipeline);
+  buildCommandBuffers(context, mesh, pipeline);
   
   bool quit = false;
   while( !quit )
@@ -141,7 +143,7 @@ int main()
       {
         bkk::window::event_resize_t* resizeEvent = (bkk::window::event_resize_t*)event;
         bkk::render::swapchainResize( &context, resizeEvent->width_, resizeEvent->height_ );
-        BuildCommandBuffers(context, mesh, pipeline);
+        buildCommandBuffers(context, mesh, pipeline);
       }
     }
 

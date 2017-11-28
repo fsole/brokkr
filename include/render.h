@@ -419,6 +419,7 @@ namespace bkk
     void contextFlush(const context_t& context);
     void swapchainResize(context_t* context, uint32_t width, uint32_t height);
     VkCommandBuffer beginPresentationCommandBuffer(const context_t& context, uint32_t index, VkClearValue* clearValues);
+    uint32_t getPresentationCommandBuffers( const context_t& context, const VkCommandBuffer** commandBuffers);
     void endPresentationCommandBuffer(const context_t& context, uint32_t index);
     void presentFrame(context_t* context, VkSemaphore* waitSemaphore = nullptr, uint32_t waitSemaphoreCount = 0u);
 
