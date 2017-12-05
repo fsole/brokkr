@@ -43,6 +43,7 @@ static const char* gGeometryPassVertexShaderSource = {
   {\n \
   mat4 view;\n \
   mat4 projection;\n \
+  mat4 jitter;\n \
   mat4 projectionInverse;\n \
   vec4 imageSize;\n \
   }scene;\n \
@@ -54,7 +55,7 @@ static const char* gGeometryPassVertexShaderSource = {
   void main(void)\n \
   {\n \
     mat4 modelView = scene.view * model.transform;\n \
-    gl_Position = scene.projection * modelView * vec4(aPosition,1.0);\n \
+    gl_Position =  scene.jitter * scene.projection * modelView * vec4(aPosition,1.0);\n \
     normalViewSpace = normalize((transpose( inverse( modelView) ) * vec4(aNormal,0.0)).xyz);\n \
   }\n"
 };
@@ -88,6 +89,7 @@ static const char* gLightPassVertexShaderSource = {
   {\n \
     mat4 view;\n \
     mat4 projection;\n \
+    mat4 jitter;\n \
     mat4 projectionInverse;\n \
     vec4 imageSize;\n \
   }scene;\n \
@@ -100,10 +102,10 @@ static const char* gLightPassVertexShaderSource = {
   layout(location = 0) out vec3 lightPositionVS;\n\
   void main(void)\n \
   {\n \
-    mat4 viewProjection = scene.projection * scene.view;\n \
+    mat4 viewProjection =  scene.jitter * scene.projection * scene.view;\n \
     vec4 vertexPosition =  vec4( aPosition*light.radius+light.position.xyz, 1.0 );\n\
     gl_Position = viewProjection * vertexPosition;\n\
-    lightPositionVS = (scene.view * light.position).xyz;\n\
+    lightPositionVS = (scene.jitter * scene.view * light.position).xyz;\n\
   }\n"
 };
 
@@ -114,6 +116,7 @@ static const char* gLightPassFragmentShaderSource = {
   {\n \
     mat4 view;\n \
     mat4 projection;\n \
+    mat4 jitter;\n\
     mat4 projectionInverse;\n \
     vec4 imageSize;\n \
   }scene;\n \
@@ -202,6 +205,23 @@ static const char* gLightPassFragmentShaderSource = {
   }\n"
 };
 
+
+
+static const char* gAccumFragmentShaderSource = {
+  "#version 440 core\n \
+  layout(location = 0) in vec2 uv;\n  \
+  layout (set = 0, binding = 0) uniform sampler2D uRenderedImage;\n \
+  layout (set = 0, binding = 1) uniform sampler2D  uHistoryBuffer;\n \
+  layout(location = 0) out vec4 color;\n \
+  void main(void)\n \
+  {\n \
+      vec4 currentFragment = texture(uRenderedImage, uv); \n\
+      vec4 historyFragment = texture(uHistoryBuffer, uv);\n\
+      color = mix(historyFragment,currentFragment, 1.0 / 8.0);\n\
+  }\n"
+};
+
+
 static const char* gPresentationVertexShaderSource = {
   "#version 440 core\n \
   layout(location = 0) in vec3 aPosition;\n \
@@ -225,7 +245,7 @@ static const char* gPresentationFragmentShaderSource = {
   }\n"
 };
 
-struct deferred_shading_sample_t : public application_t
+struct TXAA_sample_t : public application_t
 {
   struct light_t
   {
@@ -269,15 +289,16 @@ struct deferred_shading_sample_t : public application_t
   {
     mat4 viewMatrix_;
     mat4 projectionMatrix_;
+    mat4 jitterMatrix_;
     mat4 projectionInverseMatrix_;
     vec4 imageSize_;
   };
 
-  deferred_shading_sample_t()
-  :application_t("Deferred shading", 1200u, 800u, 3u),
-   currentPresentationDescriptorSet_(0u),
-   camera_( vec3(0.0f, 2.5f, 8.5f), vec2(0.0f,0.0f), 1.0f, 0.01f),
-   bAnimateLights_( true )
+  TXAA_sample_t()
+    :application_t("Temporal Anti-Aliasing", 1200u, 800u, 3u),
+    currentPresentationDescriptorSet_(0u),
+    camera_(vec3(0.0f, 2.5f, 8.5f), vec2(0.0f, 0.0f), 1.0f, 0.01f),
+    bTemporalAA_(true)
   {
     render::context_t& context = getRenderContext();
     uvec2 size = getWindowSize();
@@ -297,6 +318,25 @@ struct deferred_shading_sample_t : public application_t
     fullScreenQuad_ = sample_utils::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
+
+    //Create render targets 
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT0_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT1_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT1_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT2_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &finalImage_);
+    render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
+
+
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &historyBuffer_[0]);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &historyBuffer_[0]);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &historyBuffer_[1]);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &historyBuffer_[1]);
+
+
     //Create globals uniform buffer    
     sceneUniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
     computeInverse(sceneUniforms_.projectionMatrix_, sceneUniforms_.projectionInverseMatrix_);
@@ -310,16 +350,7 @@ struct deferred_shading_sample_t : public application_t
     render::descriptor_t descriptor = render::getDescriptor(globalsUbo_);
     render::descriptorSetCreate(context, descriptorPool_, globalsDescriptorSetLayout_, &descriptor, &globalsDescriptorSet_);
 
-    //Create render targets 
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT0_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT1_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT1_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT2_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &finalImage_);
-    render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
+
 
     //Presentation descriptor set layout and pipeline layout
     binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
@@ -327,14 +358,8 @@ struct deferred_shading_sample_t : public application_t
     bkk::render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, &presentationPipelineLayout_);
 
     //Presentation descriptor sets
-    descriptor = bkk::render::getDescriptor(finalImage_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[0]);
-    descriptor = bkk::render::getDescriptor(gBufferRT0_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[1]);
-    descriptor = bkk::render::getDescriptor(gBufferRT1_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[2]);
-    descriptor = bkk::render::getDescriptor(gBufferRT2_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[3]);
+    descriptor = bkk::render::getDescriptor(historyBuffer_[1]);
+    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_);
 
     //Create presentation pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gPresentationVertexShaderSource, &presentationVertexShader_);
@@ -352,6 +377,7 @@ struct deferred_shading_sample_t : public application_t
     pipelineDesc.fragmentShader_ = presentationFragmentShader_;
     bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
 
+
     initializeOffscreenPass(context, size);
     buildPresentationCommandBuffers();
   }
@@ -364,31 +390,31 @@ struct deferred_shading_sample_t : public application_t
       float normal[3];
     };
 
-    static const Vertex vertices[] = { { { -1.0f, 0.0f, +1.0f }, { 0.0f, 1.0f, 0.0f } },
-                                      { { +1.0f, 0.0f, +1.0f }, { 0.0f, 1.0f, 0.0f } },
-                                      { { -1.0f, 0.0f, -1.0f }, { 0.0f, 1.0f, 0.0f } },
-                                      { { +1.0f, 0.0f, -1.0f }, { 0.0f, 1.0f, 0.0f } }
-                                      };
+    static const Vertex vertices[] = { { { -1.0f, 0.0f, +1.0f },{ 0.0f, 1.0f, 0.0f } },
+    { { +1.0f, 0.0f, +1.0f },{ 0.0f, 1.0f, 0.0f } },
+    { { -1.0f, 0.0f, -1.0f },{ 0.0f, 1.0f, 0.0f } },
+    { { +1.0f, 0.0f, -1.0f },{ 0.0f, 1.0f, 0.0f } }
+    };
 
-    static const uint32_t indices[] = {0,1,2,1,3,2};
+    static const uint32_t indices[] = { 0,1,2,1,3,2 };
 
     static render::vertex_attribute_t attributes[2];
     attributes[0] = { render::vertex_attribute_t::format::VEC3, 0, sizeof(Vertex) };
     attributes[1] = { render::vertex_attribute_t::format::VEC3, offsetof(Vertex, normal), sizeof(Vertex) };
 
     mesh::mesh_t mesh;
-    mesh::create( getRenderContext(), indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &allocator_, &mesh );
-    return mesh_.add( mesh );
+    mesh::create(getRenderContext(), indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &allocator_, &mesh);
+    return mesh_.add(mesh);
   }
 
-  bkk::handle_t addMesh(const char* url )
+  bkk::handle_t addMesh(const char* url)
   {
     mesh::mesh_t mesh;
-    mesh::createFromFile( getRenderContext(), url, mesh::EXPORT_NORMALS, &allocator_, 0u, &mesh);
-    return mesh_.add( mesh );
+    mesh::createFromFile(getRenderContext(), url, mesh::EXPORT_NORMALS, &allocator_, 0u, &mesh);
+    return mesh_.add(mesh);
   }
 
-  bkk::handle_t addMaterial( const vec3& albedo, float metallic, const vec3& F0, float roughness )
+  bkk::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness)
   {
     render::context_t& context = getRenderContext();
 
@@ -398,41 +424,41 @@ struct deferred_shading_sample_t : public application_t
     material.uniforms_.metallic_ = metallic;
     material.uniforms_.F0_ = F0;
     material.uniforms_.roughness_ = roughness;
-    render::gpuBufferCreate(  context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
-                              &material.uniforms_, sizeof(material_t::uniforms_t),
-                              &allocator_, &material.ubo_);
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+      &material.uniforms_, sizeof(material_t::uniforms_t),
+      &allocator_, &material.ubo_);
 
     render::descriptor_t descriptor = render::getDescriptor(material.ubo_);
-    render::descriptorSetCreate( context, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_ );
-    return material_.add( material );
+    render::descriptorSetCreate(context, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_);
+    return material_.add(material);
   }
 
-  bkk::handle_t addObject( bkk::handle_t meshId, bkk::handle_t materialId, const maths::mat4& transform )
+  bkk::handle_t addObject(bkk::handle_t meshId, bkk::handle_t materialId, const maths::mat4& transform)
   {
     render::context_t& context = getRenderContext();
 
-    bkk::handle_t transformId = transformManager_.createTransform( transform );
+    bkk::handle_t transformId = transformManager_.createTransform(transform);
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
-    render::gpuBufferCreate( context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
-                             nullptr, sizeof(mat4),
-                             &allocator_, &ubo );
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+      nullptr, sizeof(mat4),
+      &allocator_, &ubo);
 
     object_t object = { meshId, materialId, transformId, ubo };
     render::descriptor_t descriptor = render::getDescriptor(object.ubo_);
-    render::descriptorSetCreate(context, descriptorPool_, objectDescriptorSetLayout_, &descriptor, &object.descriptorSet_ );
-    return object_.add( object );
+    render::descriptorSetCreate(context, descriptorPool_, objectDescriptorSetLayout_, &descriptor, &object.descriptorSet_);
+    return object_.add(object);
   }
 
-  bkk::handle_t addLight(const maths::vec3& position,float radius, const maths::vec3& color )
+  bkk::handle_t addLight(const maths::vec3& position, float radius, const maths::vec3& color)
   {
     render::context_t& context = getRenderContext();
 
     light_t light;
 
-    light.uniforms_.position_ = maths::vec4(position,1.0);
-    light.uniforms_.color_ = color;    
+    light.uniforms_.position_ = maths::vec4(position, 1.0);
+    light.uniforms_.color_ = color;
     light.uniforms_.radius_ = radius;
 
     //Create uniform buffer and descriptor set
@@ -440,44 +466,70 @@ struct deferred_shading_sample_t : public application_t
       &light.uniforms_, sizeof(light_t::uniforms_t),
       &allocator_, &light.ubo_);
 
-    
+
     render::descriptor_t descriptor = render::getDescriptor(light.ubo_);
     render::descriptorSetCreate(context, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &light.descriptorSet_);
     return light_.add(light);
   }
 
-  void onResize( uint32_t width, uint32_t height )
+  void onResize(uint32_t width, uint32_t height)
   {
-    sceneUniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix( 1.2f, (f32)width / (f32)height,0.1f,100.0f );
+    sceneUniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)width / (f32)height, 0.1f, 100.0f);
+    computeInverse(sceneUniforms_.projectionMatrix_, sceneUniforms_.projectionInverseMatrix_);
     buildPresentationCommandBuffers();
   }
 
   void render()
   {
     render::context_t& context = getRenderContext();
-        
-    //Update scene
-    animateLights();
     transformManager_.update();
+
+
+    //Jitter
+    static const vec2 SAMPLE_LOCS_8[8] = {
+      vec2(-7.0f, 1.0f) / 8.0f,
+      vec2(-5.0f, -5.0f) / 8.0f,
+      vec2(-1.0f, -3.0f) / 8.0f,
+      vec2(3.0f, -7.0f) / 8.0f,
+      vec2(5.0f, -1.0f) / 8.0f,
+      vec2(7.0f, 7.0f) / 8.0f,
+      vec2(1.0f, 3.0f) / 8.0f,
+      vec2(-3.0f, 5.0f) / 8.0f };
+
+
+    static uint32_t currentFrame = 0;
+    const vec2 sample = SAMPLE_LOCS_8[currentFrame % 8];
+    currentFrame++;
+
+    uvec2 windowSize = getWindowSize();
+    const vec2 texelSize(1.0f / (f32)windowSize.x, 1.0f / (f32)windowSize.y);    
+    vec2 Subsample = sample * texelSize;
+    
+    sceneUniforms_.jitterMatrix_.setIdentity();
+    if (bTemporalAA_)
+    {
+      sceneUniforms_.jitterMatrix_.setTranslation(vec3(Subsample.x, Subsample.y, 0.0f));
+    }
+
     sceneUniforms_.viewMatrix_ = camera_.view_;
     render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
-    std::vector<object_t>& object( object_.getData() );
+    std::vector<object_t>& object(object_.getData());
     for (u32 i(0); i < object.size(); ++i)
     {
-      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_ );
+      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_);
     }
 
     //Update lights position
     std::vector<light_t>& light(light_.getData());
-    for (u32 i(0); i<light.size(); ++i)
+    for (u32 i(0); i < light.size(); ++i)
     {
       render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
     }
-    
-    buildAndSubmitCommandBuffer();        
-    render::presentFrame( &context, &renderComplete_, 1u);
+
+    buildAndSubmitCommandBuffer();
+    render::presentFrame(&context, &copyComplete_, 1u);
   }
 
   virtual void onKeyEvent(window::key_e key, bool pressed)
@@ -522,7 +574,7 @@ struct deferred_shading_sample_t : public application_t
       }
       case window::key_e::KEY_P:
       {
-        bAnimateLights_ = !bAnimateLights_;
+        bTemporalAA_ = !bTemporalAA_;
         break;
       }
       default:
@@ -541,32 +593,32 @@ struct deferred_shading_sample_t : public application_t
 
   void onQuit()
   {
-   
+
     render::context_t& context = getRenderContext();
 
     //Destroy meshes
     packed_freelist_iterator_t<mesh::mesh_t> meshIter = mesh_.begin();
-    while( meshIter != mesh_.end() )
+    while (meshIter != mesh_.end())
     {
-      mesh::destroy( context, &meshIter.get(), &allocator_ );
+      mesh::destroy(context, &meshIter.get(), &allocator_);
       ++meshIter;
     }
 
     //Destroy material resources
     packed_freelist_iterator_t<material_t> materialIter = material_.begin();
-    while( materialIter != material_.end() )
+    while (materialIter != material_.end())
     {
-      render::gpuBufferDestroy(context, &allocator_, &materialIter.get().ubo_ );
-      render::descriptorSetDestroy(context, &materialIter.get().descriptorSet_ );
+      render::gpuBufferDestroy(context, &allocator_, &materialIter.get().ubo_);
+      render::descriptorSetDestroy(context, &materialIter.get().descriptorSet_);
       ++materialIter;
     }
 
     //Destroy object resources
     packed_freelist_iterator_t<object_t> objectIter = object_.begin();
-    while( objectIter != object_.end() )
+    while (objectIter != object_.end())
     {
-      render::gpuBufferDestroy(context, &allocator_, &objectIter.get().ubo_ );
-      render::descriptorSetDestroy(context, &objectIter.get().descriptorSet_ );
+      render::gpuBufferDestroy(context, &allocator_, &objectIter.get().ubo_);
+      render::descriptorSetDestroy(context, &objectIter.get().descriptorSet_);
       ++objectIter;
     }
 
@@ -579,14 +631,14 @@ struct deferred_shading_sample_t : public application_t
       ++lightIter;
     }
 
-    
+
     render::shaderDestroy(context, &gBuffervertexShader_);
     render::shaderDestroy(context, &gBufferfragmentShader_);
     render::shaderDestroy(context, &lightVertexShader_);
     render::shaderDestroy(context, &lightFragmentShader_);
     render::shaderDestroy(context, &presentationVertexShader_);
     render::shaderDestroy(context, &presentationFragmentShader_);
-    
+
     render::graphicsPipelineDestroy(context, &gBufferPipeline_);
     render::graphicsPipelineDestroy(context, &lightPipeline_);
     render::graphicsPipelineDestroy(context, &presentationPipeline_);
@@ -594,12 +646,11 @@ struct deferred_shading_sample_t : public application_t
     render::pipelineLayoutDestroy(context, &presentationPipelineLayout_);
     render::pipelineLayoutDestroy(context, &gBufferPipelineLayout_);
     render::pipelineLayoutDestroy(context, &lightPipelineLayout_);
-    
+
     render::descriptorSetDestroy(context, &globalsDescriptorSet_);
     render::descriptorSetDestroy(context, &lightPassTexturesDescriptorSet_);
-    render::descriptorSetDestroy(context, &presentationDescriptorSet_[0]);
-    render::descriptorSetDestroy(context, &presentationDescriptorSet_[1]);
-    render::descriptorSetDestroy(context, &presentationDescriptorSet_[2]);
+    render::descriptorSetDestroy(context, &presentationDescriptorSet_);
+
 
     render::descriptorSetLayoutDestroy(context, &globalsDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &materialDescriptorSetLayout_);
@@ -613,7 +664,7 @@ struct deferred_shading_sample_t : public application_t
     render::textureDestroy(context, &gBufferRT2_);
     render::textureDestroy(context, &finalImage_);
     render::depthStencilBufferDestroy(context, &depthStencilBuffer_);
-    
+
     mesh::destroy(context, &fullScreenQuad_);
     mesh::destroy(context, &sphereMesh_);
 
@@ -626,7 +677,7 @@ struct deferred_shading_sample_t : public application_t
     render::descriptorPoolDestroy(context, &descriptorPool_);
     vkDestroySemaphore(context.device_, renderComplete_, nullptr);
   }
-  
+
 private:
   ///Helper methods
   void initializeOffscreenPass(render::context_t& context, const uvec2& size)
@@ -635,7 +686,9 @@ private:
     VkSemaphoreCreateInfo semaphoreCreateInfo = {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &renderComplete_);
-    
+    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &accumComplete_);
+    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &copyComplete_);
+
     //Create offscreen render pass (GBuffer + light subpasses)
     renderPass_ = {};
     render::render_pass_t::attachment_t attachments[5];
@@ -795,6 +848,87 @@ private:
     lightPipelineDesc.vertexShader_ = lightVertexShader_;
     lightPipelineDesc.fragmentShader_ = lightFragmentShader_;
     render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, sphereMesh_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
+
+
+
+    {
+
+      accumRenderPass_ = {};
+      render::render_pass_t::attachment_t attachment;
+      attachment.format_ = historyBuffer_[0].format_;
+      attachment.initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      attachment.finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      attachment.storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
+      attachment.loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
+      attachment.samples_ = VK_SAMPLE_COUNT_1_BIT;
+
+      render::renderPassCreate(context, &attachment, 1u, nullptr, 0u, nullptr, 0u, &accumRenderPass_);
+
+      VkImageView fbAttachment = historyBuffer_[0].imageView_;
+      render::frameBufferCreate(context, size.x, size.y, accumRenderPass_, &fbAttachment, &accumFrameBuffer_);
+
+
+      render::descriptor_binding_t bindings[2] = { { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0,  render::descriptor_t::stage::FRAGMENT },
+                                                   { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 1, render::descriptor_t::stage::FRAGMENT } };
+
+      render::descriptorSetLayoutCreate(context, bindings, 2, &accumDescriptorSetLayout_);
+      render::pipelineLayoutCreate(context, &accumDescriptorSetLayout_, 1u, &accumPipelineLayout_);
+      render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gAccumFragmentShaderSource, &accumFragmentShader_);
+      render::graphics_pipeline_t::description_t pipelineDesc = {};
+      pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
+      pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
+      pipelineDesc.blendState_.resize(1);
+      pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+      pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+      pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+      pipelineDesc.depthTestEnabled_ = false;
+      pipelineDesc.depthWriteEnabled_ = false;
+      pipelineDesc.vertexShader_ = presentationVertexShader_;
+      pipelineDesc.fragmentShader_ = accumFragmentShader_;
+      render::graphicsPipelineCreate(context, accumRenderPass_.handle_, 0u, fullScreenQuad_.vertexFormat_, accumPipelineLayout_, pipelineDesc, &accumPipeline_);
+
+      render::descriptor_t descriptors[2] = { render::getDescriptor(finalImage_), render::getDescriptor(historyBuffer_[1]) };
+      render::descriptorSetCreate(context, descriptorPool_, accumDescriptorSetLayout_, descriptors, &accumDescriptorSet_);
+    }
+
+
+    {
+
+
+      copyRenderPass_ = {};
+      render::render_pass_t::attachment_t attachment;
+      attachment.format_ = historyBuffer_[0].format_;
+      attachment.initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      attachment.finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      attachment.storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
+      attachment.loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
+      attachment.samples_ = VK_SAMPLE_COUNT_1_BIT;
+
+      render::renderPassCreate(context, &attachment, 1u, nullptr, 0u, nullptr, 0u, &copyRenderPass_);
+
+      VkImageView fbAttachment = historyBuffer_[1].imageView_;
+      render::frameBufferCreate(context, size.x, size.y, copyRenderPass_, &fbAttachment, &copyFrameBuffer_);
+
+      render::graphics_pipeline_t::description_t pipelineDesc = {};
+      pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
+      pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
+      pipelineDesc.blendState_.resize(1);
+      pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+      pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+      pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+      pipelineDesc.depthTestEnabled_ = false;
+      pipelineDesc.depthWriteEnabled_ = false;
+      pipelineDesc.vertexShader_ = presentationVertexShader_;
+      pipelineDesc.fragmentShader_ = presentationFragmentShader_;
+      render::graphicsPipelineCreate(context, copyRenderPass_.handle_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &copyPipeline_);
+
+      render::descriptor_t descriptor = render::getDescriptor(historyBuffer_[0]);
+      render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &copyDescriptorSet_[0]);
+
+      descriptor = render::getDescriptor(finalImage_);
+      render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &copyDescriptorSet_[1]);
+    }
+
   }
 
   void buildAndSubmitCommandBuffer()
@@ -848,6 +982,47 @@ private:
 
     render::commandBufferEnd(commandBuffer_);
     render::commandBufferSubmit(context, commandBuffer_);
+
+
+    if (accumCommandBuffer_.handle_ == VK_NULL_HANDLE)
+    {
+      VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &renderComplete_, &waitStage, 1u, &accumComplete_, 1u, render::command_buffer_t::GRAPHICS, &accumCommandBuffer_);
+    }
+
+
+    render::commandBufferBegin(context, &accumFrameBuffer_, clearValues, 1u, accumCommandBuffer_);
+    {
+      if (bTemporalAA_)
+      {
+        bkk::render::graphicsPipelineBind(accumCommandBuffer_.handle_, accumPipeline_);
+        bkk::render::descriptorSetBindForGraphics(accumCommandBuffer_.handle_, accumPipelineLayout_, 0u, &accumDescriptorSet_, 1u);
+        mesh::draw(accumCommandBuffer_.handle_, fullScreenQuad_);
+      }
+    }
+    render::commandBufferEnd(accumCommandBuffer_);
+    render::commandBufferSubmit(context, accumCommandBuffer_);
+
+
+
+
+    if (copyCommandBuffer_.handle_ == VK_NULL_HANDLE)
+    {
+      VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &accumComplete_, &waitStage, 1u, &copyComplete_, 1u, render::command_buffer_t::GRAPHICS, &copyCommandBuffer_);
+    }
+
+
+    render::commandBufferBegin(context, &copyFrameBuffer_, clearValues, 1u, copyCommandBuffer_);
+    {
+        bkk::render::graphicsPipelineBind(copyCommandBuffer_.handle_, copyPipeline_);
+        bkk::render::descriptorSetBindForGraphics(copyCommandBuffer_.handle_, presentationPipelineLayout_, 0u, &copyDescriptorSet_[bTemporalAA_ ? 0 : 1], 1u);
+        mesh::draw(copyCommandBuffer_.handle_, fullScreenQuad_);
+      
+    }
+    render::commandBufferEnd(copyCommandBuffer_);
+    render::commandBufferSubmit(context, copyCommandBuffer_);
+
   }
 
   void buildPresentationCommandBuffers()
@@ -856,45 +1031,13 @@ private:
 
     const VkCommandBuffer* commandBuffers;
     uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
-    for (uint32_t i(0); i<count; ++i)
+    for (uint32_t i(0); i < count; ++i)
     {
       bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
       bkk::render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
-      bkk::render::descriptorSetBindForGraphics(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
+      bkk::render::descriptorSetBindForGraphics(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_, 1u);
       bkk::mesh::draw(commandBuffers[i], fullScreenQuad_);
       bkk::render::endPresentationCommandBuffer(context, i);
-    }
-  }
-
-  void animateLights()
-  {
-    if (!bAnimateLights_)
-      return;
-
-    static const vec3 light_path[] =
-    {
-      vec3(-3.0f,  3.0f, 4.0f),
-      vec3(-3.0f,  3.0f, -3.0f),
-      vec3(3.0f,   3.0f, -3.0f),
-      vec3(3.0f,   3.0f, 4.0f),
-      vec3(-3.0f,  3.0f, 4.0f)
-    };
-
-    static f32 totalTime = 0.0f;
-    totalTime += getTimeDelta()*0.001f;
-    std::vector<light_t>& lights = light_.getData();
-    for (u32 i(0); i < lights.size(); ++i)
-    {
-      float t = totalTime + i* 5.0f / lights.size();
-      int baseFrame = (int)t;
-      float f = t - baseFrame;
-
-      vec3 p0 = light_path[(baseFrame + 0) % 5];
-      vec3 p1 = light_path[(baseFrame + 1) % 5];
-      vec3 p2 = light_path[(baseFrame + 2) % 5];
-      vec3 p3 = light_path[(baseFrame + 3) % 5];
-
-      lights[i].uniforms_.position_ = vec4(maths::cubicInterpolation(p0, p1, p2, p3, f), 1.0);
     }
   }
 
@@ -908,21 +1051,21 @@ private:
   packed_freelist_t<mesh::mesh_t> mesh_;
   packed_freelist_t<light_t> light_;
 
-  render::descriptor_pool_t descriptorPool_;  
+  render::descriptor_pool_t descriptorPool_;
   render::descriptor_set_layout_t globalsDescriptorSetLayout_;
   render::descriptor_set_layout_t materialDescriptorSetLayout_;
   render::descriptor_set_layout_t objectDescriptorSetLayout_;
   render::descriptor_set_layout_t lightDescriptorSetLayout_;
   render::descriptor_set_layout_t lightPassTexturesDescriptorSetLayout_;
   render::descriptor_set_layout_t presentationDescriptorSetLayout_;
-  
+
   uint32_t currentPresentationDescriptorSet_;
-  render::descriptor_set_t presentationDescriptorSet_[4];
+  render::descriptor_set_t presentationDescriptorSet_;
   render::descriptor_set_t globalsDescriptorSet_;
   render::descriptor_set_t lightPassTexturesDescriptorSet_;
 
   render::vertex_format_t vertexFormat_;
-  
+
   render::pipeline_layout_t gBufferPipelineLayout_;
   render::graphics_pipeline_t gBufferPipeline_;
   render::pipeline_layout_t lightPipelineLayout_;
@@ -930,12 +1073,12 @@ private:
 
   render::pipeline_layout_t presentationPipelineLayout_;
   render::graphics_pipeline_t presentationPipeline_;
-    
+
   VkSemaphore renderComplete_;
   render::command_buffer_t commandBuffer_;
   render::render_pass_t renderPass_;
 
-  scene_uniforms_t sceneUniforms_;  
+  scene_uniforms_t sceneUniforms_;
   render::gpu_buffer_t globalsUbo_;
 
   render::frame_buffer_t frameBuffer_;
@@ -944,30 +1087,49 @@ private:
   render::texture_t gBufferRT2_;  //F0 + metallic
   render::texture_t finalImage_;
   render::depth_stencil_buffer_t depthStencilBuffer_;
-  
+
   render::shader_t gBuffervertexShader_;
   render::shader_t gBufferfragmentShader_;
   render::shader_t lightVertexShader_;
   render::shader_t lightFragmentShader_;
   render::shader_t presentationVertexShader_;
   render::shader_t presentationFragmentShader_;
+  render::shader_t accumFragmentShader_;
+
+  render::texture_t historyBuffer_[2];
+  render::frame_buffer_t copyFrameBuffer_;
+  render::frame_buffer_t accumFrameBuffer_;
+  render::render_pass_t copyRenderPass_;
+  render::render_pass_t accumRenderPass_;
+
+  VkSemaphore accumComplete_;
+  VkSemaphore copyComplete_;
+
+  render::descriptor_set_layout_t accumDescriptorSetLayout_;
+  render::pipeline_layout_t accumPipelineLayout_;
+  render::graphics_pipeline_t accumPipeline_;
+  render::graphics_pipeline_t copyPipeline_;
+  render::command_buffer_t accumCommandBuffer_;
+  render::command_buffer_t copyCommandBuffer_;
+  render::descriptor_set_t copyDescriptorSet_[2];
+  render::descriptor_set_t accumDescriptorSet_;
 
   mesh::mesh_t sphereMesh_;
   mesh::mesh_t fullScreenQuad_;
-  
+
   free_camera_t camera_;
-  bool bAnimateLights_;
+  bool bTemporalAA_;
 };
 
 
 int main()
 {
-  deferred_shading_sample_t scene;
-  
+  TXAA_sample_t scene;
+
   //Materials  
-  bkk::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f),0.7f);
-  bkk::handle_t redWall = scene.addMaterial( vec3(0.5f,0.0f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
-  bkk::handle_t greenWall = scene.addMaterial( vec3(0.0f,0.5f,0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
+  bkk::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
+  bkk::handle_t redWall = scene.addMaterial(vec3(0.5f, 0.0f, 0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
+  bkk::handle_t greenWall = scene.addMaterial(vec3(0.0f, 0.5f, 0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
   bkk::handle_t gold = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.000f, 0.766f, 0.336f), 0.3f);
   bkk::handle_t silver = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(0.972f, 0.960f, 0.915f), 0.3f);
   bkk::handle_t copper = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.0f, 0.437f, 0.338f), 0.3f);
@@ -975,16 +1137,16 @@ int main()
   bkk::handle_t bluePlastic = scene.addMaterial(vec3(0.0f, 0.0f, 1.0f), 0.0f, vec3(0.05f, 0.05f, 0.05f), 0.4f);
 
   //Meshes
-  bkk::handle_t bunny = scene.addMesh( "../resources/bunny.ply" );
+  bkk::handle_t bunny = scene.addMesh("../resources/bunny.ply");
   bkk::handle_t dragon = scene.addMesh("../resources/dragon.obj");
   bkk::handle_t buddha = scene.addMesh("../resources/buddha.obj");
   bkk::handle_t armadillo = scene.addMesh("../resources/armadillo.obj");
   bkk::handle_t teapot = scene.addMesh("../resources/teapot.obj");
   bkk::handle_t quad = scene.addQuadMesh();
 
-
+ 
   //Objects
-  scene.addObject(quad, wall, maths::computeTransform( maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
+  scene.addObject(quad, wall, maths::computeTransform(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
   scene.addObject(quad, redWall, maths::computeTransform(maths::vec3(-5.0f, 4.0f, 0.0f), maths::vec3(4.0f, 5.0f, 5.0f), maths::quaternionFromAxisAngle(vec3(0, 0, 1), maths::degreeToRadian(90.0f))));
   scene.addObject(quad, greenWall, maths::computeTransform(maths::vec3(5.0f, 4.0f, 0.0f), maths::vec3(4.0f, 5.0f, 5.0f), maths::quaternionFromAxisAngle(vec3(0, 0, 1), maths::degreeToRadian(-90.0f))));
   scene.addObject(quad, wall, maths::computeTransform(maths::vec3(0.0f, 4.0f, -5.0f), maths::vec3(5.0f, 5.0f, 4.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(-90.0f))));
@@ -994,15 +1156,9 @@ int main()
   scene.addObject(buddha, copper, maths::computeTransform(maths::vec3(-3.0f, 1.4f, 4.0f), maths::vec3(1.5f, 1.5f, 1.5f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-30.0f))));
   scene.addObject(armadillo, redPlastic, maths::computeTransform(maths::vec3(-3.0f, 1.1f, -1.5f), maths::vec3(1.0f, 1.0f, 1.0f), maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(180.0f))));
   scene.addObject(teapot, gold, maths::computeTransform(maths::vec3(2.0f, 0.0f, -3.0f), maths::vec3(0.5f, 0.5f, 0.5f), maths::QUAT_UNIT));
-
-  //Lights
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f,0.0f,0.0f));
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.5f, 0.0f));
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 0.5f));
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f, 0.0f, 0.0f));
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.5f, 0.0f));
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 0.5f));
   
+  //Lights
+  scene.addLight(vec3(0.0f, 5.0f, 0.0f), 15.0f, vec3(1.0f, 1.0f, 1.0f));
   scene.loop();
   return 0;
 }

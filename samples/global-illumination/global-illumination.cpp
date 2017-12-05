@@ -662,7 +662,6 @@ public:
     fullScreenQuad_ = sample_utils::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
-
     //Create globals uniform buffer
     camera_.position_ = vec3(-1.1f, 0.6f, -0.1f);
     camera_.angle_ = vec2(0.2f, 1.57f);
@@ -680,9 +679,27 @@ public:
     render::descriptorSetLayoutCreate(context, &binding, 1u, &globalsDescriptorSetLayout_);
     render::descriptor_t descriptor = render::getDescriptor(globalsUbo_);
     render::descriptorSetCreate(context, descriptorPool_, globalsDescriptorSetLayout_, &descriptor, &globalsDescriptorSet_);
+    
 
-    //Initialize off-screen render pass
-    initializeOffscreenPass(context, size);
+    //Create render targets 
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT0_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT1_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT1_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT2_);
+    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &finalImage_);
+    render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
+
+    //Reflective shadow map render targets
+    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT0_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &shadowMapRT0_);
+    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT1_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &shadowMapRT1_);
+    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT2_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &shadowMapRT2_);
+    render::depthStencilBufferCreate(context, shadowMapSize_, shadowMapSize_, &shadowPassDepthStencilBuffer);
 
     //Presentation descriptor set layout and pipeline layout
     binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
@@ -721,8 +738,12 @@ public:
     pipelineDesc.fragmentShader_ = presentationFragmentShader_;
     bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
 
-    buildPresentationCommandBuffers();
 
+    //Initialize off-screen render pass
+    initializeOffscreenPass(context, size);
+
+    
+    buildPresentationCommandBuffers();
     load(url);
   }
     
@@ -964,6 +985,19 @@ public:
     {
       render::gpuBufferDestroy(context, &allocator_, &directionalLight_->ubo_);
       render::descriptorSetDestroy(context, &directionalLight_->descriptorSet_);
+      render::shaderDestroy(context, &shadowVertexShader_);
+      render::shaderDestroy(context, &shadowFragmentShader_);
+      
+      render::graphicsPipelineDestroy(context, &shadowPipeline_);
+      render::pipelineLayoutDestroy(context, &shadowPipelineLayout_);      
+      render::renderPassDestroy(context, &shadowRenderPass_);
+
+      render::descriptorSetLayoutDestroy(context, &shadowGlobalsDescriptorSetLayout_);
+      render::descriptorSetDestroy(context, &shadowGlobalsDescriptorSet_);
+      render::frameBufferDestroy(context, &shadowFrameBuffer_);
+      render::commandBufferDestroy(context, &shadowCommandBuffer_);
+      vkDestroySemaphore(context.device_, shadowPassComplete_, nullptr);
+      
       delete directionalLight_;
     }
 
@@ -973,9 +1007,7 @@ public:
     render::shaderDestroy(context, &pointLightFragmentShader_);
     render::shaderDestroy(context, &directionalLightVertexShader_);
     render::shaderDestroy(context, &directionalLightFragmentShader_);
-    render::shaderDestroy(context, &directionalLightGIFragmentShader_);
-    render::shaderDestroy(context, &shadowVertexShader_);
-    render::shaderDestroy(context, &shadowFragmentShader_);
+    render::shaderDestroy(context, &directionalLightGIFragmentShader_);    
     render::shaderDestroy(context, &presentationVertexShader_);
     render::shaderDestroy(context, &presentationFragmentShader_);
 
@@ -984,13 +1016,11 @@ public:
     render::graphicsPipelineDestroy(context, &directionalLightPipeline_);
     render::graphicsPipelineDestroy(context, &directionalLightGIPipeline_);
     render::graphicsPipelineDestroy(context, &presentationPipeline_);
-    render::graphicsPipelineDestroy(context, &shadowPipeline_);
-
+    
     render::pipelineLayoutDestroy(context, &presentationPipelineLayout_);
     render::pipelineLayoutDestroy(context, &gBufferPipelineLayout_);
     render::pipelineLayoutDestroy(context, &lightPipelineLayout_);
-    render::pipelineLayoutDestroy(context, &shadowPipelineLayout_);
-
+    
     render::descriptorSetDestroy(context, &globalsDescriptorSet_);
     render::descriptorSetDestroy(context, &lightPassTexturesDescriptorSet_);
     render::descriptorSetDestroy(context, &presentationDescriptorSet_[0]);
@@ -998,17 +1028,14 @@ public:
     render::descriptorSetDestroy(context, &presentationDescriptorSet_[2]);
     render::descriptorSetDestroy(context, &presentationDescriptorSet_[3]);
     render::descriptorSetDestroy(context, &presentationDescriptorSet_[4]);
-    render::descriptorSetDestroy(context, &shadowGlobalsDescriptorSet_);
-
+    
     render::descriptorSetLayoutDestroy(context, &globalsDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &materialDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &objectDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &lightDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &lightPassTexturesDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &presentationDescriptorSetLayout_);
-    render::descriptorSetLayoutDestroy(context, &shadowGlobalsDescriptorSetLayout_);
-
-
+    
     render::textureDestroy(context, &gBufferRT0_);
     render::textureDestroy(context, &gBufferRT1_);
     render::textureDestroy(context, &gBufferRT2_);
@@ -1023,13 +1050,8 @@ public:
     mesh::destroy(context, &sphereMesh_);
 
     render::frameBufferDestroy(context, &frameBuffer_);
-    render::frameBufferDestroy(context, &shadowFrameBuffer_);
-
     render::commandBufferDestroy(context, &commandBuffer_);
-    render::commandBufferDestroy(context, &shadowCommandBuffer_);
-
     render::renderPassDestroy(context, &renderPass_);
-    render::renderPassDestroy(context, &shadowRenderPass_);
 
     render::vertexFormatDestroy(&vertexFormat_);
     render::gpuBufferDestroy(context, &allocator_, &globalsUbo_);
@@ -1037,7 +1059,6 @@ public:
     render::descriptorPoolDestroy(context, &descriptorPool_);
 
     vkDestroySemaphore(context.device_, renderComplete_, nullptr);
-    vkDestroySemaphore(context.device_, shadowPassComplete_, nullptr);
   }
 
 
@@ -1174,27 +1195,7 @@ private:
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &renderComplete_);
     vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &shadowPassComplete_);
-
-    //Create render targets 
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT0_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT1_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT1_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT2_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &finalImage_);
-    render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
-
-    //Shadow map
-    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT0_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &shadowMapRT0_);
-    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT1_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &shadowMapRT1_);
-    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT2_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &shadowMapRT2_);
-    render::depthStencilBufferCreate(context, shadowMapSize_, shadowMapSize_, &shadowPassDepthStencilBuffer);
-
+    
     //Create offscreen render pass (GBuffer + light subpasses)
     renderPass_ = {};
     render::render_pass_t::attachment_t attachments[5];
@@ -1592,7 +1593,7 @@ private:
 int main()
 {  
   global_illumination_sample_t sample("../resources/sponza/sponza.obj");
-  sample.addDirectionalLight(vec3(0.0, 1.75, 0.0), vec3(0.0f, 1.0f, 0.1f), vec3(1.0f, 1.0f, 1.0f), 0.0f);
+  //sample.addDirectionalLight(vec3(0.0, 1.75, 0.0), vec3(0.0f, 1.0f, 0.1f), vec3(1.0f, 1.0f, 1.0f), 0.0f);
   sample.loop();
 
   return 0;
