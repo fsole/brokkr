@@ -42,9 +42,11 @@ static const char* gGeometryPassVertexShaderSource = {
   layout (set = 0, binding = 0) uniform SCENE\n \
   {\n \
   mat4 view;\n \
+  mat4 cameraTx;\n \
   mat4 projection;\n \
   mat4 jitter;\n \
   mat4 projectionInverse;\n \
+  mat4 prevViewProjection;\n \
   vec4 imageSize;\n \
   }scene;\n \
   layout(set = 1, binding = 0) uniform MODEL\n \
@@ -88,9 +90,11 @@ static const char* gLightPassVertexShaderSource = {
   layout(set = 0, binding = 0) uniform SCENE\n \
   {\n \
     mat4 view;\n \
+    mat4 cameraTx;\n \
     mat4 projection;\n \
     mat4 jitter;\n \
     mat4 projectionInverse;\n \
+    mat4 prevViewProjection;\n \
     vec4 imageSize;\n \
   }scene;\n \
   layout (set = 2, binding = 0) uniform LIGHT\n \
@@ -115,9 +119,11 @@ static const char* gLightPassFragmentShaderSource = {
   layout(set = 0, binding = 0) uniform SCENE\n \
   {\n \
     mat4 view;\n \
+    mat4 cameraTx;\n \
     mat4 projection;\n \
     mat4 jitter;\n\
     mat4 projectionInverse;\n \
+    mat4 prevViewProjection;\n \
     vec4 imageSize;\n \
   }scene;\n \
   layout (set = 2, binding = 0) uniform LIGHT\n \
@@ -210,15 +216,49 @@ static const char* gLightPassFragmentShaderSource = {
 static const char* gAccumFragmentShaderSource = {
   "#version 440 core\n \
   layout(location = 0) in vec2 uv;\n  \
-  layout (set = 0, binding = 0) uniform sampler2D uRenderedImage;\n \
-  layout (set = 0, binding = 1) uniform sampler2D  uHistoryBuffer;\n \
+  layout(set = 0, binding = 0) uniform SCENE\n \
+  {\n \
+    mat4 view;\n \
+    mat4 cameraTx;\n \
+    mat4 projection;\n \
+    mat4 jitter;\n\
+    mat4 projectionInverse;\n \
+    mat4 prevViewProjection;\n \
+    vec4 imageSize;\n \
+  }scene;\n \
+  layout (set = 0, binding = 1) uniform sampler2D uRenderedImage;\n \
+  layout (set = 0, binding = 2) uniform sampler2D  uHistoryBuffer;\n \
+  layout (set = 0, binding = 3) uniform sampler2D  uDepthAndNormals;\n \
   layout(location = 0) out vec4 color;\n \
+  vec2 UnProject(vec2 uv, float depth)\n\
+  {\n\
+    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);\n\
+    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
+    viewSpacePosition /= viewSpacePosition.w;\n\
+    vec4 worldSpacePos = scene.cameraTx * viewSpacePosition;\n\
+    vec4 a = scene.prevViewProjection * vec4(worldSpacePos.xyz, 1.0);\n\
+    return vec2( ( a.x/a.w + 1.0 ) * 0.5, (a.y/a.w + 1.0) * 0.5 );\n\
+  }\n\
   void main(void)\n \
   {\n \
-      vec4 currentFragment = texture(uRenderedImage, uv); \n\
-      vec4 historyFragment = texture(uHistoryBuffer, uv);\n\
-      color = mix(historyFragment,currentFragment, 1.0 / 8.0);\n\
-  }\n"
+      vec3 currentFragment = texture(uRenderedImage, uv).xyz; \n\
+      float depth = texture(uDepthAndNormals, uv).w;\n\
+      vec2 unprojectedUv = UnProject(uv, depth);\n\
+      if( depth == 0.0 || unprojectedUv.x < 0.0 || unprojectedUv.x > 1.0 || unprojectedUv.y < 0.0 || unprojectedUv.y > 1.0 )\n\
+      {\n\
+        color = vec4(currentFragment, 1.0);\n\
+        return;\n\
+      }\n\
+      vec3 historyFragment = texture(uHistoryBuffer, unprojectedUv ).xyz;\n\
+      vec3 NearColor0 = texture(uRenderedImage, unprojectedUv + vec2(scene.imageSize.z, 0.0)).xyz;\n\
+      vec3 NearColor1 = texture(uRenderedImage, unprojectedUv + vec2(0.0,scene.imageSize.w)).xyz;\n\
+      vec3 NearColor2 = texture(uRenderedImage, unprojectedUv + vec2(-scene.imageSize.z, 0.0)).xyz;\n\
+      vec3 NearColor3 = texture(uRenderedImage, unprojectedUv + vec2(0.0, -scene.imageSize.w)).xyz;\n\
+      vec3 BoxMin = min(currentFragment, min(NearColor0, min(NearColor1, min(NearColor2, NearColor3))));\n\
+      vec3 BoxMax = max(currentFragment, max(NearColor0, max(NearColor1, max(NearColor2, NearColor3))));\n\
+      historyFragment = clamp(historyFragment, BoxMin, BoxMax);\n\
+      color = vec4(mix(historyFragment,currentFragment, 1.0 / 8.0), 1.0);\n\
+   }\n"
 };
 
 
@@ -288,9 +328,11 @@ struct TXAA_sample_t : public application_t
   struct scene_uniforms_t
   {
     mat4 viewMatrix_;
+    mat4 cameraMatrix_;
     mat4 projectionMatrix_;
     mat4 jitterMatrix_;
     mat4 projectionInverseMatrix_;
+    mat4 prevViewProjection_;
     vec4 imageSize_;
   };
 
@@ -496,7 +538,7 @@ struct TXAA_sample_t : public application_t
       vec2(1.0f, 3.0f) / 8.0f,
       vec2(-3.0f, 5.0f) / 8.0f };
 
-
+    sceneUniforms_.prevViewProjection_ = sceneUniforms_.viewMatrix_ * sceneUniforms_.projectionMatrix_;
     static uint32_t currentFrame = 0;
     const vec2 sample = SAMPLE_LOCS_8[currentFrame % 8];
     currentFrame++;
@@ -511,6 +553,7 @@ struct TXAA_sample_t : public application_t
       sceneUniforms_.jitterMatrix_.setTranslation(vec3(Subsample.x, Subsample.y, 0.0f));
     }
 
+    sceneUniforms_.cameraMatrix_ = camera_.tx_;
     sceneUniforms_.viewMatrix_ = camera_.view_;
     render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
@@ -887,10 +930,12 @@ private:
       render::frameBufferCreate(context, size.x, size.y, accumRenderPass_, &fbAttachment, &accumFrameBuffer_);
 
 
-      render::descriptor_binding_t bindings[2] = { { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0,  render::descriptor_t::stage::FRAGMENT },
-                                                   { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 1, render::descriptor_t::stage::FRAGMENT } };
+      render::descriptor_binding_t bindings[4] = { { render::descriptor_t::type::UNIFORM_BUFFER, 0,  render::descriptor_t::stage::FRAGMENT },
+                                                   { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 1,  render::descriptor_t::stage::FRAGMENT },
+                                                   { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2, render::descriptor_t::stage::FRAGMENT },
+                                                   { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 3, render::descriptor_t::stage::FRAGMENT } };
 
-      render::descriptorSetLayoutCreate(context, bindings, 2, &accumDescriptorSetLayout_);
+      render::descriptorSetLayoutCreate(context, bindings, 4, &accumDescriptorSetLayout_);
       render::pipelineLayoutCreate(context, &accumDescriptorSetLayout_, 1u, &accumPipelineLayout_);
       render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gAccumFragmentShaderSource, &accumFragmentShader_);
       render::graphics_pipeline_t::description_t pipelineDesc = {};
@@ -906,7 +951,7 @@ private:
       pipelineDesc.fragmentShader_ = accumFragmentShader_;
       render::graphicsPipelineCreate(context, accumRenderPass_.handle_, 0u, fullScreenQuad_.vertexFormat_, accumPipelineLayout_, pipelineDesc, &accumPipeline_);
 
-      render::descriptor_t descriptors[2] = { render::getDescriptor(finalImage_), render::getDescriptor(historyBuffer_[1]) };
+      render::descriptor_t descriptors[4] = { render::getDescriptor(globalsUbo_), render::getDescriptor(finalImage_), render::getDescriptor(historyBuffer_[1]), render::getDescriptor(gBufferRT0_) };
       render::descriptorSetCreate(context, descriptorPool_, accumDescriptorSetLayout_, descriptors, &accumDescriptorSet_);
     }
 
