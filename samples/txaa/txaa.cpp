@@ -636,6 +636,7 @@ struct TXAA_sample_t : public application_t
     render::shaderDestroy(context, &gBufferfragmentShader_);
     render::shaderDestroy(context, &lightVertexShader_);
     render::shaderDestroy(context, &lightFragmentShader_);
+    render::shaderDestroy(context, &accumFragmentShader_);
     render::shaderDestroy(context, &presentationVertexShader_);
     render::shaderDestroy(context, &presentationFragmentShader_);
 
@@ -650,6 +651,9 @@ struct TXAA_sample_t : public application_t
     render::descriptorSetDestroy(context, &globalsDescriptorSet_);
     render::descriptorSetDestroy(context, &lightPassTexturesDescriptorSet_);
     render::descriptorSetDestroy(context, &presentationDescriptorSet_);
+    render::descriptorSetDestroy(context, &copyDescriptorSet_[0]);
+    render::descriptorSetDestroy(context, &copyDescriptorSet_[1]);
+    render::descriptorSetDestroy(context, &accumDescriptorSet_);
 
 
     render::descriptorSetLayoutDestroy(context, &globalsDescriptorSetLayout_);
@@ -658,6 +662,7 @@ struct TXAA_sample_t : public application_t
     render::descriptorSetLayoutDestroy(context, &lightDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &lightPassTexturesDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &presentationDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(context, &accumDescriptorSetLayout_);
 
     render::textureDestroy(context, &gBufferRT0_);
     render::textureDestroy(context, &gBufferRT1_);
@@ -676,6 +681,22 @@ struct TXAA_sample_t : public application_t
     render::gpuAllocatorDestroy(context, &allocator_);
     render::descriptorPoolDestroy(context, &descriptorPool_);
     vkDestroySemaphore(context.device_, renderComplete_, nullptr);
+    vkDestroySemaphore(context.device_, accumComplete_, nullptr);
+    vkDestroySemaphore(context.device_, copyComplete_, nullptr);
+
+    render::textureDestroy(context, &historyBuffer_[0]);
+    render::textureDestroy(context, &historyBuffer_[1]);
+    render::frameBufferDestroy(context, &copyFrameBuffer_);
+    render::frameBufferDestroy(context, &accumFrameBuffer_);
+    render::renderPassDestroy(context, &copyRenderPass_);
+    render::renderPassDestroy(context, &accumRenderPass_);
+
+    
+    render::pipelineLayoutDestroy(context, &accumPipelineLayout_);
+    render::graphicsPipelineDestroy(context, &accumPipeline_);
+    render::graphicsPipelineDestroy(context, &copyPipeline_);
+    render::commandBufferDestroy(context, &accumCommandBuffer_);
+    render::commandBufferDestroy(context, &copyCommandBuffer_);    
   }
 
 private:
@@ -848,11 +869,9 @@ private:
     lightPipelineDesc.vertexShader_ = lightVertexShader_;
     lightPipelineDesc.fragmentShader_ = lightFragmentShader_;
     render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, sphereMesh_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
-
-
+    
 
     {
-
       accumRenderPass_ = {};
       render::render_pass_t::attachment_t attachment;
       attachment.format_ = historyBuffer_[0].format_;
@@ -893,8 +912,6 @@ private:
 
 
     {
-
-
       copyRenderPass_ = {};
       render::render_pass_t::attachment_t attachment;
       attachment.format_ = historyBuffer_[0].format_;
@@ -1002,8 +1019,6 @@ private:
     }
     render::commandBufferEnd(accumCommandBuffer_);
     render::commandBufferSubmit(context, accumCommandBuffer_);
-
-
 
 
     if (copyCommandBuffer_.handle_ == VK_NULL_HANDLE)

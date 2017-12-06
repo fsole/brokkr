@@ -817,6 +817,16 @@ public:
     {
       render::gpuBufferDestroy(context, &allocator_, &directionalLight_->ubo_);
       render::descriptorSetDestroy(context, &directionalLight_->descriptorSet_);
+      render::shaderDestroy(context, &shadowVertexShader_);
+      render::shaderDestroy(context, &shadowFragmentShader_);
+      render::graphicsPipelineDestroy(context, &shadowPipeline_);
+      render::pipelineLayoutDestroy(context, &shadowPipelineLayout_);
+      render::descriptorSetDestroy(context, &shadowGlobalsDescriptorSet_);
+      render::descriptorSetLayoutDestroy(context, &shadowGlobalsDescriptorSetLayout_);
+      render::frameBufferDestroy(context, &shadowFrameBuffer_);
+      render::renderPassDestroy(context, &shadowRenderPass_);
+      render::commandBufferDestroy(context, &shadowCommandBuffer_);
+      vkDestroySemaphore(context.device_, shadowPassComplete_, nullptr);
       delete directionalLight_;
     }
 
@@ -825,31 +835,26 @@ public:
     render::shaderDestroy(context, &pointLightVertexShader_);
     render::shaderDestroy(context, &pointLightFragmentShader_);
     render::shaderDestroy(context, &directionalLightVertexShader_);
-    render::shaderDestroy(context, &directionalLightFragmentShader_);
-    render::shaderDestroy(context, &shadowVertexShader_);
-    render::shaderDestroy(context, &shadowFragmentShader_);
+    render::shaderDestroy(context, &directionalLightFragmentShader_);    
     render::shaderDestroy(context, &presentationVertexShader_);
     render::shaderDestroy(context, &presentationFragmentShader_);
 
     render::graphicsPipelineDestroy(context, &gBufferPipeline_);
     render::graphicsPipelineDestroy(context, &pointLightPipeline_);
     render::graphicsPipelineDestroy(context, &directionalLightPipeline_);
-    render::graphicsPipelineDestroy(context, &presentationPipeline_);
-    render::graphicsPipelineDestroy(context, &shadowPipeline_);
+    render::graphicsPipelineDestroy(context, &presentationPipeline_);    
 
     render::pipelineLayoutDestroy(context, &presentationPipelineLayout_);
     render::pipelineLayoutDestroy(context, &gBufferPipelineLayout_);
     render::pipelineLayoutDestroy(context, &lightPipelineLayout_);
-    render::pipelineLayoutDestroy(context, &shadowPipelineLayout_);
-
+    
     render::descriptorSetDestroy(context, &globalsDescriptorSet_);
     render::descriptorSetDestroy(context, &lightPassTexturesDescriptorSet_);
     render::descriptorSetDestroy(context, &presentationDescriptorSet_[0]);
     render::descriptorSetDestroy(context, &presentationDescriptorSet_[1]);
     render::descriptorSetDestroy(context, &presentationDescriptorSet_[2]);
     render::descriptorSetDestroy(context, &presentationDescriptorSet_[3]);
-    render::descriptorSetDestroy(context, &presentationDescriptorSet_[4]);
-    render::descriptorSetDestroy(context, &shadowGlobalsDescriptorSet_);
+    render::descriptorSetDestroy(context, &presentationDescriptorSet_[4]);    
 
     render::descriptorSetLayoutDestroy(context, &globalsDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &materialDescriptorSetLayout_);
@@ -857,9 +862,7 @@ public:
     render::descriptorSetLayoutDestroy(context, &lightDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &lightPassTexturesDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &presentationDescriptorSetLayout_);
-    render::descriptorSetLayoutDestroy(context, &shadowGlobalsDescriptorSetLayout_);
-
-
+    
     render::textureDestroy(context, &gBufferRT0_);
     render::textureDestroy(context, &gBufferRT1_);
     render::textureDestroy(context, &gBufferRT2_);
@@ -873,20 +876,14 @@ public:
     mesh::destroy(context, &sphereMesh_);
 
     render::frameBufferDestroy(context, &frameBuffer_);
-    render::frameBufferDestroy(context, &shadowFrameBuffer_);
-
     render::commandBufferDestroy(context, &commandBuffer_);
-    render::commandBufferDestroy(context, &shadowCommandBuffer_);
-
-    render::renderPassDestroy(context, &renderPass_);
-    render::renderPassDestroy(context, &shadowRenderPass_);
+    render::renderPassDestroy(context, &renderPass_);    
 
     render::vertexFormatDestroy(&vertexFormat_);
     render::gpuBufferDestroy(context, &allocator_, &globalsUbo_);
     render::gpuAllocatorDestroy(context, &allocator_);
     render::descriptorPoolDestroy(context, &descriptorPool_);
-    vkDestroySemaphore(context.device_, renderComplete_, nullptr);
-    vkDestroySemaphore(context.device_, shadowPassComplete_, nullptr);
+    vkDestroySemaphore(context.device_, renderComplete_, nullptr);    
   }
 
 private:
@@ -934,6 +931,10 @@ private:
   }
   void initializeShadowPass(render::context_t& context)
   {
+    VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;    
+    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &shadowPassComplete_);
+
     shadowRenderPass_ = {};
     render::render_pass_t::attachment_t shadowAttachments[2];
     shadowAttachments[0].format_ = shadowMap_.format_;
@@ -1008,7 +1009,6 @@ private:
     VkSemaphoreCreateInfo semaphoreCreateInfo = {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &renderComplete_);
-    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &shadowPassComplete_);
 
     //Create offscreen render pass (GBuffer + light subpasses)
     renderPass_ = {};

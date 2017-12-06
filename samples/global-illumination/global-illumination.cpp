@@ -1100,6 +1100,10 @@ private:
 
   void initializeShadowPass(render::context_t& context)
   {
+    VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &shadowPassComplete_);
+
     shadowRenderPass_ = {};
     render::render_pass_t::attachment_t shadowAttachments[4];
     shadowAttachments[0].format_ = shadowMapRT0_.format_;
@@ -1193,8 +1197,7 @@ private:
     //Semaphore to indicate rendering has completed
     VkSemaphoreCreateInfo semaphoreCreateInfo = {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &renderComplete_);
-    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &shadowPassComplete_);
+    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &renderComplete_);    
     
     //Create offscreen render pass (GBuffer + light subpasses)
     renderPass_ = {};
@@ -1593,7 +1596,7 @@ private:
 int main()
 {  
   global_illumination_sample_t sample("../resources/sponza/sponza.obj");
-  //sample.addDirectionalLight(vec3(0.0, 1.75, 0.0), vec3(0.0f, 1.0f, 0.1f), vec3(1.0f, 1.0f, 1.0f), 0.0f);
+  sample.addDirectionalLight(vec3(0.0, 1.75, 0.0), vec3(0.0f, 1.0f, 0.1f), vec3(1.0f, 1.0f, 1.0f), 0.0f);
   sample.loop();
 
   return 0;
