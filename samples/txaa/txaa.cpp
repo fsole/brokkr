@@ -42,7 +42,6 @@ static const char* gGeometryPassVertexShaderSource = {
   layout (set = 0, binding = 0) uniform SCENE\n \
   {\n \
   mat4 view;\n \
-  mat4 cameraTx;\n \
   mat4 projection;\n \
   mat4 jitter;\n \
   mat4 projectionInverse;\n \
@@ -90,7 +89,6 @@ static const char* gLightPassVertexShaderSource = {
   layout(set = 0, binding = 0) uniform SCENE\n \
   {\n \
     mat4 view;\n \
-    mat4 cameraTx;\n \
     mat4 projection;\n \
     mat4 jitter;\n \
     mat4 projectionInverse;\n \
@@ -119,7 +117,6 @@ static const char* gLightPassFragmentShaderSource = {
   layout(set = 0, binding = 0) uniform SCENE\n \
   {\n \
     mat4 view;\n \
-    mat4 cameraTx;\n \
     mat4 projection;\n \
     mat4 jitter;\n\
     mat4 projectionInverse;\n \
@@ -219,7 +216,6 @@ static const char* gAccumFragmentShaderSource = {
   layout(set = 0, binding = 0) uniform SCENE\n \
   {\n \
     mat4 view;\n \
-    mat4 cameraTx;\n \
     mat4 projection;\n \
     mat4 jitter;\n\
     mat4 projectionInverse;\n \
@@ -235,7 +231,7 @@ static const char* gAccumFragmentShaderSource = {
     vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);\n\
     vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
     viewSpacePosition /= viewSpacePosition.w;\n\
-    vec4 worldSpacePos = scene.cameraTx * viewSpacePosition;\n\
+    vec4 worldSpacePos = inverse(scene.view) * viewSpacePosition;\n\
     vec4 a = scene.prevViewProjection * vec4(worldSpacePos.xyz, 1.0);\n\
     return vec2( ( a.x/a.w + 1.0 ) * 0.5, (a.y/a.w + 1.0) * 0.5 );\n\
   }\n\
@@ -328,7 +324,6 @@ struct TXAA_sample_t : public application_t
   struct scene_uniforms_t
   {
     mat4 viewMatrix_;
-    mat4 cameraMatrix_;
     mat4 projectionMatrix_;
     mat4 jitterMatrix_;
     mat4 projectionInverseMatrix_;
@@ -340,7 +335,8 @@ struct TXAA_sample_t : public application_t
     :application_t("Temporal Anti-Aliasing", 1200u, 800u, 3u),
     currentPresentationDescriptorSet_(0u),
     camera_(vec3(0.0f, 2.5f, 8.5f), vec2(0.0f, 0.0f), 1.0f, 0.01f),
-    bTemporalAA_(true)
+    bTemporalAA_(true),
+    currentFrame_(0)
   {
     render::context_t& context = getRenderContext();
     uvec2 size = getWindowSize();
@@ -526,35 +522,20 @@ struct TXAA_sample_t : public application_t
     render::context_t& context = getRenderContext();
     transformManager_.update();
 
-
-    //Jitter
-    static const vec2 SAMPLE_LOCS_8[8] = {
-      vec2(-7.0f, 1.0f) / 8.0f,
-      vec2(-5.0f, -5.0f) / 8.0f,
-      vec2(-1.0f, -3.0f) / 8.0f,
-      vec2(3.0f, -7.0f) / 8.0f,
-      vec2(5.0f, -1.0f) / 8.0f,
-      vec2(7.0f, 7.0f) / 8.0f,
-      vec2(1.0f, 3.0f) / 8.0f,
-      vec2(-3.0f, 5.0f) / 8.0f };
-
+    //Update global matrices
     sceneUniforms_.prevViewProjection_ = sceneUniforms_.viewMatrix_ * sceneUniforms_.projectionMatrix_;
-    static uint32_t currentFrame = 0;
-    const vec2 sample = SAMPLE_LOCS_8[currentFrame % 8];
-    currentFrame++;
-
-    uvec2 windowSize = getWindowSize();
-    const vec2 texelSize(1.0f / (f32)windowSize.x, 1.0f / (f32)windowSize.y);    
-    vec2 Subsample = sample * texelSize;
+    sceneUniforms_.viewMatrix_ = camera_.view_;
     
     sceneUniforms_.jitterMatrix_.setIdentity();
     if (bTemporalAA_)
     {
+      static const vec2 sampleLocations[8] = { vec2(-7.0f,1.0f) / 8.0f, vec2(-5.0f,-5.0f)/ 8.0f, vec2(-1.0f,-3.0f) / 8.0f, vec2(3.0f, -7.0f) / 8.0f,
+                                               vec2(5.0f,-1.0f) / 8.0f, vec2(7.0f, 7.0f) / 8.0f, vec2(1.0f,3.0f)   / 8.0f, vec2(-3.0f, 5.0f) / 8.0f };
+      vec2 texelSize(sceneUniforms_.imageSize_.z, sceneUniforms_.imageSize_.w);
+      vec2 Subsample = sampleLocations[currentFrame_ % 8] * texelSize;
       sceneUniforms_.jitterMatrix_.setTranslation(vec3(Subsample.x, Subsample.y, 0.0f));
     }
-
-    sceneUniforms_.cameraMatrix_ = camera_.tx_;
-    sceneUniforms_.viewMatrix_ = camera_.view_;
+    
     render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
@@ -573,6 +554,8 @@ struct TXAA_sample_t : public application_t
 
     buildAndSubmitCommandBuffer();
     render::presentFrame(&context, &copyComplete_, 1u);
+
+    currentFrame_++;
   }
 
   virtual void onKeyEvent(window::key_e key, bool pressed)
@@ -913,7 +896,7 @@ private:
     lightPipelineDesc.fragmentShader_ = lightFragmentShader_;
     render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, sphereMesh_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
     
-
+    //Accum render pass 
     {
       accumRenderPass_ = {};
       render::render_pass_t::attachment_t attachment;
@@ -955,7 +938,7 @@ private:
       render::descriptorSetCreate(context, descriptorPool_, accumDescriptorSetLayout_, descriptors, &accumDescriptorSet_);
     }
 
-
+    //Copy render pass
     {
       copyRenderPass_ = {};
       render::render_pass_t::attachment_t attachment;
@@ -1051,7 +1034,6 @@ private:
       VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
       render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &renderComplete_, &waitStage, 1u, &accumComplete_, 1u, render::command_buffer_t::GRAPHICS, &accumCommandBuffer_);
     }
-
 
     render::commandBufferBegin(context, &accumFrameBuffer_, clearValues, 1u, accumCommandBuffer_);
     {
@@ -1179,6 +1161,7 @@ private:
 
   free_camera_t camera_;
   bool bTemporalAA_;
+  uint32_t currentFrame_;
 };
 
 
@@ -1191,16 +1174,8 @@ int main()
   bkk::handle_t redWall = scene.addMaterial(vec3(0.5f, 0.0f, 0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
   bkk::handle_t greenWall = scene.addMaterial(vec3(0.0f, 0.5f, 0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
   bkk::handle_t gold = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.000f, 0.766f, 0.336f), 0.3f);
-  bkk::handle_t silver = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(0.972f, 0.960f, 0.915f), 0.3f);
-  bkk::handle_t copper = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.0f, 0.437f, 0.338f), 0.3f);
-  bkk::handle_t redPlastic = scene.addMaterial(vec3(1.0f, 0.0f, 0.0f), 0.0f, vec3(0.05f, 0.05f, 0.05f), 0.4f);
-  bkk::handle_t bluePlastic = scene.addMaterial(vec3(0.0f, 0.0f, 1.0f), 0.0f, vec3(0.05f, 0.05f, 0.05f), 0.4f);
 
   //Meshes
-  bkk::handle_t bunny = scene.addMesh("../resources/bunny.ply");
-  bkk::handle_t dragon = scene.addMesh("../resources/dragon.obj");
-  bkk::handle_t buddha = scene.addMesh("../resources/buddha.obj");
-  bkk::handle_t armadillo = scene.addMesh("../resources/armadillo.obj");
   bkk::handle_t teapot = scene.addMesh("../resources/teapot.obj");
   bkk::handle_t quad = scene.addQuadMesh();
 
@@ -1211,11 +1186,7 @@ int main()
   scene.addObject(quad, greenWall, maths::computeTransform(maths::vec3(5.0f, 4.0f, 0.0f), maths::vec3(4.0f, 5.0f, 5.0f), maths::quaternionFromAxisAngle(vec3(0, 0, 1), maths::degreeToRadian(-90.0f))));
   scene.addObject(quad, wall, maths::computeTransform(maths::vec3(0.0f, 4.0f, -5.0f), maths::vec3(5.0f, 5.0f, 4.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(-90.0f))));
   scene.addObject(quad, wall, maths::computeTransform(maths::vec3(0.0f, 8.0f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(180.0f))));
-  scene.addObject(bunny, bluePlastic, maths::computeTransform(maths::vec3(0.0f, -0.4f, 0.5f), maths::vec3(12.0f, 12.0f, 12.0f), maths::QUAT_UNIT));
-  scene.addObject(dragon, silver, maths::computeTransform(maths::vec3(2.5f, 1.2f, 4.0f), maths::vec3(1.7f, 1.7f, 1.7f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-10.0f))));
-  scene.addObject(buddha, copper, maths::computeTransform(maths::vec3(-3.0f, 1.4f, 4.0f), maths::vec3(1.5f, 1.5f, 1.5f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-30.0f))));
-  scene.addObject(armadillo, redPlastic, maths::computeTransform(maths::vec3(-3.0f, 1.1f, -1.5f), maths::vec3(1.0f, 1.0f, 1.0f), maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(180.0f))));
-  scene.addObject(teapot, gold, maths::computeTransform(maths::vec3(2.0f, 0.0f, -3.0f), maths::vec3(0.5f, 0.5f, 0.5f), maths::QUAT_UNIT));
+  scene.addObject(teapot, gold, maths::computeTransform(maths::vec3(0.0f, -0.4f, 0.5f), maths::vec3(1.0f, 1.0f, 1.0f), maths::QUAT_UNIT));
   
   //Lights
   scene.addLight(vec3(0.0f, 5.0f, 0.0f), 15.0f, vec3(1.0f, 1.0f, 1.0f));
