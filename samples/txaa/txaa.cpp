@@ -61,7 +61,6 @@ static const char* gGeometryPassVertexShaderSource = {
   }\n"
 };
 
-
 static const char* gGeometryPassFragmentShaderSource = {
   "#version 440 core\n \
   layout(set = 2, binding = 0) uniform MATERIAL\n \
@@ -77,8 +76,8 @@ static const char* gGeometryPassFragmentShaderSource = {
   layout(location = 0) in vec3 normalViewSpace;\n \
   void main(void)\n \
   {\n \
-    RT0 = vec4(material.albedo, gl_FragCoord.z);\n \
-    RT1 = vec4(normalize(normalViewSpace), material.roughness );\n \
+    RT0 = vec4(material.albedo,  material.roughness );\n \
+    RT1 = vec4(normalize(normalViewSpace),gl_FragCoord.z);\n \
     RT2 = vec4(material.F0, material.metallic);\n \
   }\n"
 };
@@ -110,7 +109,6 @@ static const char* gLightPassVertexShaderSource = {
     lightPositionVS = (scene.jitter * scene.view * light.position).xyz;\n\
   }\n"
 };
-
 
 static const char* gLightPassFragmentShaderSource = {
   "#version 440 core\n \
@@ -177,10 +175,10 @@ static const char* gLightPassFragmentShaderSource = {
     vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;\n\
     vec4 RT0Value = texture(RT0, uv);\n \
     vec3 albedo = RT0Value.xyz;\n\
-    float depth = RT0Value.w;\n\
+    float roughness = RT0Value.w;\n\
     vec4 RT1Value = texture(RT1, uv);\n \
     vec3 N = normalize(RT1Value.xyz); \n \
-    float roughness = RT1Value.w;\n\
+    float depth = RT1Value.w;\n\
     vec4 RT2Value = texture(RT2, uv);\n \
     vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );\n\
     vec3 L = normalize( lightPositionVS-positionVS );\n\
@@ -208,9 +206,7 @@ static const char* gLightPassFragmentShaderSource = {
   }\n"
 };
 
-
-
-static const char* gAccumFragmentShaderSource = {
+static const char* gTxaaResolveFragmentShaderSource = {
   "#version 440 core\n \
   layout(location = 0) in vec2 uv;\n  \
   layout(set = 0, binding = 0) uniform SCENE\n \
@@ -226,7 +222,7 @@ static const char* gAccumFragmentShaderSource = {
   layout (set = 0, binding = 2) uniform sampler2D  uHistoryBuffer;\n \
   layout (set = 0, binding = 3) uniform sampler2D  uDepthAndNormals;\n \
   layout(location = 0) out vec4 color;\n \
-  vec2 UnProject(vec2 uv, float depth)\n\
+  vec2 reproject(vec2 uv, float depth)\n\
   {\n\
     vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);\n\
     vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
@@ -239,24 +235,23 @@ static const char* gAccumFragmentShaderSource = {
   {\n \
       vec3 currentFragment = texture(uRenderedImage, uv).xyz; \n\
       float depth = texture(uDepthAndNormals, uv).w;\n\
-      vec2 unprojectedUv = UnProject(uv, depth);\n\
-      if( depth == 0.0 || unprojectedUv.x < 0.0 || unprojectedUv.x > 1.0 || unprojectedUv.y < 0.0 || unprojectedUv.y > 1.0 )\n\
+      vec2 reprojectedUv = reproject(uv, depth);\n\
+      if( depth == 0.0 || reprojectedUv.x < 0.0 || reprojectedUv.x > 1.0 || reprojectedUv.y < 0.0 || reprojectedUv.y > 1.0 )\n\
       {\n\
         color = vec4(currentFragment, 1.0);\n\
         return;\n\
       }\n\
-      vec3 historyFragment = texture(uHistoryBuffer, unprojectedUv ).xyz;\n\
-      vec3 NearColor0 = texture(uRenderedImage, unprojectedUv + vec2(scene.imageSize.z, 0.0)).xyz;\n\
-      vec3 NearColor1 = texture(uRenderedImage, unprojectedUv + vec2(0.0,scene.imageSize.w)).xyz;\n\
-      vec3 NearColor2 = texture(uRenderedImage, unprojectedUv + vec2(-scene.imageSize.z, 0.0)).xyz;\n\
-      vec3 NearColor3 = texture(uRenderedImage, unprojectedUv + vec2(0.0, -scene.imageSize.w)).xyz;\n\
-      vec3 BoxMin = min(currentFragment, min(NearColor0, min(NearColor1, min(NearColor2, NearColor3))));\n\
-      vec3 BoxMax = max(currentFragment, max(NearColor0, max(NearColor1, max(NearColor2, NearColor3))));\n\
-      historyFragment = clamp(historyFragment, BoxMin, BoxMax);\n\
+      vec3 nearColor0 = texture(uRenderedImage, reprojectedUv + vec2(scene.imageSize.z, 0.0)).xyz;\n\
+      vec3 nearColor1 = texture(uRenderedImage, reprojectedUv + vec2(0.0,scene.imageSize.w)).xyz;\n\
+      vec3 nearColor2 = texture(uRenderedImage, reprojectedUv + vec2(-scene.imageSize.z, 0.0)).xyz;\n\
+      vec3 nearColor3 = texture(uRenderedImage, reprojectedUv + vec2(0.0, -scene.imageSize.w)).xyz;\n\
+      vec3 minColor = min(currentFragment, min(nearColor0, min(nearColor1, min(nearColor2, nearColor3))));\n\
+      vec3 maxColor = max(currentFragment, max(nearColor0, max(nearColor1, max(nearColor2, nearColor3))));\n\
+      vec3 historyFragment = texture(uHistoryBuffer, reprojectedUv).xyz; \n\
+      historyFragment = clamp(historyFragment, minColor, maxColor);\n\
       color = vec4(mix(historyFragment,currentFragment, 1.0 / 8.0), 1.0);\n\
    }\n"
 };
-
 
 static const char* gPresentationVertexShaderSource = {
   "#version 440 core\n \
@@ -333,7 +328,6 @@ struct TXAA_sample_t : public application_t
 
   TXAA_sample_t()
     :application_t("Temporal Anti-Aliasing", 1200u, 800u, 3u),
-    currentPresentationDescriptorSet_(0u),
     camera_(vec3(0.0f, 2.5f, 8.5f), vec2(0.0f, 0.0f), 1.0f, 0.01f),
     bTemporalAA_(true),
     currentFrame_(0)
@@ -355,8 +349,7 @@ struct TXAA_sample_t : public application_t
     //Load full-screen quad and sphere meshes
     fullScreenQuad_ = sample_utils::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
-
-
+    
     //Create render targets 
     render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &gBufferRT0_);
@@ -372,8 +365,7 @@ struct TXAA_sample_t : public application_t
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &historyBuffer_[0]);
     render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &historyBuffer_[1]);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &historyBuffer_[1]);
-
-
+    
     //Create globals uniform buffer    
     sceneUniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
     computeInverse(sceneUniforms_.projectionMatrix_, sceneUniforms_.projectionInverseMatrix_);
@@ -411,8 +403,7 @@ struct TXAA_sample_t : public application_t
     pipelineDesc.vertexShader_ = presentationVertexShader_;
     pipelineDesc.fragmentShader_ = presentationFragmentShader_;
     bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
-
-
+    
     initializeOffscreenPass(context, size);
     buildPresentationCommandBuffers();
   }
@@ -460,8 +451,8 @@ struct TXAA_sample_t : public application_t
     material.uniforms_.F0_ = F0;
     material.uniforms_.roughness_ = roughness;
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
-      &material.uniforms_, sizeof(material_t::uniforms_t),
-      &allocator_, &material.ubo_);
+                            &material.uniforms_, sizeof(material_t::uniforms_t),
+                            &allocator_, &material.ubo_);
 
     render::descriptor_t descriptor = render::getDescriptor(material.ubo_);
     render::descriptorSetCreate(context, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_);
@@ -498,9 +489,8 @@ struct TXAA_sample_t : public application_t
 
     //Create uniform buffer and descriptor set
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
-      &light.uniforms_, sizeof(light_t::uniforms_t),
-      &allocator_, &light.ubo_);
-
+                            &light.uniforms_, sizeof(light_t::uniforms_t),
+                            &allocator_, &light.ubo_);
 
     render::descriptor_t descriptor = render::getDescriptor(light.ubo_);
     render::descriptorSetCreate(context, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &light.descriptorSet_);
@@ -521,13 +511,14 @@ struct TXAA_sample_t : public application_t
 
     //Update global matrices
     sceneUniforms_.prevViewProjection_ = sceneUniforms_.viewMatrix_ * sceneUniforms_.projectionMatrix_;
-    sceneUniforms_.viewMatrix_ = camera_.view_;
-    
+    sceneUniforms_.viewMatrix_ = camera_.view_;    
     sceneUniforms_.jitterMatrix_.setIdentity();
+
     if (bTemporalAA_)
     {
       static const vec2 sampleLocations[8] = { vec2(-7.0f,1.0f) / 8.0f, vec2(-5.0f,-5.0f)/ 8.0f, vec2(-1.0f,-3.0f) / 8.0f, vec2(3.0f, -7.0f) / 8.0f,
                                                vec2(5.0f,-1.0f) / 8.0f, vec2(7.0f, 7.0f) / 8.0f, vec2(1.0f,3.0f)   / 8.0f, vec2(-3.0f, 5.0f) / 8.0f };
+
       vec2 texelSize(sceneUniforms_.imageSize_.z, sceneUniforms_.imageSize_.w);
       vec2 Subsample = sampleLocations[currentFrame_ % 8] * texelSize;
       sceneUniforms_.jitterMatrix_.setTranslation(vec3(Subsample.x, Subsample.y, 0.0f));
@@ -583,16 +574,6 @@ struct TXAA_sample_t : public application_t
       case 'd':
       {
         camera_.Move(0.5f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_1:
-      case window::key_e::KEY_2:
-      case window::key_e::KEY_3:
-      case window::key_e::KEY_4:
-      {
-        currentPresentationDescriptorSet_ = key - window::key_e::KEY_1;
-        render::contextFlush(getRenderContext());
-        buildPresentationCommandBuffers();
         break;
       }
       case window::key_e::KEY_P:
@@ -659,7 +640,7 @@ struct TXAA_sample_t : public application_t
     render::shaderDestroy(context, &gBufferfragmentShader_);
     render::shaderDestroy(context, &lightVertexShader_);
     render::shaderDestroy(context, &lightFragmentShader_);
-    render::shaderDestroy(context, &accumFragmentShader_);
+    render::shaderDestroy(context, &txaaResolveFragmentShader_);
     render::shaderDestroy(context, &presentationVertexShader_);
     render::shaderDestroy(context, &presentationFragmentShader_);
 
@@ -676,7 +657,7 @@ struct TXAA_sample_t : public application_t
     render::descriptorSetDestroy(context, &presentationDescriptorSet_);
     render::descriptorSetDestroy(context, &copyDescriptorSet_[0]);
     render::descriptorSetDestroy(context, &copyDescriptorSet_[1]);
-    render::descriptorSetDestroy(context, &accumDescriptorSet_);
+    render::descriptorSetDestroy(context, &txaaResolveDescriptorSet_);
 
 
     render::descriptorSetLayoutDestroy(context, &globalsDescriptorSetLayout_);
@@ -685,7 +666,7 @@ struct TXAA_sample_t : public application_t
     render::descriptorSetLayoutDestroy(context, &lightDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &lightPassTexturesDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &presentationDescriptorSetLayout_);
-    render::descriptorSetLayoutDestroy(context, &accumDescriptorSetLayout_);
+    render::descriptorSetLayoutDestroy(context, &txaaResolveDescriptorSetLayout_);
 
     render::textureDestroy(context, &gBufferRT0_);
     render::textureDestroy(context, &gBufferRT1_);
@@ -704,21 +685,20 @@ struct TXAA_sample_t : public application_t
     render::gpuAllocatorDestroy(context, &allocator_);
     render::descriptorPoolDestroy(context, &descriptorPool_);
     vkDestroySemaphore(context.device_, renderComplete_, nullptr);
-    vkDestroySemaphore(context.device_, accumComplete_, nullptr);
+    vkDestroySemaphore(context.device_, txaaResolveComplete_, nullptr);
     vkDestroySemaphore(context.device_, copyComplete_, nullptr);
 
     render::textureDestroy(context, &historyBuffer_[0]);
     render::textureDestroy(context, &historyBuffer_[1]);
     render::frameBufferDestroy(context, &copyFrameBuffer_);
-    render::frameBufferDestroy(context, &accumFrameBuffer_);
+    render::frameBufferDestroy(context, &txaaResolveFrameBuffer_);
     render::renderPassDestroy(context, &copyRenderPass_);
-    render::renderPassDestroy(context, &accumRenderPass_);
-
-    
-    render::pipelineLayoutDestroy(context, &accumPipelineLayout_);
-    render::graphicsPipelineDestroy(context, &accumPipeline_);
+    render::renderPassDestroy(context, &txaaResolveRenderPass_);
+        
+    render::pipelineLayoutDestroy(context, &txaaResolvePipelineLayout_);
+    render::graphicsPipelineDestroy(context, &txaaResolvePipeline_);
     render::graphicsPipelineDestroy(context, &copyPipeline_);
-    render::commandBufferDestroy(context, &accumCommandBuffer_);
+    render::commandBufferDestroy(context, &txaaResolveCommandBuffer_);
     render::commandBufferDestroy(context, &copyCommandBuffer_);    
   }
 
@@ -730,7 +710,7 @@ private:
     VkSemaphoreCreateInfo semaphoreCreateInfo = {};
     semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &renderComplete_);
-    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &accumComplete_);
+    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &txaaResolveComplete_);
     vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &copyComplete_);
 
     //Create offscreen render pass (GBuffer + light subpasses)
@@ -893,9 +873,9 @@ private:
     lightPipelineDesc.fragmentShader_ = lightFragmentShader_;
     render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, sphereMesh_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
     
-    //Accum render pass 
+    //txaaResolve render pass 
     {
-      accumRenderPass_ = {};
+      txaaResolveRenderPass_ = {};
       render::render_pass_t::attachment_t attachment;
       attachment.format_ = historyBuffer_[0].format_;
       attachment.initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -904,10 +884,10 @@ private:
       attachment.loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
       attachment.samples_ = VK_SAMPLE_COUNT_1_BIT;
 
-      render::renderPassCreate(context, &attachment, 1u, nullptr, 0u, nullptr, 0u, &accumRenderPass_);
+      render::renderPassCreate(context, &attachment, 1u, nullptr, 0u, nullptr, 0u, &txaaResolveRenderPass_);
 
       VkImageView fbAttachment = historyBuffer_[0].imageView_;
-      render::frameBufferCreate(context, size.x, size.y, accumRenderPass_, &fbAttachment, &accumFrameBuffer_);
+      render::frameBufferCreate(context, size.x, size.y, txaaResolveRenderPass_, &fbAttachment, &txaaResolveFrameBuffer_);
 
 
       render::descriptor_binding_t bindings[4] = { { render::descriptor_t::type::UNIFORM_BUFFER, 0,  render::descriptor_t::stage::FRAGMENT },
@@ -915,9 +895,9 @@ private:
                                                    { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2, render::descriptor_t::stage::FRAGMENT },
                                                    { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 3, render::descriptor_t::stage::FRAGMENT } };
 
-      render::descriptorSetLayoutCreate(context, bindings, 4, &accumDescriptorSetLayout_);
-      render::pipelineLayoutCreate(context, &accumDescriptorSetLayout_, 1u, &accumPipelineLayout_);
-      render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gAccumFragmentShaderSource, &accumFragmentShader_);
+      render::descriptorSetLayoutCreate(context, bindings, 4, &txaaResolveDescriptorSetLayout_);
+      render::pipelineLayoutCreate(context, &txaaResolveDescriptorSetLayout_, 1u, &txaaResolvePipelineLayout_);
+      render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gTxaaResolveFragmentShaderSource, &txaaResolveFragmentShader_);
       render::graphics_pipeline_t::description_t pipelineDesc = {};
       pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
       pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
@@ -928,11 +908,11 @@ private:
       pipelineDesc.depthTestEnabled_ = false;
       pipelineDesc.depthWriteEnabled_ = false;
       pipelineDesc.vertexShader_ = presentationVertexShader_;
-      pipelineDesc.fragmentShader_ = accumFragmentShader_;
-      render::graphicsPipelineCreate(context, accumRenderPass_.handle_, 0u, fullScreenQuad_.vertexFormat_, accumPipelineLayout_, pipelineDesc, &accumPipeline_);
+      pipelineDesc.fragmentShader_ = txaaResolveFragmentShader_;
+      render::graphicsPipelineCreate(context, txaaResolveRenderPass_.handle_, 0u, fullScreenQuad_.vertexFormat_, txaaResolvePipelineLayout_, pipelineDesc, &txaaResolvePipeline_);
 
-      render::descriptor_t descriptors[4] = { render::getDescriptor(globalsUbo_), render::getDescriptor(finalImage_), render::getDescriptor(historyBuffer_[1]), render::getDescriptor(gBufferRT0_) };
-      render::descriptorSetCreate(context, descriptorPool_, accumDescriptorSetLayout_, descriptors, &accumDescriptorSet_);
+      render::descriptor_t descriptors[4] = { render::getDescriptor(globalsUbo_), render::getDescriptor(finalImage_), render::getDescriptor(historyBuffer_[1]), render::getDescriptor(gBufferRT1_) };
+      render::descriptorSetCreate(context, descriptorPool_, txaaResolveDescriptorSetLayout_, descriptors, &txaaResolveDescriptorSet_);
     }
 
     //Copy render pass
@@ -991,7 +971,6 @@ private:
 
     render::commandBufferBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
     {
-
       //GBuffer pass
       bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
@@ -1025,33 +1004,32 @@ private:
     render::commandBufferEnd(commandBuffer_);
     render::commandBufferSubmit(context, commandBuffer_);
 
-
-    if (accumCommandBuffer_.handle_ == VK_NULL_HANDLE)
+    //TXAA resolve pass
+    if (txaaResolveCommandBuffer_.handle_ == VK_NULL_HANDLE)
     {
       VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &renderComplete_, &waitStage, 1u, &accumComplete_, 1u, render::command_buffer_t::GRAPHICS, &accumCommandBuffer_);
+      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &renderComplete_, &waitStage, 1u, &txaaResolveComplete_, 1u, render::command_buffer_t::GRAPHICS, &txaaResolveCommandBuffer_);
     }
 
-    render::commandBufferBegin(context, &accumFrameBuffer_, clearValues, 1u, accumCommandBuffer_);
+    render::commandBufferBegin(context, &txaaResolveFrameBuffer_, clearValues, 1u, txaaResolveCommandBuffer_);
     {
       if (bTemporalAA_)
       {
-        bkk::render::graphicsPipelineBind(accumCommandBuffer_.handle_, accumPipeline_);
-        bkk::render::descriptorSetBindForGraphics(accumCommandBuffer_.handle_, accumPipelineLayout_, 0u, &accumDescriptorSet_, 1u);
-        mesh::draw(accumCommandBuffer_.handle_, fullScreenQuad_);
+        bkk::render::graphicsPipelineBind(txaaResolveCommandBuffer_.handle_, txaaResolvePipeline_);
+        bkk::render::descriptorSetBindForGraphics(txaaResolveCommandBuffer_.handle_, txaaResolvePipelineLayout_, 0u, &txaaResolveDescriptorSet_, 1u);
+        mesh::draw(txaaResolveCommandBuffer_.handle_, fullScreenQuad_);
       }
     }
-    render::commandBufferEnd(accumCommandBuffer_);
-    render::commandBufferSubmit(context, accumCommandBuffer_);
-
-
+    render::commandBufferEnd(txaaResolveCommandBuffer_);
+    render::commandBufferSubmit(context, txaaResolveCommandBuffer_);
+    
     if (copyCommandBuffer_.handle_ == VK_NULL_HANDLE)
     {
       VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &accumComplete_, &waitStage, 1u, &copyComplete_, 1u, render::command_buffer_t::GRAPHICS, &copyCommandBuffer_);
+      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &txaaResolveComplete_, &waitStage, 1u, &copyComplete_, 1u, render::command_buffer_t::GRAPHICS, &copyCommandBuffer_);
     }
 
-
+    //Copy resolved image to presentation image
     render::commandBufferBegin(context, &copyFrameBuffer_, clearValues, 1u, copyCommandBuffer_);
     {
         bkk::render::graphicsPipelineBind(copyCommandBuffer_.handle_, copyPipeline_);
@@ -1098,7 +1076,6 @@ private:
   render::descriptor_set_layout_t lightPassTexturesDescriptorSetLayout_;
   render::descriptor_set_layout_t presentationDescriptorSetLayout_;
 
-  uint32_t currentPresentationDescriptorSet_;
   render::descriptor_set_t presentationDescriptorSet_;
   render::descriptor_set_t globalsDescriptorSet_;
   render::descriptor_set_t lightPassTexturesDescriptorSet_;
@@ -1121,8 +1098,8 @@ private:
   render::gpu_buffer_t globalsUbo_;
 
   render::frame_buffer_t frameBuffer_;
-  render::texture_t gBufferRT0_;  //Albedo + Depth
-  render::texture_t gBufferRT1_;  //Normal + roughness
+  render::texture_t gBufferRT0_;  //Albedo + roughness
+  render::texture_t gBufferRT1_;  //Normal + Depth
   render::texture_t gBufferRT2_;  //F0 + metallic
   render::texture_t finalImage_;
   render::depth_stencil_buffer_t depthStencilBuffer_;
@@ -1133,25 +1110,25 @@ private:
   render::shader_t lightFragmentShader_;
   render::shader_t presentationVertexShader_;
   render::shader_t presentationFragmentShader_;
-  render::shader_t accumFragmentShader_;
+  render::shader_t txaaResolveFragmentShader_;
 
   render::texture_t historyBuffer_[2];
   render::frame_buffer_t copyFrameBuffer_;
-  render::frame_buffer_t accumFrameBuffer_;
+  render::frame_buffer_t txaaResolveFrameBuffer_;
   render::render_pass_t copyRenderPass_;
-  render::render_pass_t accumRenderPass_;
+  render::render_pass_t txaaResolveRenderPass_;
 
-  VkSemaphore accumComplete_;
+  VkSemaphore txaaResolveComplete_;
   VkSemaphore copyComplete_;
 
-  render::descriptor_set_layout_t accumDescriptorSetLayout_;
-  render::pipeline_layout_t accumPipelineLayout_;
-  render::graphics_pipeline_t accumPipeline_;
+  render::descriptor_set_layout_t txaaResolveDescriptorSetLayout_;
+  render::pipeline_layout_t txaaResolvePipelineLayout_;
+  render::graphics_pipeline_t txaaResolvePipeline_;
   render::graphics_pipeline_t copyPipeline_;
-  render::command_buffer_t accumCommandBuffer_;
+  render::command_buffer_t txaaResolveCommandBuffer_;
   render::command_buffer_t copyCommandBuffer_;
   render::descriptor_set_t copyDescriptorSet_[2];
-  render::descriptor_set_t accumDescriptorSet_;
+  render::descriptor_set_t txaaResolveDescriptorSet_;
 
   mesh::mesh_t sphereMesh_;
   mesh::mesh_t fullScreenQuad_;
@@ -1186,7 +1163,7 @@ int main()
   scene.addObject(teapot, gold, maths::computeTransform(maths::vec3(0.0f, -0.4f, 0.5f), maths::vec3(1.0f, 1.0f, 1.0f), maths::QUAT_UNIT));
   
   //Lights
-  scene.addLight(vec3(0.0f, 5.0f, 0.0f), 15.0f, vec3(1.0f, 1.0f, 1.0f));
+  scene.addLight(vec3(0.0f, 5.0f, 5.0f), 25.0f, vec3(1.0f, 1.0f, 1.0f));
   scene.loop();
   return 0;
 }

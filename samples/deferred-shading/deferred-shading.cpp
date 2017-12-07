@@ -75,8 +75,8 @@ static const char* gGeometryPassFragmentShaderSource = {
   layout(location = 0) in vec3 normalViewSpace;\n \
   void main(void)\n \
   {\n \
-    RT0 = vec4(material.albedo, gl_FragCoord.z);\n \
-    RT1 = vec4(normalize(normalViewSpace), material.roughness );\n \
+    RT0 = vec4(material.albedo, material.roughness);\n \
+    RT1 = vec4(normalize(normalViewSpace), gl_FragCoord.z );\n \
     RT2 = vec4(material.F0, material.metallic);\n \
   }\n"
 };
@@ -171,10 +171,10 @@ static const char* gLightPassFragmentShaderSource = {
     vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;\n\
     vec4 RT0Value = texture(RT0, uv);\n \
     vec3 albedo = RT0Value.xyz;\n\
-    float depth = RT0Value.w;\n\
+    float roughness = RT0Value.w;\n\
     vec4 RT1Value = texture(RT1, uv);\n \
     vec3 N = normalize(RT1Value.xyz); \n \
-    float roughness = RT1Value.w;\n\
+    float depth = RT1Value.w;\n\
     vec4 RT2Value = texture(RT2, uv);\n \
     vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );\n\
     vec3 L = normalize( lightPositionVS-positionVS );\n\
@@ -939,8 +939,8 @@ private:
   render::gpu_buffer_t globalsUbo_;
 
   render::frame_buffer_t frameBuffer_;
-  render::texture_t gBufferRT0_;  //Albedo + Depth
-  render::texture_t gBufferRT1_;  //Normal + roughness
+  render::texture_t gBufferRT0_;  //Albedo + roughness
+  render::texture_t gBufferRT1_;  //Normal + Depth
   render::texture_t gBufferRT2_;  //F0 + metallic
   render::texture_t finalImage_;
   render::depth_stencil_buffer_t depthStencilBuffer_;
