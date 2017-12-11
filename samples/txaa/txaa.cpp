@@ -43,7 +43,6 @@ static const char* gGeometryPassVertexShaderSource = {
   {\n \
   mat4 view;\n \
   mat4 projection;\n \
-  mat4 jitter;\n \
   mat4 projectionInverse;\n \
   mat4 prevViewProjection;\n \
   vec4 imageSize;\n \
@@ -56,7 +55,7 @@ static const char* gGeometryPassVertexShaderSource = {
   void main(void)\n \
   {\n \
     mat4 modelView = scene.view * model.transform;\n \
-    gl_Position =  scene.jitter * scene.projection * modelView * vec4(aPosition,1.0);\n \
+    gl_Position =  scene.projection * modelView * vec4(aPosition,1.0);\n \
     normalViewSpace = normalize((transpose( inverse( modelView) ) * vec4(aNormal,0.0)).xyz);\n \
   }\n"
 };
@@ -89,7 +88,6 @@ static const char* gLightPassVertexShaderSource = {
   {\n \
     mat4 view;\n \
     mat4 projection;\n \
-    mat4 jitter;\n \
     mat4 projectionInverse;\n \
     mat4 prevViewProjection;\n \
     vec4 imageSize;\n \
@@ -103,10 +101,10 @@ static const char* gLightPassVertexShaderSource = {
   layout(location = 0) out vec3 lightPositionVS;\n\
   void main(void)\n \
   {\n \
-    mat4 viewProjection =  scene.jitter * scene.projection * scene.view;\n \
+    mat4 viewProjection =  scene.projection * scene.view;\n \
     vec4 vertexPosition =  vec4( aPosition*light.radius+light.position.xyz, 1.0 );\n\
     gl_Position = viewProjection * vertexPosition;\n\
-    lightPositionVS = (scene.jitter * scene.view * light.position).xyz;\n\
+    lightPositionVS = (scene.view * light.position).xyz;\n\
   }\n"
 };
 
@@ -116,7 +114,6 @@ static const char* gLightPassFragmentShaderSource = {
   {\n \
     mat4 view;\n \
     mat4 projection;\n \
-    mat4 jitter;\n\
     mat4 projectionInverse;\n \
     mat4 prevViewProjection;\n \
     vec4 imageSize;\n \
@@ -213,7 +210,6 @@ static const char* gTxaaResolveFragmentShaderSource = {
   {\n \
     mat4 view;\n \
     mat4 projection;\n \
-    mat4 jitter;\n\
     mat4 projectionInverse;\n \
     mat4 prevViewProjection;\n \
     vec4 imageSize;\n \
@@ -320,7 +316,6 @@ struct TXAA_sample_t : public application_t
   {
     mat4 viewMatrix_;
     mat4 projectionMatrix_;
-    mat4 jitterMatrix_;
     mat4 projectionInverseMatrix_;
     mat4 prevViewProjection_;
     vec4 imageSize_;
@@ -499,8 +494,6 @@ struct TXAA_sample_t : public application_t
 
   void onResize(uint32_t width, uint32_t height)
   {
-    sceneUniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)width / (f32)height, 0.1f, 100.0f);
-    computeInverse(sceneUniforms_.projectionMatrix_, sceneUniforms_.projectionInverseMatrix_);
     buildPresentationCommandBuffers();
   }
 
@@ -509,19 +502,24 @@ struct TXAA_sample_t : public application_t
     render::context_t& context = getRenderContext();
     transformManager_.update();
 
+    uvec2 windowSize = getWindowSize();
+    sceneUniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)windowSize.x / (f32)windowSize.y, 0.1f, 100.0f);
+    computeInverse(sceneUniforms_.projectionMatrix_, sceneUniforms_.projectionInverseMatrix_);
+
     //Update global matrices
     sceneUniforms_.prevViewProjection_ = sceneUniforms_.viewMatrix_ * sceneUniforms_.projectionMatrix_;
-    sceneUniforms_.viewMatrix_ = camera_.view_;    
-    sceneUniforms_.jitterMatrix_.setIdentity();
-
+    sceneUniforms_.viewMatrix_ = camera_.view_;
+    
     if (bTemporalAA_)
     {
       static const vec2 sampleLocations[8] = { vec2(-7.0f,1.0f) / 8.0f, vec2(-5.0f,-5.0f)/ 8.0f, vec2(-1.0f,-3.0f) / 8.0f, vec2(3.0f, -7.0f) / 8.0f,
                                                vec2(5.0f,-1.0f) / 8.0f, vec2(7.0f, 7.0f) / 8.0f, vec2(1.0f,3.0f)   / 8.0f, vec2(-3.0f, 5.0f) / 8.0f };
 
       vec2 texelSize(sceneUniforms_.imageSize_.z, sceneUniforms_.imageSize_.w);
-      vec2 Subsample = sampleLocations[currentFrame_ % 8] * texelSize;
-      sceneUniforms_.jitterMatrix_.setTranslation(vec3(Subsample.x, Subsample.y, 0.0f));
+      vec2 subsampleOffset = sampleLocations[currentFrame_ % 8] * texelSize;
+
+      sceneUniforms_.projectionMatrix_[8] = subsampleOffset.x;
+      sceneUniforms_.projectionMatrix_[9] = subsampleOffset.y;
     }
     
     render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
