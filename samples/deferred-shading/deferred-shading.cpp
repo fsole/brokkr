@@ -989,7 +989,7 @@ int main()
   scene.addObject(quad, greenWall, maths::computeTransform(maths::vec3(5.0f, 4.0f, 0.0f), maths::vec3(4.0f, 5.0f, 5.0f), maths::quaternionFromAxisAngle(vec3(0, 0, 1), maths::degreeToRadian(-90.0f))));
   scene.addObject(quad, wall, maths::computeTransform(maths::vec3(0.0f, 4.0f, -5.0f), maths::vec3(5.0f, 5.0f, 4.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(-90.0f))));
   scene.addObject(quad, wall, maths::computeTransform(maths::vec3(0.0f, 8.0f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(180.0f))));
-  scene.addObject(bunny, bluePlastic, maths::computeTransform(maths::vec3(0.0f, -0.4f, 0.5f), maths::vec3(12.0f, 12.0f, 12.0f), maths::QUAT_UNIT));
+  scene.addObject(bunny, bluePlastic, maths::computeTransform(maths::vec3(0.0f, -0.4f, 0.5f), maths::vec3(0.1f, 0.1f, 0.1f), maths::QUAT_UNIT));
   scene.addObject(dragon, silver, maths::computeTransform(maths::vec3(2.5f, 1.2f, 4.0f), maths::vec3(1.7f, 1.7f, 1.7f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-10.0f))));
   scene.addObject(buddha, copper, maths::computeTransform(maths::vec3(-3.0f, 1.4f, 4.0f), maths::vec3(1.5f, 1.5f, 1.5f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-30.0f))));
   scene.addObject(armadillo, redPlastic, maths::computeTransform(maths::vec3(-3.0f, 1.1f, -1.5f), maths::vec3(1.0f, 1.0f, 1.0f), maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(180.0f))));

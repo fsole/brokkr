@@ -1015,6 +1015,7 @@ namespace bkk
 
       return result;
     }
+      
 
     template< typename T>
     inline Vector<T, 4> operator*(const Vector<T, 4>& v, const Matrix<T, 4, 4>& m)

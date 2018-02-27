@@ -55,103 +55,109 @@ static void CountNodes(aiNode* node, u32& total)
   }
 }
 
-static void TraverseScene(const aiNode* pNode, std::map<std::string, u32>& boneNameToIndex, const aiMesh* mesh, skeleton_t* skeleton, u32& nodeIndex, u32& boneIndex, s32 parentIndex)
+static void TraverseScene(const aiNode* pNode, std::map<std::string, bkk::handle_t>& nodeNameToHandle,  const aiMesh* mesh, skeleton_t* skeleton, u32& boneIndex, bkk::handle_t parentHandle)
 {
   std::string nodeName = pNode->mName.data;
-  s32 bone = -1;
+
+  aiMatrix4x4 localTransform = pNode->mTransformation;
+  localTransform.Transpose();
+  bkk::maths::mat4 tx = (f32*)&localTransform.a1;
+  bkk::handle_t nodeHandle = skeleton->txManager_.createTransform(tx);
+  nodeNameToHandle[nodeName] = nodeHandle;
+
+
   for (uint32_t i = 0; i < mesh->mNumBones; i++)
   {
     std::string boneName(mesh->mBones[i]->mName.data);
     if (boneName == nodeName)
     {
-      bone = i;
+      skeleton->bones_[boneIndex] = nodeHandle;
+      skeleton->offsets_[boneIndex] = (f32*)&mesh->mBones[i]->mOffsetMatrix.Transpose().a1;
+      boneIndex++;
       break;
     }
   }
 
-  if (bone != -1)
-  {
-    //Node is a bone
-    skeleton->offset_[nodeIndex] = (f32*)&mesh->mBones[bone]->mOffsetMatrix.Transpose().a1;
-    skeleton->isBone_[nodeIndex] = true;
-    boneNameToIndex[nodeName] = boneIndex;
-    ++boneIndex;
-  }
-  else
-  {
-    //Node is not a bone. Store its local transformation in the offset vector
-    aiMatrix4x4 localTransform = pNode->mTransformation;
-    localTransform.Transpose();
-    skeleton->offset_[nodeIndex] = (f32*)&localTransform.a1;
-    skeleton->isBone_[nodeIndex] = false;
-  }
-
-  skeleton->parent_[nodeIndex] = parentIndex;
-  parentIndex = nodeIndex;
-  nodeIndex++;
+  skeleton->txManager_.setParent(nodeHandle, parentHandle);
 
   //Recurse on the children
   for (u32 i(0); i<pNode->mNumChildren; ++i)
   {
-    TraverseScene(pNode->mChildren[i], boneNameToIndex, mesh, skeleton, nodeIndex, boneIndex, parentIndex);
+    TraverseScene(pNode->mChildren[i], nodeNameToHandle, mesh, skeleton, boneIndex, nodeHandle);
   }
 }
 
-static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std::string, u32>& boneNameToIndex, skeleton_t* skeleton)
+static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std::string, bkk::handle_t>& nodeNameToHandle,  skeleton_t* skeleton)
 {
   u32 nodeCount(0);
   CountNodes(scene->mRootNode, nodeCount);
 
-  skeleton->parent_ = new s32[nodeCount];
-  skeleton->offset_ = new maths::mat4[nodeCount];
-  skeleton->isBone_ = new bool[nodeCount];
+  skeleton->bones_ = new bkk::handle_t[mesh->mNumBones];
+  skeleton->offsets_ = new maths::mat4[mesh->mNumBones];
+  
   aiMatrix4x4 globalInverse = scene->mRootNode->mTransformation;
   globalInverse.Inverse();
   skeleton->globalInverseTransform_ = (f32*)&globalInverse.Transpose().a1;
   skeleton->boneCount_ = mesh->mNumBones;
   skeleton->nodeCount_ = nodeCount;
 
-  u32 nodeIndex = 0;
   u32 boneIndex = 0;
-  TraverseScene(scene->mRootNode, boneNameToIndex, mesh, skeleton, nodeIndex, boneIndex, -1);
+  TraverseScene(scene->mRootNode, nodeNameToHandle, mesh, skeleton, boneIndex, bkk::INVALID_ID);
+
+  skeleton->txManager_.update();
 }
 
-static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<std::string, u32>& boneNameToIndex, u32 boneCount, skeletal_animation_t* animation)
+static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<std::string, bkk::handle_t>& nodeNameToIndex, u32 boneCount, skeletal_animation_t* animation)
 {
   const aiAnimation* pAnimation = scene->mAnimations[animationIndex];
-  u32 frameCount = 0;
-  if (pAnimation)
+  if (pAnimation && pAnimation->mNumChannels > 0 )
   {
+    //Warning : Num frames from position keys in first channel...Might have to take max from all channels instead
+    animation->frameCount_ = pAnimation->mChannels[0]->mNumPositionKeys;
+    animation->nodeCount_ = pAnimation->mNumChannels;
+    animation->data_ = new bone_transform_t[animation->frameCount_*animation->nodeCount_];
+    animation->nodes_ = new bkk::handle_t[animation->nodeCount_];
+    animation->duration_ = ( pAnimation->mDuration / pAnimation->mTicksPerSecond ) * 1000.0f;
+
     for (u32 channel(0); channel<pAnimation->mNumChannels; ++channel)
     {
       std::string nodeName(pAnimation->mChannels[channel]->mNodeName.data);
-      std::map<std::string, u32>::iterator it = boneNameToIndex.find(nodeName);
-      if (it != boneNameToIndex.end())
+      std::map<std::string, bkk::handle_t>::iterator it = nodeNameToIndex.find(nodeName);
+      
+      animation->nodes_[channel] = it->second;
+        
+      //Read animation data for the bone
+      vec3 position, scale;
+      quat orientation;
+      for (u32 frame = 0; frame<animation->frameCount_; ++frame)
       {
-        if (frameCount == 0)
-        {
-          frameCount = pAnimation->mChannels[channel]->mNumPositionKeys;
-          animation->data_ = new bone_transform_t[frameCount*boneCount];
-          animation->frameCount_ = frameCount;
+        size_t index = frame*animation->nodeCount_ + channel;
+          
+        if ( frame < pAnimation->mChannels[channel]->mNumPositionKeys )
+        { 
+            position = vec3(pAnimation->mChannels[channel]->mPositionKeys[frame].mValue.x,
+                            pAnimation->mChannels[channel]->mPositionKeys[frame].mValue.y,
+                            pAnimation->mChannels[channel]->mPositionKeys[frame].mValue.z);
         }
+        animation->data_[index].position_ = position;
 
-        //Read animation data for the bone
-        for (u32 frame = 0; frame<frameCount; ++frame)
+        if (frame < pAnimation->mChannels[channel]->mNumScalingKeys )
         {
-          size_t index = frame*boneCount + it->second;
-          animation->data_[index].position_ = vec3(pAnimation->mChannels[channel]->mPositionKeys[frame].mValue.x,
-            pAnimation->mChannels[channel]->mPositionKeys[frame].mValue.y,
-            pAnimation->mChannels[channel]->mPositionKeys[frame].mValue.z);
 
-          animation->data_[index].scale_ = vec3(pAnimation->mChannels[channel]->mScalingKeys[frame].mValue.x,
-            pAnimation->mChannels[channel]->mScalingKeys[frame].mValue.y,
-            pAnimation->mChannels[channel]->mScalingKeys[frame].mValue.z);
-
-          animation->data_[index].orientation_ = quat(pAnimation->mChannels[channel]->mRotationKeys[frame].mValue.x,
-            pAnimation->mChannels[channel]->mRotationKeys[frame].mValue.y,
-            pAnimation->mChannels[channel]->mRotationKeys[frame].mValue.z,
-            pAnimation->mChannels[channel]->mRotationKeys[frame].mValue.w);
+          scale = vec3(pAnimation->mChannels[channel]->mScalingKeys[frame].mValue.x,
+                        pAnimation->mChannels[channel]->mScalingKeys[frame].mValue.y,
+                        pAnimation->mChannels[channel]->mScalingKeys[frame].mValue.z);
         }
+        animation->data_[index].scale_ = scale;
+
+        if (frame < pAnimation->mChannels[channel]->mNumRotationKeys )
+        {
+          orientation = quat(pAnimation->mChannels[channel]->mRotationKeys[frame].mValue.x,
+                              pAnimation->mChannels[channel]->mRotationKeys[frame].mValue.y,
+                              pAnimation->mChannels[channel]->mRotationKeys[frame].mValue.z,
+                              pAnimation->mChannels[channel]->mRotationKeys[frame].mValue.w);
+        }
+        animation->data_[index].orientation_ = orientation;
       }
     }
   }
@@ -215,7 +221,6 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
     ++attribute;
     attributeOffset += 2;
-
   }
 
   u32 boneWeightOffset = attributeOffset;
@@ -241,41 +246,36 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   for (u32 vertex(0); vertex<vertexCount; ++vertex)
   {
     aabbMin = vec3(maths::minValue(aimesh->mVertices[vertex].x, aabbMin.x),
-      maths::minValue(aimesh->mVertices[vertex].y, aabbMin.y),
-      maths::minValue(aimesh->mVertices[vertex].z, aabbMin.z));
+                   maths::minValue(aimesh->mVertices[vertex].y, aabbMin.y),
+                   maths::minValue(aimesh->mVertices[vertex].z, aabbMin.z));
 
     aabbMax = vec3(maths::maxValue(aimesh->mVertices[vertex].x, aabbMax.x),
-      maths::maxValue(aimesh->mVertices[vertex].y, aabbMax.y),
-      maths::maxValue(aimesh->mVertices[vertex].z, aabbMax.z));
+                   maths::maxValue(aimesh->mVertices[vertex].y, aabbMax.y),
+                   maths::maxValue(aimesh->mVertices[vertex].z, aabbMax.z));
 
     vertexData[index++] = aimesh->mVertices[vertex].x;
     vertexData[index++] = aimesh->mVertices[vertex].y;
     vertexData[index++] = aimesh->mVertices[vertex].z;
 
-    if(importNormals)
+    if (importNormals)
     {
       if (bHasNormal)
       {
-        vertexData[index++] = aimesh->mNormals[vertex].x;
-        vertexData[index++] = aimesh->mNormals[vertex].y;
-        vertexData[index++] = aimesh->mNormals[vertex].z;
+        vertexData[index] = aimesh->mNormals[vertex].x;
+        vertexData[index+1] = aimesh->mNormals[vertex].y;
+        vertexData[index+2] = aimesh->mNormals[vertex].z;
       }
-      else
-      {
-        index += 3;
-      }
+      index += 3;
     }
+
     if (importUV)
     {
-      if(bHasUV)
+      if (bHasUV)
       {
-        vertexData[index++] = aimesh->mTextureCoords[0][vertex].x;
-        vertexData[index++] = aimesh->mTextureCoords[0][vertex].y;
-      }
-      else
-      {
-        index += 2;
-      }
+        vertexData[index] = aimesh->mTextureCoords[0][vertex].x;
+        vertexData[index+1] = aimesh->mTextureCoords[0][vertex].y;
+      }       
+      index += 2;
     }
 
     if (boneCount > 0 && importBoneWeights)
@@ -294,26 +294,35 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     }
   }
 
-  //Skeletal animations
+  //Load skeleton
   mesh->skeleton_ = nullptr;
   mesh->animations_ = nullptr;
-  if (importBoneWeights)
+  if (boneCount > 0 && importBoneWeights)
   {
-    std::map<std::string, u32> boneNameToIndex;
+    std::map<std::string, bkk::handle_t> nodeNameToHandle;
     if (boneCount > 0)
     {
       mesh->skeleton_ = new skeleton_t;
-      LoadSkeleton(scene, aimesh, boneNameToIndex, mesh->skeleton_);
+      LoadSkeleton(scene, aimesh, nodeNameToHandle, mesh->skeleton_);
     }
 
     //Read weights and bone indices for each vertex
     for (uint32_t i = 0; i < boneCount; i++)
     {
       std::string boneName(aimesh->mBones[i]->mName.data);
-      std::map<std::string, u32>::iterator it;
-      it = boneNameToIndex.find(boneName);
-      if (it != boneNameToIndex.end())
+      std::map<std::string, bkk::handle_t>::iterator it;
+      it = nodeNameToHandle.find(boneName);
+      if (it != nodeNameToHandle.end())
       {
+        u32 boneIndex = 0;
+        for (; boneIndex < mesh->skeleton_->boneCount_; ++boneIndex)
+        {
+          if (it->second.index_ == mesh->skeleton_->bones_[boneIndex].index_ )
+          {
+            break;
+          }
+        }
+
         u32 vertexCount = aimesh->mBones[i]->mNumWeights;
         for (u32 vertex(0); vertex < vertexCount; ++vertex)
         {
@@ -328,19 +337,19 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
             vertexBoneIdOffset++;
           }
           vertexData[vertexWeightOffset] = weight;
-          vertexData[vertexBoneIdOffset] = (f32)it->second;
+          vertexData[vertexBoneIdOffset] = (f32)boneIndex;
         }
       }
     }
 
-    //Load animations
+    //Load skeletal animations
     if (scene->HasAnimations())
     {
       mesh->animationCount_ = scene->mNumAnimations;
       mesh->animations_ = new skeletal_animation_t[mesh->animationCount_];
       for (u32 i(0); i < mesh->animationCount_; ++i)
       {
-        LoadAnimation(scene, i, boneNameToIndex, boneCount, &mesh->animations_[i]);
+        LoadAnimation(scene, i, nodeNameToHandle, boneCount, &mesh->animations_[i]);
       }
     }
   }
@@ -376,12 +385,12 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
 **********************/
 
 
-void mesh::create( const render::context_t& context,
-                   const uint32_t* indexData, uint32_t indexDataSize,
-                   const void* vertexData, size_t vertexDataSize,
-                   render::vertex_attribute_t* attribute, uint32_t attributeCount,
-                   render::gpu_memory_allocator_t* allocator, 
-                   mesh_t* mesh)
+void mesh::create(const render::context_t& context,
+  const uint32_t* indexData, uint32_t indexDataSize,
+  const void* vertexData, size_t vertexDataSize,
+  render::vertex_attribute_t* attribute, uint32_t attributeCount,
+  render::gpu_memory_allocator_t* allocator,
+  mesh_t* mesh)
 {
   //Create vertex format
   render::vertexFormatCreate(attribute, attributeCount, &mesh->vertexFormat_);
@@ -394,13 +403,13 @@ void mesh::create( const render::context_t& context,
 }
 
 
-void mesh::createFromFile( const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t submesh, mesh_t* mesh)
+void mesh::createFromFile(const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t submesh, mesh_t* mesh)
 {
   Assimp::Importer Importer;
   int flags = aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_LimitBoneWeights | aiProcess_GenSmoothNormals;
-  const struct aiScene* scene = Importer.ReadFile(file,flags);
-  assert( scene && scene->mNumMeshes > submesh );
-  
+  const struct aiScene* scene = Importer.ReadFile(file, flags);
+  assert(scene && scene->mNumMeshes > submesh);
+
   loadMesh(context, scene, submesh, mesh, exportFlags, allocator);
 }
 
@@ -412,10 +421,10 @@ uint32_t mesh::createFromFile(const render::context_t& context, const char* file
   assert(scene && scene->mNumMeshes > 0);
 
   uint32_t meshCount = scene->mNumMeshes;
-  *meshes = new mesh_t[meshCount];  
-  for( uint32_t i(0); i<meshCount; ++i )
+  *meshes = new mesh_t[meshCount];
+  for (uint32_t i(0); i<meshCount; ++i)
   {
-    loadMesh(context, scene, i, *meshes+i, exportFlags, allocator);
+    loadMesh(context, scene, i, *meshes + i, exportFlags, allocator);
   }
 
   return meshCount;
@@ -437,7 +446,7 @@ uint32_t mesh::loadMaterials(const char* file, uint32_t** materialIndices, mater
 
   uint32_t materialCount = scene->mNumMaterials;
   *materials = new material_t[materialCount];
-  
+
   aiColor3D color;
   aiString path;
   for (uint32_t i(0); i < materialCount; ++i)
@@ -458,22 +467,21 @@ uint32_t mesh::loadMaterials(const char* file, uint32_t** materialIndices, mater
   return materialCount;
 }
 
-void mesh::destroy( const render::context_t& context, mesh_t* mesh, render::gpu_memory_allocator_t* allocator )
+void mesh::destroy(const render::context_t& context, mesh_t* mesh, render::gpu_memory_allocator_t* allocator)
 {
   render::gpuBufferDestroy(context, allocator, &mesh->indexBuffer_);
   render::gpuBufferDestroy(context, allocator, &mesh->vertexBuffer_);
 
-  if( mesh->skeleton_ )
+  if (mesh->skeleton_)
   {
-    delete[] mesh->skeleton_->parent_;
-    delete[] mesh->skeleton_->offset_;
-    delete[] mesh->skeleton_->isBone_;
+    delete[] mesh->skeleton_->offsets_;
+    delete[] mesh->skeleton_->bones_;
     delete mesh->skeleton_;
   }
 
-  if( mesh->animationCount_ > 0 )
+  if (mesh->animationCount_ > 0)
   {
-    for( u32 i(0); i<mesh->animationCount_; ++i )
+    for (u32 i(0); i<mesh->animationCount_; ++i)
     {
       delete[] mesh->animations_[i].data_;
     }
@@ -481,17 +489,17 @@ void mesh::destroy( const render::context_t& context, mesh_t* mesh, render::gpu_
     delete mesh->animations_;
   }
 
-  vertexFormatDestroy( &mesh->vertexFormat_ );
+  vertexFormatDestroy(&mesh->vertexFormat_);
 }
 
-void mesh::draw( VkCommandBuffer commandBuffer, const mesh_t& mesh )
+void mesh::draw(VkCommandBuffer commandBuffer, const mesh_t& mesh)
 {
   vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
 
   uint32_t attributeCount = mesh.vertexFormat_.attributeCount_;
   std::vector<VkBuffer> buffers(attributeCount);
   std::vector<VkDeviceSize> offsets(attributeCount);
-  for( uint32_t i(0); i<attributeCount; ++i )
+  for (uint32_t i(0); i<attributeCount; ++i)
   {
     buffers[i] = mesh.vertexBuffer_.handle_;
     offsets[i] = 0u;
@@ -502,94 +510,81 @@ void mesh::draw( VkCommandBuffer commandBuffer, const mesh_t& mesh )
 }
 
 
-void mesh::animatorCreate( const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float durationInMs, skeletal_animator_t* animator )
+void mesh::animatorCreate(const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float speed, skeletal_animator_t* animator)
 {
-  // @TODO
   animator->cursor_ = 0.0f;
-  animator->duration_ = durationInMs;
+  animator->speed_ = speed;
 
   animator->skeleton_ = mesh.skeleton_;
   animator->animation_ = &mesh.animations_[animationIndex];
 
-  animator->localPose_ = new maths::mat4[mesh.skeleton_->nodeCount_];
-  animator->globalPose_ = new maths::mat4[mesh.skeleton_->nodeCount_];
   animator->boneTransform_ = new maths::mat4[mesh.skeleton_->boneCount_];
 
   //Create an uninitialized uniform buffer
-  render::gpuBufferCreate( context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
-                           render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
-                           nullptr, sizeof(maths::mat4) * mesh.skeleton_->boneCount_,
-                           nullptr, &animator->buffer_ );
+  render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
+    nullptr, sizeof(maths::mat4) * mesh.skeleton_->boneCount_,
+    nullptr, &animator->buffer_);
 }
 
 
-void mesh::animatorUpdate(const render::context_t& context, f32 deltaTime, skeletal_animator_t* animator )
+void mesh::animatorUpdate(const render::context_t& context, f32 deltaTime, skeletal_animator_t* animator)
 {
-  animator->cursor_ += deltaTime / animator->duration_;
+  animator->cursor_ += ( deltaTime / animator->animation_->duration_ ) * animator->speed_;
 
-  if(animator->cursor_ > 1.0f )
+  if (animator->cursor_ > 1.0f)
   {
     animator->cursor_ -= 1.0f;
   }
+ 
+  if (animator->cursor_ < 0.0f)
+  {
+    animator->cursor_ = 1.0 - animator->cursor_;
+  }
 
-  
   //Find out frames between which we need to interpolate
-  u32 frameCount = animator->animation_->frameCount_ - 1 ;
-  u32 frame0 = (u32)floor( (frameCount) * animator->cursor_ );
-  u32 frame1 = maths::minValue( frame0 + 1, frameCount );
+  u32 frameCount = animator->animation_->frameCount_ - 1;
+  u32 frame0 = (u32)floor((frameCount)* animator->cursor_);
+  u32 frame1 = maths::minValue(frame0 + 1, frameCount);
 
   //Local cursor between frames
-  f32 t = ( animator->cursor_ - ( (f32)frame0 / (f32)frameCount ) ) / ( ((f32)frame1 / (f32)frameCount ) - ( (f32)frame0 / (f32)frameCount ) );
+  f32 t = (animator->cursor_ - ((f32)frame0 / (f32)frameCount)) / (((f32)frame1 / (f32)frameCount) - ((f32)frame0 / (f32)frameCount));
 
   //Pointers to animation data
-  bone_transform_t* transform0 = &animator->animation_->data_[ frame0 * animator->skeleton_->boneCount_];
-  bone_transform_t* transform1 = &animator->animation_->data_[ frame1 * animator->skeleton_->boneCount_];
+  bone_transform_t* transform0 = &animator->animation_->data_[frame0 * animator->animation_->nodeCount_];
+  bone_transform_t* transform1 = &animator->animation_->data_[frame1 * animator->animation_->nodeCount_];
 
-  //Compute new bone transforms
-  maths::mat4* localPose = animator->localPose_;
-  maths::mat4* globalPose = animator->globalPose_;
-  maths::mat4* boneTransform = animator->boneTransform_;
-  for( u32 i(0); i<animator->skeleton_->nodeCount_; ++i )
+  //Compute new local transforms
+  for (u32 i(0); i<animator->animation_->nodeCount_; ++i)
   {
-    bool isBone = animator->skeleton_->isBone_[i];
-    if( isBone )
-    {
-      //Compute new local transform of the bone
-      localPose[i] = maths::computeTransform( maths::lerp( transform0->position_, transform1->position_, t ),
-                                              maths::lerp( transform0->scale_, transform1->scale_, t ),
-                                              maths::slerp( transform0->orientation_, transform1->orientation_, t ) );
+    //Compute new local transform of the bone
+    mat4 localPose = maths::computeTransform(maths::lerp(transform0->position_, transform1->position_, t),
+                                             maths::lerp(transform0->scale_, transform1->scale_, t),
+                                             maths::slerp(transform0->orientation_, transform1->orientation_, t));
 
-      //Increment pointers to read next bone's animation data
-      transform0++;
-      transform1++;
-    }
-    else
-    {
-      //If node is not a bone its local transform is in the offset_ vector of the skeleton
-      localPose[i] = animator->skeleton_->offset_[i];
-    }
+    //Increment pointers to read next bone's animation data
+    transform0++;
+    transform1++;
 
-    //Compute global transform
-    s32 parent = animator->skeleton_->parent_[i];
-    globalPose[i] = (parent > -1 ) ? localPose[i] * globalPose[parent] : localPose[i];
+    animator->skeleton_->txManager_.setTransform(animator->animation_->nodes_[i], localPose);
+  }
 
-    //Compute final bone transform
-    if( isBone )
-    {
-      *boneTransform = animator->skeleton_->offset_[i] * globalPose[i] * animator->skeleton_->globalInverseTransform_;
-      boneTransform++;
-    }
+  //Update global transforms
+  animator->skeleton_->txManager_.update();
+
+  //Copmute final transformation for each bone
+  for (u32 i = 0; i < animator->skeleton_->boneCount_; ++i)
+  {
+    maths::mat4 global = *(animator->skeleton_->txManager_.getWorldMatrix(animator->skeleton_->bones_[i]));
+    animator->boneTransform_[i] = animator->skeleton_->offsets_[i] * global *animator->skeleton_->globalInverseTransform_;
   }
 
   //Upload bone transforms to the uniform buffer
-  render::gpuBufferUpdate( context, (void*)animator->boneTransform_, 0u, sizeof(maths::mat4)*animator->skeleton_->boneCount_, &animator->buffer_ );
+  render::gpuBufferUpdate(context, (void*)animator->boneTransform_, 0u, sizeof(maths::mat4)*animator->skeleton_->boneCount_, &animator->buffer_);
 }
 
-void mesh::animatorDestroy( const render::context_t& context, skeletal_animator_t* animator )
+void mesh::animatorDestroy(const render::context_t& context, skeletal_animator_t* animator)
 {
-    delete[] animator->localPose_;
-    delete[] animator->globalPose_;          //Final transformation of each node
-    delete[] animator->boneTransform_;
-
-    render::gpuBufferDestroy( context, nullptr, &animator->buffer_ );
+  delete[] animator->boneTransform_;
+  render::gpuBufferDestroy(context, nullptr, &animator->buffer_);
 }

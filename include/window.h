@@ -145,9 +145,16 @@ namespace bkk
 		struct event_mouse_button_t : public event_t
 		{
 			event_mouse_button_t() :event_t(EVENT_MOUSE_BUTTON) {};
+      event_mouse_button_t(mouse_button_e button, uint32_t x, uint32_t y, bool pressed ) 
+      :event_t(EVENT_MOUSE_BUTTON),
+      button_(button),
+      x_(x),
+      y_(y),
+      pressed_(pressed){};
+
+      mouse_button_e button_;
 			uint32_t x_;
-			uint32_t y_;
-			mouse_button_e button_;
+			uint32_t y_;			
 			bool pressed_;
 		};
 

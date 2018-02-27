@@ -370,10 +370,10 @@ static const char* gShadowPassVertexShaderSource = {
 
 static const char* gShadowPassFragmentShaderSource = {
   "#version 440 core\n \
-  layout(location = 0) out float color;\n \
+  layout(location = 0) out vec4 color;\n \
   void main(void)\n \
   {\n \
-    color = gl_FragCoord.z;\n \
+    color = vec4(gl_FragCoord.z,0,0,0);\n \
   }\n"
 };
 
@@ -535,7 +535,7 @@ public:
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
 
     //Shadow map
-    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMap_);
+    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMap_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &shadowMap_);
     render::depthStencilBufferCreate(context, shadowMapSize_, shadowMapSize_, &shadowPassDepthStencilBuffer);
 

@@ -54,6 +54,7 @@ static const char* gVertexShaderSource = {
   {\n\
     vec3 normalViewSpace;\n \
     vec3 lightViewSpace;\n \
+    vec2 uv;\n \
   }output_;\n\
   void main(void)\n \
   {\n \
@@ -62,7 +63,8 @@ static const char* gVertexShaderSource = {
                      bonesTx.bones[int(aBonesId[2])] * aBonesWeight[2] +	\n\
                      bonesTx.bones[int(aBonesId[3])] * aBonesWeight[3];   \n\
     output_.normalViewSpace = normalize((mat4(inverse(transpose(uniforms.modelView * transform))) * vec4(aNormal,0.0)).xyz);\n \
-    output_.lightViewSpace = normalize((uniforms.modelView * vec4(normalize(vec3(-0.5,0.5,1.0)),0.0)).xyz);\n \
+    output_.lightViewSpace = normalize((uniforms.modelView * vec4(normalize(vec3(0.0,0.0,1.0)),0.0)).xyz);\n \
+    output_.uv = aTexCoord;\n \
     gl_Position = uniforms.modelViewProjection * transform * vec4(aPosition,1.0); \n \
   }\n"
 };
@@ -73,12 +75,14 @@ static const char* gFragmentShaderSource = {
   {\n\
     vec3 normalViewSpace;\n \
     vec3 lightViewSpace;\n \
+    vec2 uv; \n \
   }input_;\n\
+  layout (binding = 2) uniform sampler2D uTexture;\n \
   layout(location = 0) out vec4 color;\n \
   void main(void)\n \
   {\n \
     float diffuse = max(dot(normalize(input_.lightViewSpace), normalize(input_.normalViewSpace)), 0.0);\n \
-    color = vec4(vec3(diffuse), 1.0);\n \
+    color = texture( uTexture,input_.uv) * diffuse;\n \
   }\n"
 };
 
@@ -88,9 +92,9 @@ class skinning_sample_t : public application_t
 public:
   skinning_sample_t()
   :application_t("Skinning", 600u, 600u, 3u),
-   camera_(35.0f, vec2(0.8f, 0.0f), 0.01f),
+   camera_(25.0f, vec2(0.8f, 0.0f), 0.01f),
    projectionTx_( computePerspectiveProjectionMatrix(1.5f, 1.0f, 1.0f, 1000.0f) ),
-   modelTx_( computeTransform(VEC3_ZERO, vec3(0.01f, 0.01f, 0.01f), quaternionFromAxisAngle(vec3(1.0f, 0.0f, 0.0f), degreeToRadian(90.0f))))
+   modelTx_( computeTransform(vec3(0.0,-17.0,0.0), VEC3_ONE, QUAT_UNIT) )
   {
     render::context_t& context = getRenderContext();
             
@@ -104,19 +108,34 @@ public:
                             nullptr, &globalUnifomBuffer_);
 
     //Create geometry and animator    
-    mesh::createFromFile(context, "../resources/goblin.dae", mesh::EXPORT_ALL, nullptr, 0u, &mesh_);
-    mesh::animatorCreate(context, mesh_, 0u, 5000.0f, &animator_);
+    mesh::createFromFile(context, "../resources/mannequin/mannequin.fbx", mesh::EXPORT_ALL, nullptr, 0u, &mesh_);
+    mesh::animatorCreate(context, mesh_, 0u, 1.0f, &animator_);
+
+    //Load texture
+    bkk::image::image2D_t image = {};
+    if (!bkk::image::load("../resources/mannequin/diffuse.jpg", false, &image))
+    {
+      printf("Error loading texture\n");
+    }
+    else
+    {
+      //Create the texture
+      bkk::render::texture2DCreate(context, &image, 1, bkk::render::texture_sampler_t(), &texture_);
+      bkk::image::unload(&image);
+    }
 
     //Create pipeline and descriptor set layouts
-    render::descriptor_binding_t bindings[2] = { render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 0u, render::descriptor_t::stage::VERTEX },
-                                                 render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1u, render::descriptor_t::stage::VERTEX } };
+    render::descriptor_binding_t bindings[3] = { render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 0u, render::descriptor_t::stage::VERTEX },
+                                                 render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1u, render::descriptor_t::stage::VERTEX },
+                                                 render::descriptor_binding_t{ render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2u, render::descriptor_t::stage::FRAGMENT} 
+                                               };
 
-    render::descriptorSetLayoutCreate(context, bindings, 2u, &descriptorSetLayout_);
+    render::descriptorSetLayoutCreate(context, bindings, 3u, &descriptorSetLayout_);
     render::pipelineLayoutCreate(context, &descriptorSetLayout_, 1u, &pipelineLayout_);
 
     //Create descriptor set
-    render::descriptorPoolCreate(context, 1u, 0u, 2u, 0u, 0u, &descriptorPool_);
-    render::descriptor_t descriptors[2] = { render::getDescriptor(globalUnifomBuffer_), render::getDescriptor(animator_.buffer_) };
+    render::descriptorPoolCreate(context, 1u, 1u, 2u, 0u, 0u, &descriptorPool_);
+    render::descriptor_t descriptors[3] = { render::getDescriptor(globalUnifomBuffer_), render::getDescriptor(animator_.buffer_), render::getDescriptor( texture_) };
     render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, descriptors, &descriptorSet_);
 
     //Create pipeline
@@ -239,6 +258,7 @@ private:
 
   mesh::mesh_t mesh_;
   mesh::skeletal_animator_t animator_;  
+  render::texture_t texture_;
 
   render::pipeline_layout_t pipelineLayout_;
   render::descriptor_set_layout_t descriptorSetLayout_;

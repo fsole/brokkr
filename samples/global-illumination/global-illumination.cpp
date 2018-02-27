@@ -662,24 +662,24 @@ public:
     fullScreenQuad_ = sample_utils::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
-    //Create globals uniform buffer
+    //Initialize camera transformation
     camera_.position_ = vec3(-1.1f, 0.6f, -0.1f);
     camera_.angle_ = vec2(0.2f, 1.57f);
     camera_.Update();
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.01f, 10.0f);
-    computeInverse(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
+    
+    //Create globals uniform buffer
     uniforms_.worldToViewMatrix_ = camera_.view_;
     uniforms_.viewToWorldMatrix_ = camera_.tx_;
     uniforms_.imageSize_ = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
+    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.01f, 10.0f);
+    computeInverse(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER, (void*)&uniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
-
 
     //Create global descriptor set (Scene uniforms)   
     render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
     render::descriptorSetLayoutCreate(context, &binding, 1u, &globalsDescriptorSetLayout_);
     render::descriptor_t descriptor = render::getDescriptor(globalsUbo_);
     render::descriptorSetCreate(context, descriptorPool_, globalsDescriptorSetLayout_, &descriptor, &globalsDescriptorSet_);
-    
 
     //Create render targets 
     render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);

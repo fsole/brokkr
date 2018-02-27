@@ -101,23 +101,27 @@ static long __stdcall WindowProcedure(HWND hWnd, unsigned int msg, WPARAM wp, LP
     case WM_LBUTTONDOWN:
     case WM_LBUTTONUP:
     {
-      mouse_button_e button = MOUSE_LEFT;
-      if (wp & MK_MBUTTON)
-      {
-        button = MOUSE_MIDDLE;
-      }
-      else if( wp & MK_RBUTTON )
-      {
-        button = MOUSE_RIGHT;
-      }
-
-      window->mouseButtonEvent_.x_ = LOWORD(lp);
-      window->mouseButtonEvent_.y_ = HIWORD(lp);
-      window->mouseButtonEvent_.button_ = button;
-      window->mouseButtonEvent_.pressed_ = ( msg == WM_LBUTTONDOWN );
+      window->mouseButtonEvent_ = event_mouse_button_t(MOUSE_LEFT, LOWORD(lp), HIWORD(lp), (msg == WM_LBUTTONDOWN) );
       window->activeEvent_ = &window->mouseButtonEvent_;
       break;
     }
+
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    {
+      window->mouseButtonEvent_ = event_mouse_button_t(MOUSE_RIGHT, LOWORD(lp), HIWORD(lp), (msg == WM_RBUTTONDOWN));
+      window->activeEvent_ = &window->mouseButtonEvent_;
+      break;
+    }
+
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP:
+    {
+      window->mouseButtonEvent_ = event_mouse_button_t(MOUSE_MIDDLE, LOWORD(lp), HIWORD(lp), (msg == WM_MBUTTONDOWN));
+      window->activeEvent_ = &window->mouseButtonEvent_;
+      break;
+    }
+
     case WM_MOUSEMOVE:
     {
       window->mouseMoveEvent_.x_ = LOWORD(lp);

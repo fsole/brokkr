@@ -27,6 +27,7 @@
 
 #include "maths.h"
 #include "render.h"
+#include "transform-manager.h"
 
 namespace bkk
 {
@@ -40,10 +41,13 @@ namespace bkk
 
     struct skeleton_t
     {
-      s32* parent_;           //Parents
-      maths::mat4* offset_;   //Mesh to Bone space transformation for bones, local transform for regular nodes
-      bool* isBone_;
+      transform_manager_t txManager_;
+      
+      handle_t* bones_;
+      maths::mat4* offsets_;
+      
       maths::mat4 globalInverseTransform_;
+      
       u32 boneCount_;
       u32 nodeCount_;
     };
@@ -54,23 +58,26 @@ namespace bkk
       maths::vec3 scale_;
       maths::quat orientation_;
     };
-
+    
     struct skeletal_animation_t
     {
-      bone_transform_t* data_;
       u32 frameCount_;
+      u32 nodeCount_;
+      f32 duration_;  //In ms
+
+      handle_t* nodes_;    //Handles of animated nodes
+      bone_transform_t* data_;    
     };
+
 
     struct skeletal_animator_t
     {
       f32 cursor_;
-      float duration_;  //In ms
+      float speed_;
 
-      const skeleton_t* skeleton_;
+      skeleton_t* skeleton_;
       const skeletal_animation_t* animation_;
 
-      maths::mat4* localPose_;          //Local transform of each node
-      maths::mat4* globalPose_;         //Final transform of each node
       maths::mat4* boneTransform_;      //Final bones transforms for current time in the animation
       render::gpu_buffer_t buffer_;    //Uniform buffer with the final transformation of each bone
     };
@@ -104,20 +111,20 @@ namespace bkk
     enum export_flags_e
     {
       EXPORT_POSITION_ONLY = 0,
-      EXPORT_NORMALS      = 1,
-      EXPORT_UV           = 2,
+      EXPORT_NORMALS = 1,
+      EXPORT_UV = 2,
       EXPORT_BONE_WEIGHTS = 4,
       EXPORT_ALL = EXPORT_NORMALS | EXPORT_UV | EXPORT_BONE_WEIGHTS
-      
+
     };
 
     ///Mesh API
 
     void create(const render::context_t& context,
-                const uint32_t* indexData, uint32_t indexDataSize,
-                const void* vertexData, size_t vertexDataSize,
-                render::vertex_attribute_t* attribute, uint32_t attributeCount,
-                render::gpu_memory_allocator_t* allocator, mesh_t* mesh );
+      const uint32_t* indexData, uint32_t indexDataSize,
+      const void* vertexData, size_t vertexDataSize,
+      render::vertex_attribute_t* attribute, uint32_t attributeCount,
+      render::gpu_memory_allocator_t* allocator, mesh_t* mesh);
 
 
     //Load all submeshes from a file
@@ -131,7 +138,7 @@ namespace bkk
 
     void draw(VkCommandBuffer commandBuffer, const mesh_t& mesh);
     void destroy(const render::context_t& context, mesh_t* mesh, render::gpu_memory_allocator_t* allocator = nullptr);
-        
+
     //Animator
     void animatorCreate(const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float durationInMs, skeletal_animator_t* animator);
     void animatorUpdate(const render::context_t& context, f32 deltaTimeInMs, skeletal_animator_t* animator);
