@@ -299,7 +299,7 @@ private:
     data.camera.tx.setIdentity();
     data.camera.verticalFov = (f32)M_PI_2;
     data.camera.focalDistance = 5.0f;
-    data.camera.aperture = 0.1f;
+    data.camera.aperture = 0.075f;
     generateScene(150u, vec3(25.0f, 0.0f, 25.0f), &data.scene);
 
     //Create scene buffer

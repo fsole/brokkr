@@ -117,7 +117,7 @@ static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<std
     animation->nodeCount_ = pAnimation->mNumChannels;
     animation->data_ = new bone_transform_t[animation->frameCount_*animation->nodeCount_];
     animation->nodes_ = new bkk::handle_t[animation->nodeCount_];
-    animation->duration_ = ( pAnimation->mDuration / pAnimation->mTicksPerSecond ) * 1000.0f;
+    animation->duration_ = f32( pAnimation->mDuration / pAnimation->mTicksPerSecond ) * 1000.0f;
 
     for (u32 channel(0); channel<pAnimation->mNumChannels; ++channel)
     {
@@ -539,7 +539,7 @@ void mesh::animatorUpdate(const render::context_t& context, f32 deltaTime, skele
  
   if (animator->cursor_ < 0.0f)
   {
-    animator->cursor_ = 1.0 - animator->cursor_;
+    animator->cursor_ = 1.0f - animator->cursor_;
   }
 
   //Find out frames between which we need to interpolate
