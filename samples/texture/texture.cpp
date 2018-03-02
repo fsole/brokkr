@@ -29,28 +29,34 @@
 
 #include "mesh.h"
 
-static const char* gVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec2 aTexCoord;\n \
-  out vec2 uv;\n \
-  void main(void)\n \
-  {\n \
-    gl_Position = vec4(aPosition,1.0);\n \
-    uv = aTexCoord;\n \
-  }\n"
-};
+static const char* gVertexShaderSource = R"(
+  #version 440 core
 
-static const char* gFragmentShaderSource = {
-  "#version 440 core\n \
-  in vec2 uv;\n  \
-  layout (binding = 0) uniform sampler2D uTexture;\n \
-  layout(location = 0) out vec4 color;\n \
-  void main(void)\n \
-  {\n \
-    color = texture(uTexture, uv);\n \
-  }\n"
-};
+  layout(location = 0) in vec3 aPosition;
+  layout(location = 1) in vec2 aTexCoord;
+
+  out vec2 uv;
+
+  void main(void)
+  {
+    gl_Position = vec4(aPosition,1.0);
+    uv = aTexCoord;
+  }
+)";
+
+static const char* gFragmentShaderSource = R"(
+  #version 440 core
+
+  in vec2 uv;
+  layout(location = 0) out vec4 color;
+
+  layout (binding = 0) uniform sampler2D uTexture;
+
+  void main(void)
+  {
+    color = texture(uTexture, uv);
+  }
+)";
 
 
 bkk::render::texture_t createTexture(const bkk::render::context_t& context)
@@ -101,6 +107,10 @@ int main()
   bkk::mesh::mesh_t mesh = sample_utils::fullScreenQuad(context);
   bkk::render::texture_t texture = createTexture(context);
 
+  //Create descriptor pool
+  bkk::render::descriptor_pool_t descriptorPool;
+  bkk::render::descriptorPoolCreate(context, 1u, 1u, 0u, 0u, 0u, &descriptorPool);
+
   //Create descriptor layout
   bkk::render::descriptor_set_layout_t descriptorSetLayout;
   bkk::render::descriptor_binding_t binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
@@ -110,23 +120,17 @@ int main()
   bkk::render::pipeline_layout_t pipelineLayout;
   bkk::render::pipelineLayoutCreate(context, &descriptorSetLayout, 1u, &pipelineLayout);
 
-  //Create descriptor pool
-  bkk::render::descriptor_pool_t descriptorPool;
-  bkk::render::descriptorPoolCreate(context, 1u, 1u, 0u, 0u, 0u, &descriptorPool);
-
   //Create descriptor set
   bkk::render::descriptor_set_t descriptorSet;
   bkk::render::descriptor_t descriptor = bkk::render::getDescriptor(texture);
   bkk::render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &descriptor, &descriptorSet);
 
-  
-  //Create pipeline
+  //Load shaders
   bkk::render::shader_t vertexShader, fragmentShader;
   bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader);
   bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);
 
   //Create pipeline
-  bkk::render::graphics_pipeline_t pipeline;
   bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
   pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
   pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
@@ -138,6 +142,8 @@ int main()
   pipelineDesc.depthWriteEnabled_ = false;
   pipelineDesc.vertexShader_ = vertexShader;
   pipelineDesc.fragmentShader_ = fragmentShader;
+
+  bkk::render::graphics_pipeline_t pipeline;
   bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
 
   //Build command buffers

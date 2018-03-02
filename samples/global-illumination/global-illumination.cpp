@@ -36,538 +36,593 @@
 #include "transform-manager.h"
 #include "packed-freelist.h"
 
+static const char* gGeometryPassVertexShaderSource = R"(
+  #version 440 core
+
+  layout(location = 0) in vec3 aPosition;
+  layout(location = 1) in vec3 aNormal;
+  layout(location = 2) in vec2 aUV;
+
+  layout (set = 0, binding = 0) uniform SCENE
+  {
+    mat4 worldToView;
+    mat4 viewToWorld;
+    mat4 projection;
+    mat4 projectionInverse;
+    vec4 imageSize;
+  }scene;
+
+  layout(set = 1, binding = 0) uniform MODEL
+  {
+    mat4 transform;
+  }model;
+
+  layout(location = 0) out vec3 normalViewSpace;
+  layout(location = 1) out vec2 uv;
+
+  void main(void)
+  {
+    mat4 modelView = scene.worldToView * model.transform;
+    gl_Position = scene.projection * modelView * vec4(aPosition,1.0);
+    normalViewSpace = normalize((transpose( inverse( modelView) ) * vec4(aNormal,0.0)).xyz);
+    uv = aUV;
+  }
+)";
+
+
+static const char* gGeometryPassFragmentShaderSource = R"(
+  #version 440 core
+
+  layout(set = 2, binding = 0) uniform MATERIAL
+  {
+    vec3 albedo;
+    float metallic;
+    vec3 F0;
+    float roughness;
+  }material;
+
+  layout(location = 0) out vec4 RT0;
+  layout(location = 1) out vec4 RT1;
+  layout(location = 2) out vec4 RT2;
+  layout(location = 0) in vec3 normalViewSpace;
+  layout(location = 1) in vec2 uv;
+  
+  void main(void)
+  {
+    RT0 = vec4( material.albedo, material.roughness);
+    RT1 = vec4(normalize(normalViewSpace), gl_FragCoord.z);
+    RT2 = vec4( material.F0, material.metallic);
+  }
+)";
+
+static const char* gPointLightPassVertexShaderSource = R"(
+  #version 440 core
+
+  layout(location = 0) in vec3 aPosition;
+  
+  layout (set = 0, binding = 0) uniform SCENE
+  {
+    mat4 worldToView;
+    mat4 viewToWorld;
+    mat4 projection;
+    mat4 projectionInverse;
+    vec4 imageSize;
+  }scene;
+
+  layout (set = 2, binding = 0) uniform LIGHT
+  {
+   vec4 position;
+   vec3 color;
+   float radius;
+  }light;
+
+  layout(location = 0) out vec3 lightPositionVS;
+  
+  void main(void)
+  {
+    mat4 viewProjection = scene.projection * scene.worldToView;
+    vec4 vertexPosition =  vec4( aPosition*light.radius+light.position.xyz, 1.0 );
+    gl_Position = viewProjection * vertexPosition;
+    lightPositionVS = (scene.worldToView * light.position).xyz;
+  }
+)";
+
+
+static const char* gPointLightPassFragmentShaderSource = R"(
+  #version 440 core
+
+  layout (set = 0, binding = 0) uniform SCENE
+  {
+    mat4 worldToView;
+    mat4 viewToWorld;
+    mat4 projection;
+    mat4 projectionInverse;
+    vec4 imageSize;
+  }scene;
+
+  layout (set = 2, binding = 0) uniform LIGHT
+  {
+   vec4 position;
+   vec3 color;
+   float radius;
+  }light;
+
+  layout(set = 1, binding = 0) uniform sampler2D RT0;
+  layout(set = 1, binding = 1) uniform sampler2D RT1;
+  layout(set = 1, binding = 2) uniform sampler2D RT2;
+  layout(location = 0) in vec3 lightPositionVS;
+  
+  layout(location = 0) out vec4 result;
+
+  const float PI = 3.14159265359;
+  vec3 ViewSpacePositionFromDepth(vec2 uv, float depth)
+  {
+    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);
+    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);
+    return(viewSpacePosition.xyz / viewSpacePosition.w);
+  }
+
+  vec3 fresnelSchlick(float cosTheta, vec3 F0)
+  {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+  }
+
+  float DistributionGGX(vec3 N, vec3 H, float roughness)
+  {
+    float a = roughness*roughness;
+    float a2 = a*a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+    float nom = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+    return nom / denom;
+  }
+
+  float GeometrySchlickGGX(float NdotV, float roughness)
+  {
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+    float nom = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+    return nom / denom;
+  }
+
+  float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+  {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+    return ggx1 * ggx2;
+  }
+
+  void main(void)
+  {
+    vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;
+    vec4 RT0Value = texture(RT0, uv);
+    vec3 albedo = RT0Value.xyz;
+    float roughness = RT0Value.w;
+    vec4 RT1Value = texture(RT1, uv);
+    vec3 N = normalize(RT1Value.xyz);
+    float depth = RT1Value.w;
+    vec4 RT2Value = texture(RT2, uv);
+    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );
+    vec3 L = normalize( lightPositionVS-positionVS );
+    vec3 F0 = RT2Value.xyz;
+    float metallic = RT2Value.w;
+    vec3 V = -normalize(positionVS);
+    vec3 H = normalize(V + L);
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+    float NDF = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallic;
+    vec3 nominator = NDF * G * F;
+    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;
+    vec3 specular = nominator / denominator;
+    float lightDistance    = length(lightPositionVS - positionVS);
+    float attenuation = 1.0 - clamp( lightDistance / light.radius, 0.0, 1.0);
+    attenuation *= attenuation;
+    float NdotL =  max( 0.0, dot( N, L ) );
+    vec3 color = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2));
+    result = vec4(color,1.0);
+  }
+)";
+
+static const char* gDirectionalLightPassVertexShaderSource = R"(
+  #version 440 core
+
+  layout(location = 0) in vec3 aPosition;
+  layout(location = 1) in vec2 aUV;
+  layout (set = 0, binding = 0) uniform SCENE
+  {
+    mat4 worldToView;
+    mat4 viewToWorld;
+    mat4 projection;
+    mat4 projectionInverse;
+    vec4 imageSize;
+  }scene;
+  layout (set = 2, binding = 0) uniform LIGHT
+  {
+   vec4 position;
+   vec3 color;
+   float radius;
+  }light;
+  void main(void)
+  {
+    gl_Position = vec4(aPosition,1.0);
+  }
+)";
+
+static const char* gDirectionalLightPassFragmentShaderSource = R"(
+  #version 440 core
+
+  layout (set = 0, binding = 0) uniform SCENE
+  {
+    mat4 worldToView;
+    mat4 viewToWorld;
+    mat4 projection;
+    mat4 projectionInverse;
+    vec4 imageSize;
+  }scene;
+
+  layout (set = 2, binding = 0) uniform LIGHT
+  {
+    vec4 direction;
+    vec4 color;
+    mat4 worldToLightClipSpace;
+    vec4 shadowMapSize;
+  }light;
+
+  layout(set = 1, binding = 0) uniform sampler2D RT0;
+  layout(set = 1, binding = 1) uniform sampler2D RT1;
+  layout(set = 1, binding = 2) uniform sampler2D RT2;
+  layout(set = 1, binding = 3) uniform sampler2D shadowMapRT0;
+  layout(set = 1, binding = 4) uniform sampler2D shadowMapRT1;
+  layout(set = 1, binding = 5) uniform sampler2D shadowMapRT2;
+  
+  layout(location = 0) out vec4 result;
+  
+  const float PI = 3.14159265359;
+  vec3 ViewSpacePositionFromDepth(vec2 uv, float depth)
+  {
+    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);
+    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);
+    return(viewSpacePosition.xyz / viewSpacePosition.w);
+  }
+
+  vec3 fresnelSchlick(float cosTheta, vec3 F0)
+  {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+  }
+
+  float DistributionGGX(vec3 N, vec3 H, float roughness)
+  {
+    float a = roughness*roughness;
+    float a2 = a*a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+    float nom = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+    return nom / denom;
+  }
+
+  float GeometrySchlickGGX(float NdotV, float roughness)
+  {
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+    float nom = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+    return nom / denom;
+  }
+
+  float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+  {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+    return ggx1 * ggx2;
+  }
+
+  void main(void)
+  {
+    vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;
+    vec4 RT0Value = texture(RT0, uv);
+    vec3 albedo = RT0Value.xyz;
+    float roughness = RT0Value.w;
+    vec4 RT1Value = texture(RT1, uv);
+    vec3 N = normalize(RT1Value.xyz);
+    float depth = RT1Value.w;
+    vec4 RT2Value = texture(RT2, uv);
+    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );
+    vec3 L = normalize( (scene.worldToView * vec4(light.direction.xyz,0.0)).xyz );
+    vec3 F0 = RT2Value.xyz;
+    float metallic = RT2Value.w;
+    vec3 V = -normalize(positionVS);
+    vec3 H = normalize(V + L);
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+    float NDF = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallic;
+    vec3 nominator = NDF * G * F;
+    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;
+    vec3 specular = nominator / denominator;
+    float NdotL =  max( 0.0, dot( N, L ) );
+    vec3 diffuseColor = albedo / PI;
+    vec3 ambientColor = light.color.a * diffuseColor;
+    vec4 postionInLigthClipSpace = light.worldToLightClipSpace * scene.viewToWorld * vec4(positionVS, 1.0 );
+    postionInLigthClipSpace.xyz /= postionInLigthClipSpace.w;
+    postionInLigthClipSpace.xy = 0.5 * postionInLigthClipSpace.xy + 0.5;
+    ivec2 shadowMapUV = ivec2( postionInLigthClipSpace.xy * light.shadowMapSize.xy );
+    float bias = 0.005;//0.0005*tan(acos(NdotL));
+    float attenuation = 0.0;
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0, 0), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1, 0), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1, 0), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0, 1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0,-1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1, 1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1, 1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1,-1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1,-1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation /= 9.0;
+    vec3 color = (kD * diffuseColor + specular) * (light.color.rgb * attenuation) * NdotL + ambientColor;
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2));
+    result = vec4(color,1.0);
+  }
+)";
+
+static const char* gDirectionalLightPassGIFragmentShaderSource = R"(
+  #version 440 core
+
+  layout (set = 0, binding = 0) uniform SCENE
+  {
+    mat4 worldToView;
+    mat4 viewToWorld;
+    mat4 projection;
+    mat4 projectionInverse;
+    vec4 imageSize;
+  }scene;
+
+  layout (set = 2, binding = 0) uniform LIGHT
+  {
+    vec4 direction;
+    vec4 color;
+    mat4 worldToLightClipSpace;
+    vec4 shadowMapSize;
+    vec3 padding;
+    float sampleCount;
+    vec4 samples[400];
+  }light;
+
+  layout(set = 1, binding = 0) uniform sampler2D RT0;
+  layout(set = 1, binding = 1) uniform sampler2D RT1;
+  layout(set = 1, binding = 2) uniform sampler2D RT2;
+  layout(set = 1, binding = 3) uniform sampler2D shadowMapRT0;
+  layout(set = 1, binding = 4) uniform sampler2D shadowMapRT1;
+  layout(set = 1, binding = 5) uniform sampler2D shadowMapRT2;
+  
+  layout(location = 0) out vec4 result;
+  
+  const float PI = 3.14159265359;
+  vec3 ViewSpacePositionFromDepth(in vec2 uv, in float depth)
+  {
+    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);
+    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);
+    return(viewSpacePosition.xyz / viewSpacePosition.w);
+  }
+
+  vec3 fresnelSchlick(in float cosTheta, in vec3 F0)
+  {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+  }
+
+  float DistributionGGX(in vec3 N, in vec3 H, in float roughness)
+  {
+    float a = roughness*roughness;
+    float a2 = a*a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+    float nom = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+    return nom / denom;
+  }
+
+  float GeometrySchlickGGX(in float NdotV, in float roughness)
+  {
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+    float nom = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+    return nom / denom;
+  }
+
+  float GeometrySmith(in vec3 N, in vec3 V, in vec3 L, in float roughness)
+  {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+    return ggx1 * ggx2;
+  }
+
+  vec3 sampleIndirectLight(in vec3 positionWS, in vec3 normalWS, in ivec2 uv )
+  {
+    vec3 indirectRadiance = vec3(0.0,0.0,0.0);
+    for( uint i = 0; i<light.sampleCount; ++i )
+    {
+      ivec2 pixelCoord = clamp(ivec2(uv + light.samples[i].xy), ivec2(0),ivec2(light.shadowMapSize.x,light.shadowMapSize.y));
+      vec3 vplNormal =  normalize( texelFetch( shadowMapRT0, pixelCoord, 0 ).yzw );
+      vec3 vplPosition = texelFetch( shadowMapRT1, pixelCoord, 0 ).xyz;
+      vec3 vplRadiance = texelFetch( shadowMapRT2, pixelCoord, 0 ).xyz;
+      vec3 L = vplPosition-positionWS;
+      float distance = length(L);
+      L /= distance;
+      float G = max(0.0, dot(normalWS, L)) * max(0.0,dot(vplNormal,-L)) / distance*distance;
+      indirectRadiance += G * vplRadiance * light.samples[i].z;
+    }
+    return indirectRadiance / light.sampleCount ;
+  }
+
+  void main(void)
+  {
+    vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;
+    vec4 RT0Value = texture(RT0, uv);
+    vec3 albedo = RT0Value.xyz;
+    float roughness = RT0Value.w;
+    vec4 RT1Value = texture(RT1, uv);
+    vec3 N = normalize(RT1Value.xyz);
+    float depth = RT1Value.w;
+    vec4 RT2Value = texture(RT2, uv);
+    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );
+    vec3 L = normalize( (scene.worldToView * vec4(light.direction.xyz,0.0)).xyz );
+    vec3 F0 = RT2Value.xyz;
+    float metallic = RT2Value.w;
+    vec3 V = -normalize(positionVS);
+    vec3 H = normalize(V + L);
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+    float NDF = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallic;
+    vec3 nominator = NDF * G * F;
+    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;
+    vec3 specular = nominator / denominator;
+    float NdotL =  max( 0.0, dot( N, L ) );
+    vec3 diffuseColor = albedo / PI;
+    vec3 ambientColor = light.color.a * diffuseColor;
+    vec4 postionInLigthClipSpace = light.worldToLightClipSpace * scene.viewToWorld * vec4(positionVS, 1.0 );
+    postionInLigthClipSpace.xyz /= postionInLigthClipSpace.w;
+    postionInLigthClipSpace.xy = 0.5 * postionInLigthClipSpace.xy + 0.5;
+    ivec2 shadowMapUV = ivec2( postionInLigthClipSpace.xy * light.shadowMapSize.xy );
+    float bias = 0.005;//0.0005*tan(acos(NdotL));
+    float attenuation = 0.0;
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0, 0), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1, 0), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1, 0), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0, 1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0,-1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1, 1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1, 1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1,-1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1,-1), 0).r + bias) > postionInLigthClipSpace.z ));
+    attenuation /= 9.0;
+    vec3 color = (kD * diffuseColor + specular) * (light.color.rgb * attenuation) * NdotL + ambientColor;
+    vec3 positionWS = (scene.viewToWorld * vec4(positionVS, 1.0 )).xyz;
+    vec3 normalWS = normalize((transpose( inverse( scene.viewToWorld) ) * vec4(N,0.0)).xyz);
+    color += sampleIndirectLight(positionWS, normalWS, shadowMapUV);
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2));
+    result = vec4(color,1.0);
+  }
+)";
+
+static const char* gShadowPassVertexShaderSource = R"(
+  #version 440 core
+  layout(location = 0) in vec3 aPosition;
+  layout(location = 1) in vec3 aNormal;
+  layout(location = 2) in vec2 aUV;
+
+  layout (set = 0, binding = 0) uniform LIGHT
+  {
+    vec4 direction;
+    vec4 color;
+    mat4 worldToLightClipSpace;
+    vec4 shadowMapSize;
+  }light;
+
+  layout(set = 1, binding = 0) uniform MODEL
+  {
+    mat4 transform;
+  }model;
+
+  layout(set = 2, binding = 1) uniform sampler2D diffuseMap;
+
+  layout( location = 0 ) out vec3 positionWS;
+  layout( location = 1 ) out vec3 normalWS;
+  layout( location = 2 ) out vec2 UV;
+  void main(void)
+  {
+    gl_Position =  light.worldToLightClipSpace * model.transform * vec4(aPosition,1.0);
+    normalWS = normalize((transpose( inverse( model.transform) ) * vec4(aNormal,0.0)).xyz);
+    positionWS = ( model.transform * vec4(aPosition, 1.0) ).xyz;
+    UV = aUV;
+  }
+)";
+
+static const char* gShadowPassFragmentShaderSource = R"(
+  #version 440 core
+  layout(location = 0) out vec4 RT0;
+  layout(location = 1) out vec4 RT1;
+  layout(location = 2) out vec4 RT2;
+
+  layout (set = 0, binding = 0) uniform LIGHT
+  {
+    vec4 direction;
+    vec4 color;
+    mat4 worldToLightClipSpace;
+    vec4 shadowMapSize;
+  }light;
+
+  layout(set = 2, binding = 0) uniform MATERIAL
+  {
+    vec3 albedo;
+    float metallic;
+    vec3 F0;
+    float roughness;
+  }material;
+
+  layout( location = 0 ) in vec3 positionWS;
+  layout( location = 1 ) in vec3 normalWS;
+  layout( location = 2 ) in vec2 UV;
+
+  void main(void)
+  {
+    RT0 = vec4( gl_FragCoord.z, normalize( normalWS ) );
+    RT1 = vec4(positionWS, 1.0);
+    RT2 = vec4( max( 0.0, dot( normalize(light.direction.xyz), normalize(normalWS) ) ) * material.albedo * light.color.rgb, 0.0);
+  }
+)";
+
+static const char* gPresentationVertexShaderSource = R"(
+  #version 440 core
+  layout(location = 0) in vec3 aPosition;
+  layout(location = 1) in vec2 aTexCoord;
+  layout(location = 0) out vec2 uv;
+
+  void main(void)
+  {
+    gl_Position = vec4(aPosition,1.0);
+    uv = aTexCoord;
+  }
+)";
+
+static const char* gPresentationFragmentShaderSource = R"( 
+  #version 440 core
+  layout(location = 0) in vec2 uv;
+  layout (set = 0, binding = 0) uniform sampler2D uTexture;
+  layout(location = 0) out vec4 color;
+
+  void main(void)
+  {
+    color = texture(uTexture, uv);
+  }
+)";
+
 using namespace bkk;
 using namespace maths;
 using namespace sample_utils;
-
-static const char* gGeometryPassVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec3 aNormal;\n \
-  layout(location = 2) in vec2 aUV;\n \
-  layout (set = 0, binding = 0) uniform SCENE\n \
-  {\n \
-    mat4 worldToView;\n \
-    mat4 viewToWorld;\n\
-    mat4 projection;\n \
-    mat4 projectionInverse;\n \
-    vec4 imageSize;\n \
-  }scene;\n \
-  layout(set = 1, binding = 0) uniform MODEL\n \
-  {\n \
-    mat4 transform;\n \
-  }model;\n \
-  layout(location = 0) out vec3 normalViewSpace;\n \
-  layout(location = 1) out vec2 uv;\n \
-  void main(void)\n \
-  {\n \
-    mat4 modelView = scene.worldToView * model.transform;\n \
-    gl_Position = scene.projection * modelView * vec4(aPosition,1.0);\n \
-    normalViewSpace = normalize((transpose( inverse( modelView) ) * vec4(aNormal,0.0)).xyz);\n \
-    uv = aUV;\n \
-  }\n"
-};
-
-
-static const char* gGeometryPassFragmentShaderSource = {
-  "#version 440 core\n \
-  layout(set = 2, binding = 0) uniform MATERIAL\n \
-  {\n \
-    vec3 albedo;\n \
-    float metallic;\n\
-    vec3 F0;\n \
-    float roughness;\n \
-  }material;\n \
-  layout(location = 0) out vec4 RT0;\n \
-  layout(location = 1) out vec4 RT1;\n \
-  layout(location = 2) out vec4 RT2;\n \
-  layout(location = 0) in vec3 normalViewSpace;\n \
-  layout(location = 1) in vec2 uv;\n \
-  void main(void)\n \
-  {\n \
-    RT0 = vec4( material.albedo, material.roughness);\n \
-    RT1 = vec4(normalize(normalViewSpace), gl_FragCoord.z);\n \
-    RT2 = vec4( material.F0, material.metallic);\n \
-  }\n"
-};
-
-static const char* gPointLightPassVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout (set = 0, binding = 0) uniform SCENE\n \
-  {\n \
-    mat4 worldToView;\n \
-    mat4 viewToWorld;\n\
-    mat4 projection;\n \
-    mat4 projectionInverse;\n \
-    vec4 imageSize;\n \
-  }scene;\n \
-  layout (set = 2, binding = 0) uniform LIGHT\n \
-  {\n \
-   vec4 position;\n \
-   vec3 color;\n \
-   float radius;\n \
-  }light;\n \
-  layout(location = 0) out vec3 lightPositionVS;\n\
-  void main(void)\n \
-  {\n \
-    mat4 viewProjection = scene.projection * scene.worldToView;\n \
-    vec4 vertexPosition =  vec4( aPosition*light.radius+light.position.xyz, 1.0 );\n\
-    gl_Position = viewProjection * vertexPosition;\n\
-    lightPositionVS = (scene.worldToView * light.position).xyz;\n\
-  }\n"
-};
-
-
-static const char* gPointLightPassFragmentShaderSource = {
-  "#version 440 core\n \
-  layout (set = 0, binding = 0) uniform SCENE\n \
-  {\n \
-    mat4 worldToView;\n \
-    mat4 viewToWorld;\n\
-    mat4 projection;\n \
-    mat4 projectionInverse;\n \
-    vec4 imageSize;\n \
-  }scene;\n \
-  layout (set = 2, binding = 0) uniform LIGHT\n \
-  {\n \
-   vec4 position;\n \
-   vec3 color;\n \
-   float radius;\n \
-  }light;\n \
-  layout(set = 1, binding = 0) uniform sampler2D RT0;\n \
-  layout(set = 1, binding = 1) uniform sampler2D RT1;\n \
-  layout(set = 1, binding = 2) uniform sampler2D RT2;\n \
-  layout(location = 0) in vec3 lightPositionVS;\n\
-  const float PI = 3.14159265359;\n\
-  layout(location = 0) out vec4 result;\n \
-  vec3 ViewSpacePositionFromDepth(vec2 uv, float depth)\n\
-  {\n\
-    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);\n\
-    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
-    return(viewSpacePosition.xyz / viewSpacePosition.w);\n\
-  }\n\
-  vec3 fresnelSchlick(float cosTheta, vec3 F0)\n\
-  {\n\
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);\n\
-  }\n\
-  float DistributionGGX(vec3 N, vec3 H, float roughness)\n\
-  {\n\
-    float a = roughness*roughness;\n\
-    float a2 = a*a;\n\
-    float NdotH = max(dot(N, H), 0.0);\n\
-    float NdotH2 = NdotH*NdotH;\n\
-    float nom = a2;\n\
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\n\
-    denom = PI * denom * denom;\n\
-    return nom / denom;\n\
-  }\n\
-  float GeometrySchlickGGX(float NdotV, float roughness)\n\
-  {\n\
-    float r = (roughness + 1.0);\n\
-    float k = (r*r) / 8.0;\n\
-    float nom = NdotV;\n\
-    float denom = NdotV * (1.0 - k) + k;\n\
-    return nom / denom;\n\
-  }\n\
-  float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)\n\
-  {\n\
-    float NdotV = max(dot(N, V), 0.0);\n\
-    float NdotL = max(dot(N, L), 0.0);\n\
-    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\n\
-    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\n\
-    return ggx1 * ggx2;\n\
-  }\n\
-  void main(void)\n \
-  {\n \
-    vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;\n\
-    vec4 RT0Value = texture(RT0, uv);\n \
-    vec3 albedo = RT0Value.xyz;\n\
-    float roughness = RT0Value.w;\n\
-    vec4 RT1Value = texture(RT1, uv);\n \
-    vec3 N = normalize(RT1Value.xyz); \n \
-    float depth = RT1Value.w;\n\
-    vec4 RT2Value = texture(RT2, uv);\n \
-    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );\n\
-    vec3 L = normalize( lightPositionVS-positionVS );\n\
-    vec3 F0 = RT2Value.xyz;\n \
-    float metallic = RT2Value.w;\n\
-    vec3 V = -normalize(positionVS);\n\
-    vec3 H = normalize(V + L);\n\
-    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);\n \
-    float NDF = DistributionGGX(N, H, roughness);\n\
-    float G = GeometrySmith(N, V, L, roughness);\n\
-    vec3 kS = F;\n\
-    vec3 kD = vec3(1.0) - kS;\n\
-    kD *= 1.0 - metallic;\n\
-    vec3 nominator = NDF * G * F;\n\
-    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;\n\
-    vec3 specular = nominator / denominator;\n\
-    float lightDistance    = length(lightPositionVS - positionVS);\n\
-    float attenuation = 1.0 - clamp( lightDistance / light.radius, 0.0, 1.0);\n\
-    attenuation *= attenuation;\n\
-    float NdotL =  max( 0.0, dot( N, L ) );\n \
-    vec3 color = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;\n\
-    color = color / (color + vec3(1.0));\n\
-    color = pow(color, vec3(1.0 / 2.2));\n\
-    result = vec4(color,1.0);\n\
-  }\n"
-};
-
-static const char* gDirectionalLightPassVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec2 aUV;\n \
-  layout (set = 0, binding = 0) uniform SCENE\n \
-  {\n \
-    mat4 worldToView;\n \
-    mat4 viewToWorld;\n\
-    mat4 projection;\n \
-    mat4 projectionInverse;\n \
-    vec4 imageSize;\n \
-  }scene;\n \
-  layout (set = 2, binding = 0) uniform LIGHT\n \
-  {\n \
-   vec4 position;\n \
-   vec3 color;\n \
-   float radius;\n \
-  }light;\n \
-  void main(void)\n \
-  {\n \
-    gl_Position = vec4(aPosition,1.0);\n \
-  }\n"
-};
-
-static const char* gDirectionalLightPassFragmentShaderSource = {
-  "#version 440 core\n \
-  layout (set = 0, binding = 0) uniform SCENE\n \
-  {\n \
-    mat4 worldToView;\n \
-    mat4 viewToWorld;\n\
-    mat4 projection;\n \
-    mat4 projectionInverse;\n \
-    vec4 imageSize;\n \
-  }scene;\n \
-  layout (set = 2, binding = 0) uniform LIGHT\n \
-  {\n \
-    vec4 direction;\n \
-    vec4 color;\n \
-    mat4 worldToLightClipSpace; \n\
-    vec4 shadowMapSize; \n \
-  }light;\n \
-  layout(set = 1, binding = 0) uniform sampler2D RT0;\n \
-  layout(set = 1, binding = 1) uniform sampler2D RT1;\n \
-  layout(set = 1, binding = 2) uniform sampler2D RT2;\n \
-  layout(set = 1, binding = 3) uniform sampler2D shadowMapRT0;\n \
-  layout(set = 1, binding = 4) uniform sampler2D shadowMapRT1;\n \
-  layout(set = 1, binding = 5) uniform sampler2D shadowMapRT2;\n \
-  const float PI = 3.14159265359;\n\
-  layout(location = 0) out vec4 result;\n \
-  vec3 ViewSpacePositionFromDepth(vec2 uv, float depth)\n\
-  {\n\
-    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);\n\
-    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
-    return(viewSpacePosition.xyz / viewSpacePosition.w);\n\
-  }\n\
-  vec3 fresnelSchlick(float cosTheta, vec3 F0)\n\
-  {\n\
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);\n\
-  }\n\
-  float DistributionGGX(vec3 N, vec3 H, float roughness)\n\
-  {\n\
-    float a = roughness*roughness;\n\
-    float a2 = a*a;\n\
-    float NdotH = max(dot(N, H), 0.0);\n\
-    float NdotH2 = NdotH*NdotH;\n\
-    float nom = a2;\n\
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\n\
-    denom = PI * denom * denom;\n\
-    return nom / denom;\n\
-  }\n\
-  float GeometrySchlickGGX(float NdotV, float roughness)\n\
-  {\n\
-    float r = (roughness + 1.0);\n\
-    float k = (r*r) / 8.0;\n\
-    float nom = NdotV;\n\
-    float denom = NdotV * (1.0 - k) + k;\n\
-    return nom / denom;\n\
-  }\n\
-  float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)\n\
-  {\n\
-    float NdotV = max(dot(N, V), 0.0);\n\
-    float NdotL = max(dot(N, L), 0.0);\n\
-    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\n\
-    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\n\
-    return ggx1 * ggx2;\n\
-  }\n\
-  void main(void)\n \
-  {\n \
-    vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;\n\
-    vec4 RT0Value = texture(RT0, uv);\n \
-    vec3 albedo = RT0Value.xyz;\n\
-    float roughness = RT0Value.w;\n\
-    vec4 RT1Value = texture(RT1, uv);\n \
-    vec3 N = normalize(RT1Value.xyz); \n \
-    float depth = RT1Value.w;\n\
-    vec4 RT2Value = texture(RT2, uv);\n \
-    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );\n\
-    vec3 L = normalize( (scene.worldToView * vec4(light.direction.xyz,0.0)).xyz );\n\
-    vec3 F0 = RT2Value.xyz;\n \
-    float metallic = RT2Value.w;\n\
-    vec3 V = -normalize(positionVS);\n\
-    vec3 H = normalize(V + L);\n\
-    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);\n \
-    float NDF = DistributionGGX(N, H, roughness);\n\
-    float G = GeometrySmith(N, V, L, roughness);\n\
-    vec3 kS = F;\n\
-    vec3 kD = vec3(1.0) - kS;\n\
-    kD *= 1.0 - metallic;\n\
-    vec3 nominator = NDF * G * F;\n\
-    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;\n\
-    vec3 specular = nominator / denominator;\n\
-    float NdotL =  max( 0.0, dot( N, L ) );\n \
-    vec3 diffuseColor = albedo / PI;\n\
-    vec3 ambientColor = light.color.a * diffuseColor;\n\
-    vec4 postionInLigthClipSpace = light.worldToLightClipSpace * scene.viewToWorld * vec4(positionVS, 1.0 );\n\
-    postionInLigthClipSpace.xyz /= postionInLigthClipSpace.w;\n\
-    postionInLigthClipSpace.xy = 0.5 * postionInLigthClipSpace.xy + 0.5;\n\
-    ivec2 shadowMapUV = ivec2( postionInLigthClipSpace.xy * light.shadowMapSize.xy );\n\
-    float bias = 0.005;//0.0005*tan(acos(NdotL));\n\
-    float attenuation = 0.0;\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0, 0), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1, 0), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1, 0), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0, 1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0,-1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1, 1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1, 1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1,-1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1,-1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation /= 9.0;\n\
-    vec3 color = (kD * diffuseColor + specular) * (light.color.rgb * attenuation) * NdotL + ambientColor;\n\
-    color = color / (color + vec3(1.0));\n\
-    color = pow(color, vec3(1.0 / 2.2));\n\
-    result = vec4(color,1.0);\n\
-  }\n"
-};
-
-static const char* gDirectionalLightPassGIFragmentShaderSource = {
-  "#version 440 core\n \
-  layout (set = 0, binding = 0) uniform SCENE\n \
-  {\n \
-    mat4 worldToView;\n \
-    mat4 viewToWorld;\n\
-    mat4 projection;\n \
-    mat4 projectionInverse;\n \
-    vec4 imageSize;\n \
-  }scene;\n \
-  layout (set = 2, binding = 0) uniform LIGHT\n \
-  {\n \
-    vec4 direction;\n \
-    vec4 color;\n \
-    mat4 worldToLightClipSpace; \n\
-    vec4 shadowMapSize; \n \
-    vec3 padding;\n\
-    float sampleCount;\n\
-    vec4 samples[400];\n\
-  }light;\n \
-  layout(set = 1, binding = 0) uniform sampler2D RT0;\n \
-  layout(set = 1, binding = 1) uniform sampler2D RT1;\n \
-  layout(set = 1, binding = 2) uniform sampler2D RT2;\n \
-  layout(set = 1, binding = 3) uniform sampler2D shadowMapRT0;\n \
-  layout(set = 1, binding = 4) uniform sampler2D shadowMapRT1;\n \
-  layout(set = 1, binding = 5) uniform sampler2D shadowMapRT2;\n \
-  const float PI = 3.14159265359;\n\
-  layout(location = 0) out vec4 result;\n \
-  vec3 ViewSpacePositionFromDepth(in vec2 uv, in float depth)\n\
-  {\n\
-    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);\n\
-    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
-    return(viewSpacePosition.xyz / viewSpacePosition.w);\n\
-  }\n\
-  vec3 fresnelSchlick(in float cosTheta, in vec3 F0)\n\
-  {\n\
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);\n\
-  }\n\
-  float DistributionGGX(in vec3 N, in vec3 H, in float roughness)\n\
-  {\n\
-    float a = roughness*roughness;\n\
-    float a2 = a*a;\n\
-    float NdotH = max(dot(N, H), 0.0);\n\
-    float NdotH2 = NdotH*NdotH;\n\
-    float nom = a2;\n\
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\n\
-    denom = PI * denom * denom;\n\
-    return nom / denom;\n\
-  }\n\
-  float GeometrySchlickGGX(in float NdotV, in float roughness)\n\
-  {\n\
-    float r = (roughness + 1.0);\n\
-    float k = (r*r) / 8.0;\n\
-    float nom = NdotV;\n\
-    float denom = NdotV * (1.0 - k) + k;\n\
-    return nom / denom;\n\
-  }\n\
-  float GeometrySmith(in vec3 N, in vec3 V, in vec3 L, in float roughness)\n\
-  {\n\
-    float NdotV = max(dot(N, V), 0.0);\n\
-    float NdotL = max(dot(N, L), 0.0);\n\
-    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\n\
-    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\n\
-    return ggx1 * ggx2;\n\
-  }\n\
-  vec3 sampleIndirectLight(in vec3 positionWS, in vec3 normalWS, in ivec2 uv )\n\
-  {\n\
-    vec3 indirectRadiance = vec3(0.0,0.0,0.0);\n\
-    for( uint i = 0; i<light.sampleCount; ++i )\n\
-    {\n\
-      ivec2 pixelCoord = clamp(ivec2(uv + light.samples[i].xy), ivec2(0),ivec2(light.shadowMapSize.x,light.shadowMapSize.y));\n\
-      vec3 vplNormal =  normalize( texelFetch( shadowMapRT0, pixelCoord, 0 ).yzw );\n\
-      vec3 vplPosition = texelFetch( shadowMapRT1, pixelCoord, 0 ).xyz;\n\
-      vec3 vplRadiance = texelFetch( shadowMapRT2, pixelCoord, 0 ).xyz;\n\
-      vec3 L = vplPosition-positionWS;\n\
-      float distance = length(L);\n\
-      L /= distance;\n\
-      float G = max(0.0, dot(normalWS, L)) * max(0.0,dot(vplNormal,-L)) / distance*distance;\n\
-      indirectRadiance += G * vplRadiance * light.samples[i].z;\n\
-    }\n\
-    return indirectRadiance / light.sampleCount ;\n\
-  }\n\
-  void main(void)\n \
-  {\n \
-    vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;\n\
-    vec4 RT0Value = texture(RT0, uv);\n \
-    vec3 albedo = RT0Value.xyz;\n\
-    float roughness = RT0Value.w;\n\
-    vec4 RT1Value = texture(RT1, uv);\n \
-    vec3 N = normalize(RT1Value.xyz); \n \
-    float depth = RT1Value.w;\n\
-    vec4 RT2Value = texture(RT2, uv);\n \
-    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );\n\
-    vec3 L = normalize( (scene.worldToView * vec4(light.direction.xyz,0.0)).xyz );\n\
-    vec3 F0 = RT2Value.xyz;\n \
-    float metallic = RT2Value.w;\n\
-    vec3 V = -normalize(positionVS);\n\
-    vec3 H = normalize(V + L);\n\
-    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);\n \
-    float NDF = DistributionGGX(N, H, roughness);\n\
-    float G = GeometrySmith(N, V, L, roughness);\n\
-    vec3 kS = F;\n\
-    vec3 kD = vec3(1.0) - kS;\n\
-    kD *= 1.0 - metallic;\n\
-    vec3 nominator = NDF * G * F;\n\
-    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;\n\
-    vec3 specular = nominator / denominator;\n\
-    float NdotL =  max( 0.0, dot( N, L ) );\n \
-    vec3 diffuseColor = albedo / PI;\n\
-    vec3 ambientColor = light.color.a * diffuseColor;\n\
-    vec4 postionInLigthClipSpace = light.worldToLightClipSpace * scene.viewToWorld * vec4(positionVS, 1.0 );\n\
-    postionInLigthClipSpace.xyz /= postionInLigthClipSpace.w;\n\
-    postionInLigthClipSpace.xy = 0.5 * postionInLigthClipSpace.xy + 0.5;\n\
-    ivec2 shadowMapUV = ivec2( postionInLigthClipSpace.xy * light.shadowMapSize.xy );\n\
-    float bias = 0.005;//0.0005*tan(acos(NdotL));\n\
-    float attenuation = 0.0;\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0, 0), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1, 0), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1, 0), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0, 1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 0,-1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1, 1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1, 1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1,-1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1,-1), 0).r + bias) > postionInLigthClipSpace.z ));\n\
-    attenuation /= 9.0;\n\
-    vec3 color = (kD * diffuseColor + specular) * (light.color.rgb * attenuation) * NdotL + ambientColor;\n\
-    vec3 positionWS = (scene.viewToWorld * vec4(positionVS, 1.0 )).xyz;\n\
-    vec3 normalWS = normalize((transpose( inverse( scene.viewToWorld) ) * vec4(N,0.0)).xyz);\n \
-    color += sampleIndirectLight(positionWS, normalWS, shadowMapUV);\n\
-    color = color / (color + vec3(1.0));\n\
-    color = pow(color, vec3(1.0 / 2.2));\n\
-    result = vec4(color,1.0);\n\
-  }\n"
-};
-
-static const char* gShadowPassVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec3 aNormal;\n \
-  layout(location = 2) in vec2 aUV;\n \
-  layout (set = 0, binding = 0) uniform LIGHT\n \
-  {\n \
-    vec4 direction;\n \
-    vec4 color;\n \
-    mat4 worldToLightClipSpace; \n\
-    vec4 shadowMapSize; \n \
-  }light;\n \
-  layout(set = 1, binding = 0) uniform MODEL\n \
-  {\n \
-    mat4 transform;\n \
-  }model;\n \
-  layout(set = 2, binding = 1) uniform sampler2D diffuseMap;\n \
-  layout( location = 0 ) out vec3 positionWS;\n\
-  layout( location = 1 ) out vec3 normalWS;\n\
-  layout( location = 2 ) out vec2 UV;\n\
-  void main(void)\n \
-  {\n \
-    gl_Position =  light.worldToLightClipSpace * model.transform * vec4(aPosition,1.0);\n \
-    normalWS = normalize((transpose( inverse( model.transform) ) * vec4(aNormal,0.0)).xyz);\n \
-    positionWS = ( model.transform * vec4(aPosition, 1.0) ).xyz;\n\
-    UV = aUV;\n\
-  }\n"
-};
-
-static const char* gShadowPassFragmentShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) out vec4 RT0;\n \
-  layout(location = 1) out vec4 RT1;\n \
-  layout(location = 2) out vec4 RT2;\n \
-  layout (set = 0, binding = 0) uniform LIGHT\n \
-  {\n \
-    vec4 direction;\n \
-    vec4 color;\n \
-    mat4 worldToLightClipSpace; \n\
-    vec4 shadowMapSize; \n \
-  }light;\n \
-  layout(set = 2, binding = 0) uniform MATERIAL\n \
-  {\n \
-    vec3 albedo;\n \
-    float metallic;\n\
-    vec3 F0;\n \
-    float roughness;\n \
-  }material;\n \
-  layout( location = 0 ) in vec3 positionWS;\n\
-  layout( location = 1 ) in vec3 normalWS;\n\
-  layout( location = 2 ) in vec2 UV;\n\
-  void main(void)\n \
-  {\n \
-    RT0 = vec4( gl_FragCoord.z, normalize( normalWS ) );\n \
-    RT1 = vec4(positionWS, 1.0);\n\
-    RT2 = vec4( max( 0.0, dot( normalize(light.direction.xyz), normalize(normalWS) ) ) * material.albedo * light.color.rgb, 0.0);\n\
-  }\n"
-};
-
-static const char* gPresentationVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec2 aTexCoord;\n \
-  layout(location = 0) out vec2 uv;\n \
-  void main(void)\n \
-  {\n \
-    gl_Position = vec4(aPosition,1.0);\n \
-    uv = aTexCoord;\n \
-  }\n"
-};
-
-static const char* gPresentationFragmentShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec2 uv;\n  \
-  layout (set = 0, binding = 0) uniform sampler2D uTexture;\n \
-  layout(location = 0) out vec4 color;\n \
-  void main(void)\n \
-  {\n \
-    color = texture(uTexture, uv);\n \
-  }\n"
-};
 
 class global_illumination_sample_t : public application_t
 {

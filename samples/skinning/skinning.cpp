@@ -34,57 +34,68 @@ using namespace bkk;
 using namespace maths;
 using namespace sample_utils;
 
-static const char* gVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec3 aNormal;\n \
-  layout(location = 2) in vec2 aTexCoord;\n \
-  layout(location = 3) in vec4 aBonesWeight;\n \
-  layout(location = 4) in vec4 aBonesId;\n \
-  layout(binding = 0) uniform UNIFORMS\n \
-  {\n \
-    mat4 modelView;\n \
-    mat4 modelViewProjection;\n \
-  }uniforms;\n \
-  layout(binding = 1) uniform BONESTX\n \
-  {\n \
-    mat4 bones[64];\n \
-  }bonesTx;\n \
-  out OUTPUT\n\
-  {\n\
-    vec3 normalViewSpace;\n \
-    vec3 lightViewSpace;\n \
-    vec2 uv;\n \
-  }output_;\n\
-  void main(void)\n \
-  {\n \
-    mat4 transform = bonesTx.bones[int(aBonesId[0])] * aBonesWeight[0] +  \n\
-                     bonesTx.bones[int(aBonesId[1])] * aBonesWeight[1] +  \n\
-                     bonesTx.bones[int(aBonesId[2])] * aBonesWeight[2] +	\n\
-                     bonesTx.bones[int(aBonesId[3])] * aBonesWeight[3];   \n\
-    output_.normalViewSpace = normalize((mat4(inverse(transpose(uniforms.modelView * transform))) * vec4(aNormal,0.0)).xyz);\n \
-    output_.lightViewSpace = normalize((uniforms.modelView * vec4(normalize(vec3(0.0,0.0,1.0)),0.0)).xyz);\n \
-    output_.uv = aTexCoord;\n \
-    gl_Position = uniforms.modelViewProjection * transform * vec4(aPosition,1.0); \n \
-  }\n"
-};
+static const char* gVertexShaderSource = R"(
+  #version 440 core
 
-static const char* gFragmentShaderSource = {
-  "#version 440 core\n \
-  in INPUT\n\
-  {\n\
-    vec3 normalViewSpace;\n \
-    vec3 lightViewSpace;\n \
-    vec2 uv; \n \
-  }input_;\n\
-  layout (binding = 2) uniform sampler2D uTexture;\n \
-  layout(location = 0) out vec4 color;\n \
-  void main(void)\n \
-  {\n \
-    float diffuse = max(dot(normalize(input_.lightViewSpace), normalize(input_.normalViewSpace)), 0.0);\n \
-    color = texture( uTexture,input_.uv) * diffuse;\n \
-  }\n"
-};
+  layout(location = 0) in vec3 aPosition;
+  layout(location = 1) in vec3 aNormal;
+  layout(location = 2) in vec2 aTexCoord;
+  layout(location = 3) in vec4 aBonesWeight;
+  layout(location = 4) in vec4 aBonesId;
+
+  layout(binding = 0) uniform UNIFORMS
+  {
+    mat4 modelView;
+    mat4 modelViewProjection;
+  }uniforms;
+
+  layout(binding = 1) uniform BONESTX
+  {
+    mat4 bones[64];
+  }bonesTx;
+
+  out OUTPUT
+  {
+    vec3 normalViewSpace;
+    vec3 lightViewSpace;
+    vec2 uv;
+  }output_;
+
+  void main(void)
+  {
+    mat4 transform = bonesTx.bones[int(aBonesId[0])] * aBonesWeight[0] +
+                     bonesTx.bones[int(aBonesId[1])] * aBonesWeight[1] +
+                     bonesTx.bones[int(aBonesId[2])] * aBonesWeight[2] +
+                     bonesTx.bones[int(aBonesId[3])] * aBonesWeight[3];
+
+    output_.normalViewSpace = normalize((mat4(inverse(transpose(uniforms.modelView * transform))) * vec4(aNormal,0.0)).xyz);
+    output_.lightViewSpace = normalize((uniforms.modelView * vec4(normalize(vec3(0.0,0.0,1.0)),0.0)).xyz);
+    output_.uv = aTexCoord;
+
+    gl_Position = uniforms.modelViewProjection * transform * vec4(aPosition,1.0);
+  }
+)";
+
+static const char* gFragmentShaderSource = R"(
+  #version 440 core
+
+  in INPUT
+  {
+    vec3 normalViewSpace;
+    vec3 lightViewSpace;
+    vec2 uv;
+  }input_;
+
+  layout (binding = 2) uniform sampler2D uTexture;
+  
+  layout(location = 0) out vec4 color;
+  
+  void main(void)
+  {
+    float diffuse = max(dot(normalize(input_.lightViewSpace), normalize(input_.normalViewSpace)), 0.0);
+    color = texture( uTexture,input_.uv) * diffuse;
+  }
+)";
 
 
 class skinning_sample_t : public application_t

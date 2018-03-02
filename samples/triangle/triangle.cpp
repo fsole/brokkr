@@ -26,28 +26,33 @@
 #include "window.h"
 #include "mesh.h"
 
-static const char* gVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec2 aTexCoord;\n \
-  out vec2 uv;\n \
-  void main(void)\n \
-  {\n \
-    gl_Position = vec4(aPosition,1.0);\n \
-    uv = aTexCoord;\n \
-  }\n"
-};
+static const char* gVertexShaderSource = R"(
+  #version 440 core
+
+  layout(location = 0) in vec3 aPosition;
+  layout(location = 1) in vec2 aTexCoord;
+
+  out vec2 uv;
+
+  void main(void)
+  {
+    gl_Position = vec4(aPosition,1.0);
+    uv = aTexCoord;
+  }
+)";
 
 
-static const char* gFragmentShaderSource = {
-  "#version 440 core\n \
-  in vec2 uv;\n  \
-  layout(location = 0) out vec4 color;\n \
-  void main(void)\n \
-  {\n \
-    color = vec4(uv,0.0,1.0);\n \
-  }\n"
-};
+static const char* gFragmentShaderSource = R"(
+  #version 440 core
+
+  in vec2 uv;
+  layout(location = 0) out vec4 color;
+
+  void main(void)
+  {
+    color = vec4(uv,0.0,1.0);
+  }
+)";
 
 bkk::mesh::mesh_t createTriangleGeometry(const bkk::render::context_t& context )
 {
@@ -108,11 +113,12 @@ int main()
   bkk::render::pipeline_layout_t pipelineLayout;
   bkk::render::pipelineLayoutCreate(context, nullptr, 0u, &pipelineLayout);
 
-  //Create pipeline
-  bkk::render::graphics_pipeline_t pipeline;
+  //Load shaders  
   bkk::render::shader_t vertexShader, fragmentShader;
   bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader);
   bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);  
+  
+  //Create pipeline
   bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
   pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
   pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
@@ -124,6 +130,8 @@ int main()
   pipelineDesc.depthWriteEnabled_ = false;
   pipelineDesc.vertexShader_ = vertexShader;
   pipelineDesc.fragmentShader_ = fragmentShader;
+
+  bkk::render::graphics_pipeline_t pipeline;
   bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
 
   //Build command buffers

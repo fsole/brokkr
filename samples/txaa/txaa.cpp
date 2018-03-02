@@ -35,242 +35,279 @@ using namespace bkk;
 using namespace maths;
 using namespace sample_utils;
 
-static const char* gGeometryPassVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec3 aNormal;\n \
-  layout (set = 0, binding = 0) uniform SCENE\n \
-  {\n \
-  mat4 view;\n \
-  mat4 projection;\n \
-  mat4 projectionInverse;\n \
-  mat4 prevViewProjection;\n \
-  vec4 imageSize;\n \
-  }scene;\n \
-  layout(set = 1, binding = 0) uniform MODEL\n \
-  {\n \
-    mat4 transform;\n \
-  }model;\n \
-  layout(location = 0) out vec3 normalViewSpace;\n \
-  void main(void)\n \
-  {\n \
-    mat4 modelView = scene.view * model.transform;\n \
-    gl_Position =  scene.projection * modelView * vec4(aPosition,1.0);\n \
-    normalViewSpace = normalize((transpose( inverse( modelView) ) * vec4(aNormal,0.0)).xyz);\n \
-  }\n"
-};
+static const char* gGeometryPassVertexShaderSource = R"(
+  #version 440 core
 
-static const char* gGeometryPassFragmentShaderSource = {
-  "#version 440 core\n \
-  layout(set = 2, binding = 0) uniform MATERIAL\n \
-  {\n \
-    vec3 albedo;\n \
-    float metallic;\n\
-    vec3 F0;\n \
-    float roughness;\n \
-  }material;\n \
-  layout(location = 0) out vec4 RT0;\n \
-  layout(location = 1) out vec4 RT1;\n \
-  layout(location = 2) out vec4 RT2;\n \
-  layout(location = 0) in vec3 normalViewSpace;\n \
-  void main(void)\n \
-  {\n \
-    RT0 = vec4(material.albedo,  material.roughness );\n \
-    RT1 = vec4(normalize(normalViewSpace),gl_FragCoord.z);\n \
-    RT2 = vec4(material.F0, material.metallic);\n \
-  }\n"
-};
+  layout(location = 0) in vec3 aPosition;
+  layout(location = 1) in vec3 aNormal;
 
-static const char* gLightPassVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(set = 0, binding = 0) uniform SCENE\n \
-  {\n \
-    mat4 view;\n \
-    mat4 projection;\n \
-    mat4 projectionInverse;\n \
-    mat4 prevViewProjection;\n \
-    vec4 imageSize;\n \
-  }scene;\n \
-  layout (set = 2, binding = 0) uniform LIGHT\n \
-  {\n \
-   vec4 position;\n \
-   vec3 color;\n \
-   float radius;\n \
-  }light;\n \
-  layout(location = 0) out vec3 lightPositionVS;\n\
-  void main(void)\n \
-  {\n \
-    mat4 viewProjection =  scene.projection * scene.view;\n \
-    vec4 vertexPosition =  vec4( aPosition*light.radius+light.position.xyz, 1.0 );\n\
-    gl_Position = viewProjection * vertexPosition;\n\
-    lightPositionVS = (scene.view * light.position).xyz;\n\
-  }\n"
-};
+  layout (set = 0, binding = 0) uniform SCENE
+  {
+  mat4 view;
+  mat4 projection;
+  mat4 projectionInverse;
+  mat4 prevViewProjection;
+  vec4 imageSize;
+  }scene;
 
-static const char* gLightPassFragmentShaderSource = {
-  "#version 440 core\n \
-  layout(set = 0, binding = 0) uniform SCENE\n \
-  {\n \
-    mat4 view;\n \
-    mat4 projection;\n \
-    mat4 projectionInverse;\n \
-    mat4 prevViewProjection;\n \
-    vec4 imageSize;\n \
-  }scene;\n \
-  layout (set = 2, binding = 0) uniform LIGHT\n \
-  {\n \
-   vec4 position;\n \
-   vec3 color;\n \
-   float radius;\n \
-  }light;\n \
-  layout(set = 1, binding = 0) uniform sampler2D RT0;\n \
-  layout(set = 1, binding = 1) uniform sampler2D RT1;\n \
-  layout(set = 1, binding = 2) uniform sampler2D RT2;\n \
-  layout(location = 0) in vec3 lightPositionVS;\n\
-  const float PI = 3.14159265359;\n\
-  layout(location = 0) out vec4 result;\n \
-  vec3 ViewSpacePositionFromDepth(vec2 uv, float depth)\n\
-  {\n\
-    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);\n\
-    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
-    return(viewSpacePosition.xyz / viewSpacePosition.w);\n\
-  }\n\
-  vec3 fresnelSchlick(float cosTheta, vec3 F0)\n\
-  {\n\
-    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);\n\
-  }\n\
-  float DistributionGGX(vec3 N, vec3 H, float roughness)\n\
-  {\n\
-    float a = roughness*roughness;\n\
-    float a2 = a*a;\n\
-    float NdotH = max(dot(N, H), 0.0);\n\
-    float NdotH2 = NdotH*NdotH;\n\
-    float nom = a2;\n\
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\n\
-    denom = PI * denom * denom;\n\
-    return nom / denom;\n\
-  }\n\
-  float GeometrySchlickGGX(float NdotV, float roughness)\n\
-  {\n\
-    float r = (roughness + 1.0);\n\
-    float k = (r*r) / 8.0;\n\
-    float nom = NdotV;\n\
-    float denom = NdotV * (1.0 - k) + k;\n\
-    return nom / denom;\n\
-  }\n\
-  float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)\n\
-  {\n\
-    float NdotV = max(dot(N, V), 0.0);\n\
-    float NdotL = max(dot(N, L), 0.0);\n\
-    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\n\
-    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\n\
-    return ggx1 * ggx2;\n\
-  }\n\
-  void main(void)\n \
-  {\n \
-    vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;\n\
-    vec4 RT0Value = texture(RT0, uv);\n \
-    vec3 albedo = RT0Value.xyz;\n\
-    float roughness = RT0Value.w;\n\
-    vec4 RT1Value = texture(RT1, uv);\n \
-    vec3 N = normalize(RT1Value.xyz); \n \
-    float depth = RT1Value.w;\n\
-    vec4 RT2Value = texture(RT2, uv);\n \
-    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );\n\
-    vec3 L = normalize( lightPositionVS-positionVS );\n\
-    vec3 F0 = RT2Value.xyz;\n \
-    float metallic = RT2Value.w;\n\
-    vec3 V = -normalize(positionVS);\n\
-    vec3 H = normalize(V + L);\n\
-    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);\n \
-    float NDF = DistributionGGX(N, H, roughness);\n\
-    float G = GeometrySmith(N, V, L, roughness);\n\
-    vec3 kS = F;\n\
-    vec3 kD = vec3(1.0) - kS;\n\
-    kD *= 1.0 - metallic;\n\
-    vec3 nominator = NDF * G * F;\n\
-    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;\n\
-    vec3 specular = nominator / denominator;\n\
-    float lightDistance    = length(lightPositionVS - positionVS);\n\
-    float attenuation = 1.0 - clamp( lightDistance / light.radius, 0.0, 1.0);\n\
-    attenuation *= attenuation;\n\
-    float NdotL =  max( 0.0, dot( N, L ) );\n \
-    vec3 color = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;\n\
-    color = color / (color + vec3(1.0));\n\
-    color = pow(color, vec3(1.0 / 2.2));\n\
-    result = vec4(color,1.0);\n\
-  }\n"
-};
+  layout(set = 1, binding = 0) uniform MODEL
+  {
+    mat4 transform;
+  }model;
 
-static const char* gTxaaResolveFragmentShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec2 uv;\n  \
-  layout(set = 0, binding = 0) uniform SCENE\n \
-  {\n \
-    mat4 view;\n \
-    mat4 projection;\n \
-    mat4 projectionInverse;\n \
-    mat4 prevViewProjection;\n \
-    vec4 imageSize;\n \
-  }scene;\n \
-  layout (set = 0, binding = 1) uniform sampler2D uRenderedImage;\n \
-  layout (set = 0, binding = 2) uniform sampler2D  uHistoryBuffer;\n \
-  layout (set = 0, binding = 3) uniform sampler2D  uDepthAndNormals;\n \
-  layout(location = 0) out vec4 color;\n \
-  vec2 reproject(vec2 uv, float depth)\n\
-  {\n\
-    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);\n\
-    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);\n\
-    viewSpacePosition /= viewSpacePosition.w;\n\
-    vec4 worldSpacePos = inverse(scene.view) * viewSpacePosition;\n\
-    vec4 a = scene.prevViewProjection * vec4(worldSpacePos.xyz, 1.0);\n\
-    return vec2( ( a.x/a.w + 1.0 ) * 0.5, (a.y/a.w + 1.0) * 0.5 );\n\
-  }\n\
-  void main(void)\n \
-  {\n \
-      vec3 currentFragment = texture(uRenderedImage, uv).xyz; \n\
-      float depth = texture(uDepthAndNormals, uv).w;\n\
-      vec2 reprojectedUv = reproject(uv, depth);\n\
-      if( depth == 0.0 || reprojectedUv.x < 0.0 || reprojectedUv.x > 1.0 || reprojectedUv.y < 0.0 || reprojectedUv.y > 1.0 )\n\
-      {\n\
-        color = vec4(currentFragment, 1.0);\n\
-        return;\n\
-      }\n\
-      vec3 nearColor0 = texture(uRenderedImage, reprojectedUv + vec2(scene.imageSize.z, 0.0)).xyz;\n\
-      vec3 nearColor1 = texture(uRenderedImage, reprojectedUv + vec2(0.0,scene.imageSize.w)).xyz;\n\
-      vec3 nearColor2 = texture(uRenderedImage, reprojectedUv + vec2(-scene.imageSize.z, 0.0)).xyz;\n\
-      vec3 nearColor3 = texture(uRenderedImage, reprojectedUv + vec2(0.0, -scene.imageSize.w)).xyz;\n\
-      vec3 minColor = min(currentFragment, min(nearColor0, min(nearColor1, min(nearColor2, nearColor3))));\n\
-      vec3 maxColor = max(currentFragment, max(nearColor0, max(nearColor1, max(nearColor2, nearColor3))));\n\
-      vec3 historyFragment = texture(uHistoryBuffer, reprojectedUv).xyz; \n\
-      historyFragment = clamp(historyFragment, minColor, maxColor);\n\
-      color = vec4(mix(historyFragment,currentFragment, 1.0 / 8.0), 1.0);\n\
-   }\n"
-};
+  layout(location = 0) out vec3 normalViewSpace;
 
-static const char* gPresentationVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec2 aTexCoord;\n \
-  layout(location = 0) out vec2 uv;\n \
-  void main(void)\n \
-  {\n \
-    gl_Position = vec4(aPosition,1.0);\n \
-    uv = aTexCoord;\n \
-  }\n"
-};
+  void main(void)
+  {
+    mat4 modelView = scene.view * model.transform;
+    gl_Position =  scene.projection * modelView * vec4(aPosition,1.0);
+    normalViewSpace = normalize((transpose( inverse( modelView) ) * vec4(aNormal,0.0)).xyz);
+  }
+)";
 
-static const char* gPresentationFragmentShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec2 uv;\n  \
-  layout (set = 0, binding = 0) uniform sampler2D uTexture;\n \
-  layout(location = 0) out vec4 color;\n \
-  void main(void)\n \
-  {\n \
-    color = texture(uTexture, uv);\n \
-  }\n"
-};
+static const char* gGeometryPassFragmentShaderSource = R"(
+  #version 440 core
+
+  layout(set = 2, binding = 0) uniform MATERIAL
+  {
+    vec3 albedo;
+    float metallic;
+    vec3 F0;
+    float roughness;
+  }material;
+
+  layout(location = 0) out vec4 RT0;
+  layout(location = 1) out vec4 RT1;
+  layout(location = 2) out vec4 RT2;
+
+  layout(location = 0) in vec3 normalViewSpace;
+
+  void main(void)
+  {
+    RT0 = vec4(material.albedo,  material.roughness );
+    RT1 = vec4(normalize(normalViewSpace),gl_FragCoord.z);
+    RT2 = vec4(material.F0, material.metallic);
+  }
+)";
+
+static const char* gLightPassVertexShaderSource = R"(
+  #version 440 core
+
+  layout(location = 0) in vec3 aPosition;
+
+  layout(set = 0, binding = 0) uniform SCENE
+  {
+    mat4 view;
+    mat4 projection;
+    mat4 projectionInverse;
+    mat4 prevViewProjection;
+    vec4 imageSize;
+  }scene;
+
+  layout (set = 2, binding = 0) uniform LIGHT
+  {
+   vec4 position;
+   vec3 color;
+   float radius;
+  }light;
+
+  layout(location = 0) out vec3 lightPositionVS;
+
+  void main(void)
+  {
+    mat4 viewProjection =  scene.projection * scene.view;
+    vec4 vertexPosition =  vec4( aPosition*light.radius+light.position.xyz, 1.0 );
+    gl_Position = viewProjection * vertexPosition;
+    lightPositionVS = (scene.view * light.position).xyz;
+  }
+)";
+
+static const char* gLightPassFragmentShaderSource = R"(
+  #version 440 core
+
+  layout(set = 0, binding = 0) uniform SCENE
+  {
+    mat4 view;
+    mat4 projection;
+    mat4 projectionInverse;
+    mat4 prevViewProjection;
+    vec4 imageSize;
+  }scene;
+
+  layout (set = 2, binding = 0) uniform LIGHT
+  {
+   vec4 position;
+   vec3 color;
+   float radius;
+  }light;
+
+  layout(set = 1, binding = 0) uniform sampler2D RT0;
+  layout(set = 1, binding = 1) uniform sampler2D RT1;
+  layout(set = 1, binding = 2) uniform sampler2D RT2;
+
+  layout(location = 0) in vec3 lightPositionVS;
+  
+  layout(location = 0) out vec4 result;
+  
+  const float PI = 3.14159265359;
+  vec3 ViewSpacePositionFromDepth(vec2 uv, float depth)
+  {
+    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);
+    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);
+    return(viewSpacePosition.xyz / viewSpacePosition.w);
+  }
+
+  vec3 fresnelSchlick(float cosTheta, vec3 F0)
+  {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+  }
+
+  float DistributionGGX(vec3 N, vec3 H, float roughness)
+  {
+    float a = roughness*roughness;
+    float a2 = a*a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+    float nom = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+    return nom / denom;
+  }
+
+  float GeometrySchlickGGX(float NdotV, float roughness)
+  {
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+    float nom = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+    return nom / denom;
+  }
+
+  float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+  {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+    return ggx1 * ggx2;
+  }
+
+  void main(void)
+  {
+    vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;
+    vec4 RT0Value = texture(RT0, uv);
+    vec3 albedo = RT0Value.xyz;
+    float roughness = RT0Value.w;
+    vec4 RT1Value = texture(RT1, uv);
+    vec3 N = normalize(RT1Value.xyz); 
+    float depth = RT1Value.w;
+    vec4 RT2Value = texture(RT2, uv);
+    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );
+    vec3 L = normalize( lightPositionVS-positionVS );
+    vec3 F0 = RT2Value.xyz;
+    float metallic = RT2Value.w;
+    vec3 V = -normalize(positionVS);
+    vec3 H = normalize(V + L);
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+    float NDF = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallic;
+    vec3 nominator = NDF * G * F;
+    float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;
+    vec3 specular = nominator / denominator;
+    float lightDistance    = length(lightPositionVS - positionVS);
+    float attenuation = 1.0 - clamp( lightDistance / light.radius, 0.0, 1.0);
+    attenuation *= attenuation;
+    float NdotL =  max( 0.0, dot( N, L ) );
+    vec3 color = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2));
+    result = vec4(color,1.0);
+  }
+)";
+
+static const char* gTxaaResolveFragmentShaderSource = R"(
+  #version 440 core
+
+  layout(location = 0) in vec2 uv;
+
+  layout(set = 0, binding = 0) uniform SCENE
+  {
+    mat4 view;
+    mat4 projection;
+    mat4 projectionInverse;
+    mat4 prevViewProjection;
+    vec4 imageSize;
+  }scene;
+
+  layout (set = 0, binding = 1) uniform sampler2D uRenderedImage;
+  layout (set = 0, binding = 2) uniform sampler2D  uHistoryBuffer;
+  layout (set = 0, binding = 3) uniform sampler2D  uDepthAndNormals;
+  layout(location = 0) out vec4 color;
+
+  vec2 reproject(vec2 uv, float depth)
+  {
+    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);
+    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);
+    viewSpacePosition /= viewSpacePosition.w;
+    vec4 worldSpacePos = inverse(scene.view) * viewSpacePosition;
+    vec4 a = scene.prevViewProjection * vec4(worldSpacePos.xyz, 1.0);
+    return vec2( ( a.x/a.w + 1.0 ) * 0.5, (a.y/a.w + 1.0) * 0.5 );
+  }
+
+  void main(void)
+  {
+    vec3 currentFragment = texture(uRenderedImage, uv).xyz; 
+    float depth = texture(uDepthAndNormals, uv).w;
+    vec2 reprojectedUv = reproject(uv, depth);
+    if( depth == 0.0 || reprojectedUv.x < 0.0 || reprojectedUv.x > 1.0 || reprojectedUv.y < 0.0 || reprojectedUv.y > 1.0 )
+    {
+      color = vec4(currentFragment, 1.0);
+      return;
+    }
+
+    vec3 nearColor0 = texture(uRenderedImage, reprojectedUv + vec2(scene.imageSize.z, 0.0)).xyz;
+    vec3 nearColor1 = texture(uRenderedImage, reprojectedUv + vec2(0.0,scene.imageSize.w)).xyz;
+    vec3 nearColor2 = texture(uRenderedImage, reprojectedUv + vec2(-scene.imageSize.z, 0.0)).xyz;
+    vec3 nearColor3 = texture(uRenderedImage, reprojectedUv + vec2(0.0, -scene.imageSize.w)).xyz;
+    vec3 minColor = min(currentFragment, min(nearColor0, min(nearColor1, min(nearColor2, nearColor3))));
+    vec3 maxColor = max(currentFragment, max(nearColor0, max(nearColor1, max(nearColor2, nearColor3))));
+    vec3 historyFragment = texture(uHistoryBuffer, reprojectedUv).xyz; 
+    historyFragment = clamp(historyFragment, minColor, maxColor);
+    color = vec4(mix(historyFragment,currentFragment, 1.0 / 8.0), 1.0);
+  }
+)";
+
+static const char* gPresentationVertexShaderSource = R"(
+  #version 440 core
+
+  layout(location = 0) in vec3 aPosition;
+  layout(location = 1) in vec2 aTexCoord;
+  
+  layout(location = 0) out vec2 uv;
+
+  void main(void)
+  {
+    gl_Position = vec4(aPosition,1.0);
+    uv = aTexCoord;
+  }
+)";
+
+static const char* gPresentationFragmentShaderSource = R"(
+  #version 440 core
+
+  layout(location = 0) in vec2 uv;
+  layout (set = 0, binding = 0) uniform sampler2D uTexture;
+  
+  layout(location = 0) out vec4 color;
+
+  void main(void)
+  {
+    color = texture(uTexture, uv);
+  }
+)";
 
 struct TXAA_sample_t : public application_t
 {

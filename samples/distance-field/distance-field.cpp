@@ -31,30 +31,39 @@
 #include "../utility.h"
 
 using namespace bkk;
+static const char* gVertexShaderSource = R"(
+  #version 440 core
 
-static const char* gVertexShaderSource = {
-  "#version 440 core\n \
-  layout(location = 0) in vec3 aPosition;\n \
-  layout(location = 1) in vec2 aTexCoord;\n \
-  out vec2 uv;\n \
-  void main(void)\n \
-  {\n \
-    gl_Position = vec4(aPosition, 1.0);\n \
-    uv = vec2(aTexCoord.x, -aTexCoord.y + 1.0);\n \
-  }\n"
-};
+  layout(location = 0) in vec3 aPosition;
+  layout(location = 1) in vec2 aTexCoord;
 
-static const char* gFragmentShaderSource = {
-  "#version 440 core\n \
-  in vec2 uv;\n \
-  layout(binding = 0) uniform sampler2D uTexture; \n \
-  layout(location = 0) out vec4 color; \n \
-  void main(void)\n \
-  {\n \
-    vec4 texColor = texture(uTexture, uv);\n \
-    color = texColor;\n \
-  }\n"
-};
+  out vec2 uv;
+
+  void main(void)
+  {
+    gl_Position = vec4(aPosition, 1.0);
+    uv = vec2(aTexCoord.x, -aTexCoord.y + 1.0);
+  }
+)";
+
+static const char* gFragmentShaderSource = R"(
+  #version 440 core
+
+  in vec2 uv;
+
+  layout(binding = 0) uniform sampler2D uTexture;
+
+  layout(location = 0) out vec4 result;
+
+  void main(void)
+  {
+    vec4 texColor = texture(uTexture, uv);
+    vec3 color = texColor.rgb;
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2));
+    result = vec4(color, 1.0);
+  }
+)";
 
 struct camera_t
 {
