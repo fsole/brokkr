@@ -49,9 +49,9 @@ static const char* gVertexShaderSource = R"(
     mat4 modelViewProjection;
   }uniforms;
 
-  layout(binding = 1) uniform BONESTX
+  layout(binding = 1) buffer BONESTX
   {
-    mat4 bones[64];
+    mat4 bones[];
   }bonesTx;
 
   out OUTPUT
@@ -137,7 +137,7 @@ public:
 
     //Create pipeline and descriptor set layouts
     render::descriptor_binding_t bindings[3] = { render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 0u, render::descriptor_t::stage::VERTEX },
-                                                 render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1u, render::descriptor_t::stage::VERTEX },
+                                                 render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_BUFFER, 1u, render::descriptor_t::stage::VERTEX }, //Bones transforms
                                                  render::descriptor_binding_t{ render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2u, render::descriptor_t::stage::FRAGMENT} 
                                                };
 

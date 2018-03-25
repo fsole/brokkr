@@ -107,9 +107,9 @@ static const char* gPointLightPassVertexShaderSource = R"(
 
   layout (set = 2, binding = 0) uniform LIGHT
   {
-   vec4 position;
-   vec3 color;
-   float radius;
+    vec4 position;
+    vec3 color;
+    float radius;
   }light;
 
   layout(location = 0) out vec3 lightPositionVS;
@@ -138,9 +138,9 @@ static const char* gPointLightPassFragmentShaderSource = R"(
 
   layout (set = 2, binding = 0) uniform LIGHT
   {
-   vec4 position;
-   vec3 color;
-   float radius;
+    vec4 position;
+    vec3 color;
+    float radius;
   }light;
 
   layout(set = 1, binding = 0) uniform sampler2D RT0;
@@ -247,9 +247,9 @@ static const char* gDirectionalLightPassVertexShaderSource = R"(
 
   layout (set = 2, binding = 0) uniform LIGHT
   {
-   vec4 position;
-   vec3 color;
-   float radius;
+    vec4 position;
+    vec3 color;
+    float radius;
   }light;
 
   void main(void)
@@ -584,7 +584,7 @@ public:
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
 
     //Shadow map
-    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMap_);
+    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMap_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, &shadowMap_);
     render::depthStencilBufferCreate(context, shadowMapSize_, shadowMapSize_, &shadowPassDepthStencilBuffer);
 
@@ -1404,7 +1404,7 @@ private:
   render::shader_t presentationFragmentShader_;
 
   //Shadow pass
-  uint32_t shadowMapSize_ = 8192u;
+  uint32_t shadowMapSize_ = 4096u;
   VkSemaphore shadowPassComplete_;
   render::command_buffer_t shadowCommandBuffer_;
   render::render_pass_t shadowRenderPass_;

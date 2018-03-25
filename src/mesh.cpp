@@ -110,10 +110,19 @@ static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std:
 static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<std::string, bkk::handle_t>& nodeNameToIndex, u32 boneCount, skeletal_animation_t* animation)
 {
   const aiAnimation* pAnimation = scene->mAnimations[animationIndex];
-  if (pAnimation && pAnimation->mNumChannels > 0 )
+
+  u32 frameCount = 0;
+  if (pAnimation)
   {
-    //Warning : Num frames from position keys in first channel...Might have to take max from all channels instead
-    animation->frameCount_ = pAnimation->mChannels[0]->mNumPositionKeys;
+    for (u32 channel(0); channel < pAnimation->mNumChannels; ++channel)
+    {
+      frameCount = maths::maxValue(frameCount, pAnimation->mChannels[channel]->mNumPositionKeys);
+    }
+  }
+
+  if (frameCount > 0 )
+  {
+    animation->frameCount_ = frameCount;
     animation->nodeCount_ = pAnimation->mNumChannels;
     animation->data_ = new bone_transform_t[animation->frameCount_*animation->nodeCount_];
     animation->nodes_ = new bkk::handle_t[animation->nodeCount_];
@@ -521,7 +530,7 @@ void mesh::animatorCreate(const render::context_t& context, const mesh_t& mesh, 
   animator->boneTransform_ = new maths::mat4[mesh.skeleton_->boneCount_];
 
   //Create an uninitialized uniform buffer
-  render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+  render::gpuBufferCreate(context, render::gpu_buffer_t::usage::STORAGE_BUFFER,
     render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
     nullptr, sizeof(maths::mat4) * mesh.skeleton_->boneCount_,
     nullptr, &animator->buffer_);
@@ -558,25 +567,25 @@ void mesh::animatorUpdate(const render::context_t& context, f32 deltaTime, skele
   for (u32 i(0); i<animator->animation_->nodeCount_; ++i)
   {
     //Compute new local transform of the bone
-    mat4 localPose = maths::computeTransform(maths::lerp(transform0->position_, transform1->position_, t),
+    mat4 nodeLocalTx = maths::computeTransform(maths::lerp(transform0->position_, transform1->position_, t),
                                              maths::lerp(transform0->scale_, transform1->scale_, t),
                                              maths::slerp(transform0->orientation_, transform1->orientation_, t));
 
+    animator->skeleton_->txManager_.setTransform(animator->animation_->nodes_[i], nodeLocalTx);
+  
     //Increment pointers to read next bone's animation data
     transform0++;
     transform1++;
-
-    animator->skeleton_->txManager_.setTransform(animator->animation_->nodes_[i], localPose);
   }
 
   //Update global transforms
   animator->skeleton_->txManager_.update();
 
-  //Copmute final transformation for each bone
+  //Compute final transformation for each bone
   for (u32 i = 0; i < animator->skeleton_->boneCount_; ++i)
   {
-    maths::mat4 global = *(animator->skeleton_->txManager_.getWorldMatrix(animator->skeleton_->bones_[i]));
-    animator->boneTransform_[i] = animator->skeleton_->offsets_[i] * global *animator->skeleton_->globalInverseTransform_;
+    maths::mat4* boneGlobalTx = animator->skeleton_->txManager_.getWorldMatrix(animator->skeleton_->bones_[i]);
+    animator->boneTransform_[i] = animator->skeleton_->offsets_[i] * (*boneGlobalTx) * animator->skeleton_->globalInverseTransform_;
   }
 
   //Upload bone transforms to the uniform buffer

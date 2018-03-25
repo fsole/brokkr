@@ -46,4 +46,5 @@ namespace bkk
 
 	} //namespace image
 }//namespace bkk
+
 #endif /* IMAGE_H */

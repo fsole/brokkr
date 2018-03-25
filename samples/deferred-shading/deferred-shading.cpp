@@ -105,9 +105,9 @@ static const char* gLightPassVertexShaderSource = R"(
 
   layout (set = 2, binding = 0) uniform LIGHT
   {
-   vec4 position;
-   vec3 color;
-   float radius;
+    vec4 position;
+    vec3 color;
+    float radius;
   }light;
 
   layout(location = 0) out vec3 lightPositionVS;
@@ -135,9 +135,9 @@ static const char* gLightPassFragmentShaderSource = R"(
 
   layout (set = 2, binding = 0) uniform LIGHT
   {
-   vec4 position;
-   vec3 color;
-   float radius;
+    vec4 position;
+    vec3 color;
+    float radius;
   }light;
 
   layout(set = 1, binding = 0) uniform sampler2D RT0;

@@ -111,9 +111,9 @@ static const char* gPointLightPassVertexShaderSource = R"(
 
   layout (set = 2, binding = 0) uniform LIGHT
   {
-   vec4 position;
-   vec3 color;
-   float radius;
+    vec4 position;
+    vec3 color;
+    float radius;
   }light;
 
   layout(location = 0) out vec3 lightPositionVS;
@@ -142,9 +142,9 @@ static const char* gPointLightPassFragmentShaderSource = R"(
 
   layout (set = 2, binding = 0) uniform LIGHT
   {
-   vec4 position;
-   vec3 color;
-   float radius;
+    vec4 position;
+    vec3 color;
+    float radius;
   }light;
 
   layout(set = 1, binding = 0) uniform sampler2D RT0;
@@ -238,6 +238,7 @@ static const char* gDirectionalLightPassVertexShaderSource = R"(
 
   layout(location = 0) in vec3 aPosition;
   layout(location = 1) in vec2 aUV;
+
   layout (set = 0, binding = 0) uniform SCENE
   {
     mat4 worldToView;
@@ -246,12 +247,14 @@ static const char* gDirectionalLightPassVertexShaderSource = R"(
     mat4 projectionInverse;
     vec4 imageSize;
   }scene;
+
   layout (set = 2, binding = 0) uniform LIGHT
   {
-   vec4 position;
-   vec3 color;
-   float radius;
+    vec4 position;
+    vec3 color;
+    float radius;
   }light;
+
   void main(void)
   {
     gl_Position = vec4(aPosition,1.0);
