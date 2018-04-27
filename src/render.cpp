@@ -33,7 +33,7 @@
 using namespace bkk;
 using namespace bkk::render;
 
-#define VK_DEBUG_LAYERS
+//#define VK_DEBUG_LAYERS
 
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
