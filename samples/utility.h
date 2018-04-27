@@ -71,13 +71,8 @@ struct orbiting_camera_t
 
   void Rotate( f32 angleY, f32 angleZ )
   {
-    angle_.x =  angle_.x + angleY * rotationSensitivity_;
-    angleZ = angle_.y + angleZ * rotationSensitivity_;
-    if( angleZ < M_PI_2 && angleZ > -M_PI_2 )
-    {
-      angle_.y = angleZ;
-    }
-
+    angle_.x = angle_.x + angleY * rotationSensitivity_;
+    angle_.y = angle_.y + angleZ * rotationSensitivity_;
     Update();
   }
 
@@ -86,7 +81,7 @@ struct orbiting_camera_t
     quat orientation =  quaternionFromAxisAngle( vec3(1.0f,0.0f,0.0f), angle_.y ) *
                         quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), angle_.x);
           
-    computeInverse( computeTransform(vec3(0.0f,0.0f,offset_), VEC3_ONE, QUAT_UNIT) * computeTransform( VEC3_ZERO, VEC3_ONE, orientation ), view_ );
+    invertMatrix( createTransform(vec3(0.0f,0.0f,offset_), VEC3_ONE, QUAT_UNIT) * createTransform( VEC3_ZERO, VEC3_ONE, orientation ), view_ );
   }
 
   mat4 view_;
@@ -137,8 +132,14 @@ struct free_camera_t
   void Update()
   {
     quat orientation = quaternionFromAxisAngle(vec3(1.0f, 0.0f, 0.0f), angle_.x) * quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), angle_.y);
-    tx_ = computeTransform( position_, VEC3_ONE, orientation );
-    computeInverse( tx_, view_ );    
+    tx_ = createTransform( position_, VEC3_ONE, orientation );
+    invertMatrix( tx_, view_ );
+  }
+
+  void LookAt(const vec3& eye, const vec3& center, const vec3& up)
+  {
+    view_ = maths::lookAtMatrix(eye, center, up );
+    tx_ = maths::invertTransform(view_);
   }
 
   mat4 tx_;

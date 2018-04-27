@@ -84,7 +84,7 @@ static window::key_e KeyFromKeyCode(WPARAM keycode)
       break;
   }
 
-  return KEY_COUNT;
+  return KEY_UNDEFINED;
 }
 
 static long __stdcall WindowProcedure(HWND hWnd, unsigned int msg, WPARAM wp, LPARAM lp)
@@ -259,7 +259,7 @@ static window::key_e KeyFromKeyCode(xcb_keycode_t keycode)
     return KEY_X;
   }
 
-  return KEY_COUNT;
+  return KEY_UNDEFINED;
 }
 
 void window::create(const char* title, unsigned int width, unsigned int height, window_t* window)

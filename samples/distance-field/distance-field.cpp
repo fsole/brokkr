@@ -360,10 +360,15 @@ void createGraphicsPipeline()
   render::descriptorSetLayoutCreate(gContext, &binding, 1u, &gDescriptorSetLayout);
 
   //Create pipeline layout
-  render::pipelineLayoutCreate(gContext, &gDescriptorSetLayout, 1u, &gPipelineLayout);
+  render::pipelineLayoutCreate(gContext, &gDescriptorSetLayout, 1u, nullptr, 0u, &gPipelineLayout);
 
-  //Create descriptor pool  
-  render::descriptorPoolCreate(gContext, 2u, 1u, 1u, 1u, 1u, &gDescriptorPool);
+  //Create descriptor pool
+  render::descriptorPoolCreate(gContext, 2u,
+    render::combined_image_sampler_count(1u),
+    render::uniform_buffer_count(1u),
+    render::storage_buffer_count(1u),
+    render::storage_image_count(1u),
+    &gDescriptorPool);
 
   //Create descriptor set
   render::descriptor_t descriptor = render::getDescriptor(gTexture);
@@ -400,7 +405,7 @@ void createComputePipeline()
   render::descriptorSetLayoutCreate(gContext, bindings, 3u, &gComputeDescriptorSetLayout);
 
   //Create pipeline layout
-  render::pipelineLayoutCreate(gContext, &gComputeDescriptorSetLayout, 1u, &gComputePipelineLayout);
+  render::pipelineLayoutCreate(gContext, &gComputeDescriptorSetLayout, 1u, nullptr, 0u, &gComputePipelineLayout);
 
   //Create descriptor set
   render::descriptor_t descriptors[3] = { render::getDescriptor(gTexture), render::getDescriptor(gUbo), render::getDescriptor(gDistanceField) };

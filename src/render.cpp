@@ -24,6 +24,8 @@
 
 #include "render.h"
 #include "mesh.h"
+#include "window.h"
+#include "image.h"
 
 #include <cstring>  //memcpy
 #include <cassert>
@@ -31,7 +33,7 @@
 using namespace bkk;
 using namespace bkk::render;
 
-//#define VK_DEBUG_LAYERS
+#define VK_DEBUG_LAYERS
 
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
@@ -1215,6 +1217,226 @@ void render::texture2DCreate(const context_t& context,
   texture->format_ = format;
 }
 
+void render::textureCubemapCreate(const context_t& context, VkFormat format, uint32_t width, uint32_t height, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture)
+{
+  //Get base level image width and height
+  VkExtent3D extents = { width, height, 1u };
+
+  //Create the image
+  VkImageCreateInfo imageCreateInfo = {};
+  imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  imageCreateInfo.pNext = nullptr;
+  imageCreateInfo.mipLevels = mipLevels;
+  imageCreateInfo.format = format;
+  imageCreateInfo.arrayLayers = 6;  //Cubemap faces
+  imageCreateInfo.extent = extents;
+  imageCreateInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+  imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+  imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+  imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+  imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+  vkCreateImage(context.device_, &imageCreateInfo, nullptr, &texture->image_);
+
+
+  //Allocate and bind memory for the image.
+  //note: Memory for the image is not host visible so we will need a host visible buffer to transfer the data
+  VkMemoryRequirements requirements = {};
+  vkGetImageMemoryRequirements(context.device_, texture->image_, &requirements);
+  texture->memory_ = gpuMemoryAllocate(context, requirements.size, requirements.alignment, requirements.memoryTypeBits, DEVICE_LOCAL);
+  vkBindImageMemory(context.device_, texture->image_, texture->memory_.handle_, texture->memory_.offset_);
+
+  //Create imageview
+  VkImageViewCreateInfo imageViewCreateInfo = {};
+  imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  imageViewCreateInfo.format = imageCreateInfo.format;
+  imageViewCreateInfo.image = texture->image_;
+  imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  imageViewCreateInfo.subresourceRange.levelCount = 1;
+  imageViewCreateInfo.subresourceRange.layerCount = 1;
+  imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+  vkCreateImageView(context.device_, &imageViewCreateInfo, nullptr, &texture->imageView_);
+
+  //Create sampler
+  VkSamplerCreateInfo samplerCreateInfo = {};
+  samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerCreateInfo.magFilter = (VkFilter)sampler.magnification_;
+  samplerCreateInfo.minFilter = (VkFilter)sampler.minification_;
+  samplerCreateInfo.mipmapMode = (VkSamplerMipmapMode)sampler.mipmap_;
+  samplerCreateInfo.addressModeU = (VkSamplerAddressMode)sampler.wrapU_;
+  samplerCreateInfo.addressModeV = (VkSamplerAddressMode)sampler.wrapV_;
+  samplerCreateInfo.addressModeW = (VkSamplerAddressMode)sampler.wrapW_;
+  samplerCreateInfo.mipLodBias = 0.0f;
+  samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
+  samplerCreateInfo.minLod = 0.0f;
+  samplerCreateInfo.maxLod = (float)mipLevels;
+  samplerCreateInfo.maxAnisotropy = 1.0;
+  vkCreateSampler(context.device_, &samplerCreateInfo, nullptr, &texture->sampler_);
+
+
+  texture->descriptor_ = {};
+  texture->descriptor_.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+  texture->descriptor_.imageView = texture->imageView_;
+  texture->descriptor_.sampler = texture->sampler_;
+  texture->layout_ = VK_IMAGE_LAYOUT_GENERAL;
+  texture->extent_ = extents;
+  texture->mipLevels_ = 1;
+  texture->aspectFlags_ = VK_IMAGE_ASPECT_COLOR_BIT;
+  texture->format_ = format;
+}
+
+void render::textureCubemapCreate(const context_t& context, const image::image2D_t* images, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture)
+{
+  VkExtent3D extents = { images[0].width_, images[0].height_, 1u };
+
+  VkFormat format = VK_FORMAT_UNDEFINED;
+  if (images[0].componentCount_ == 3)
+  {
+    format = VK_FORMAT_R8G8B8_UNORM;
+  }
+  else if (images[0].componentCount_ == 4)
+  {
+    format = VK_FORMAT_R8G8B8A8_UNORM;
+  }
+
+  textureCubemapCreate(context, format, images[0].width_, images[0].height_, mipLevels, sampler, texture);
+  
+  //Create a staging buffer and memory store for the buffer  
+  VkMemoryRequirements requirements = {};
+  vkGetImageMemoryRequirements(context.device_, texture->image_, &requirements);
+  VkBuffer stagingBuffer;
+  VkBufferCreateInfo bufferCreateInfo = {};
+  bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  bufferCreateInfo.pNext = nullptr;
+  bufferCreateInfo.size = requirements.size;
+  bufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+  bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  vkCreateBuffer(context.device_, &bufferCreateInfo, nullptr, &stagingBuffer);
+
+  //Allocate and bind memory to the buffer
+  vkGetBufferMemoryRequirements(context.device_, stagingBuffer, &requirements);
+  gpu_memory_t stagingBufferMemory;
+  stagingBufferMemory = gpuMemoryAllocate(context, requirements.size, requirements.alignment, requirements.memoryTypeBits, HOST_VISIBLE);
+  vkBindBufferMemory(context.device_, stagingBuffer, stagingBufferMemory.handle_, stagingBufferMemory.offset_);
+
+  //@TODO: Handle mipmaps
+  //Map buffer memory and copy image data
+  unsigned char* mapping = (unsigned char*)gpuMemoryMap(context, stagingBufferMemory);
+  if (mapping)
+  {
+    for (uint32_t i(0); i < 6; ++i)
+    {
+      memcpy(mapping, images[i].data_, images[i].dataSize_);
+      mapping += images[i].dataSize_;
+    }
+
+    gpuMemoryUnmap(context, stagingBufferMemory);
+  }
+
+  std::vector<VkBufferImageCopy> bufferCopyRegions;
+  size_t offset = 0;
+  for (uint32_t face = 0; face < 6; face++)
+  {
+    for (uint32_t level = 0; level < mipLevels; level++)
+    {
+      VkBufferImageCopy bufferCopyRegion = {};
+      bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      bufferCopyRegion.imageSubresource.mipLevel = level;
+      bufferCopyRegion.imageSubresource.baseArrayLayer = face;
+      bufferCopyRegion.imageSubresource.layerCount = 1;
+      bufferCopyRegion.imageExtent.width = extents.width;
+      bufferCopyRegion.imageExtent.height = extents.height;
+      bufferCopyRegion.imageExtent.depth = 1;
+      bufferCopyRegion.bufferOffset = offset;
+
+      bufferCopyRegions.push_back(bufferCopyRegion);
+
+      offset += images[0].dataSize_;
+    }
+  }
+
+  //Create command buffer
+  VkCommandBuffer uploadCommandBuffer;
+  VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
+  commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  commandBufferAllocateInfo.commandBufferCount = 1;
+  commandBufferAllocateInfo.commandPool = context.commandPool_;
+  commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, &uploadCommandBuffer);
+
+  //Begin command buffer
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  vkBeginCommandBuffer(uploadCommandBuffer, &beginInfo);
+
+  ////Copy data from the buffer to the image
+  //Transition image layout from undefined to optimal-for-transfer-destination
+  VkImageMemoryBarrier imageBarrier = {};
+  imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  imageBarrier.pNext = nullptr;
+  imageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  imageBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  imageBarrier.srcAccessMask = 0;
+  imageBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  imageBarrier.image = texture->image_;
+  imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  imageBarrier.subresourceRange.layerCount = 1;
+  imageBarrier.subresourceRange.levelCount = 1;
+
+  vkCmdPipelineBarrier(uploadCommandBuffer,
+    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    0, 0, nullptr, 0, nullptr,
+    1, &imageBarrier);
+
+  //Copy from buffer to image
+  //@ToDO : Copy mipmaps. Currently only base level is copied to the image
+  vkCmdCopyBufferToImage(uploadCommandBuffer, stagingBuffer,
+    texture->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    6, bufferCopyRegions.data() );
+
+  //Transition image layout from optimal-for-transfer to optimal-for-shader-reads
+  imageBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+  imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  imageBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+  imageBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+  vkCmdPipelineBarrier(uploadCommandBuffer,
+    VK_PIPELINE_STAGE_TRANSFER_BIT,
+    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+    0, 0, nullptr, 0, nullptr,
+    1, &imageBarrier);
+
+  //End command buffer
+  vkEndCommandBuffer(uploadCommandBuffer);
+
+  ////Queue uploadCommandBuffer for execution
+  VkSubmitInfo submitInfo = {};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &uploadCommandBuffer;
+
+  VkFenceCreateInfo fenceCreateInfo = {};
+  fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+  VkFence fence;
+  vkCreateFence(context.device_, &fenceCreateInfo, nullptr, &fence);
+  vkResetFences(context.device_, 1u, &fence);
+  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, fence);
+
+  //Destroy temporary resources
+  vkWaitForFences(context.device_, 1u, &fence, VK_TRUE, UINT64_MAX);
+  vkDestroyFence(context.device_, fence, nullptr);
+  vkFreeCommandBuffers(context.device_, context.commandPool_, 1, &uploadCommandBuffer);
+  gpuMemoryDeallocate(context, nullptr, stagingBufferMemory);
+  vkDestroyBuffer(context.device_, stagingBuffer, nullptr);
+
+  textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, texture);
+}
+
+
 void render::textureDestroy(const context_t& context, texture_t* texture)
 {
   vkDestroyImageView(context.device_, texture->imageView_, nullptr);
@@ -1223,128 +1445,179 @@ void render::textureDestroy(const context_t& context, texture_t* texture)
   gpuMemoryDeallocate(context, nullptr, texture->memory_);
 }
 
-void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
+void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture)
 {
-    VkImageMemoryBarrier imageMemoryBarrier = {};
-    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    imageMemoryBarrier.pNext = nullptr;
-    imageMemoryBarrier.oldLayout = texture->layout_;
-    imageMemoryBarrier.newLayout = newLayout;
-    imageMemoryBarrier.image = texture->image_;
-    imageMemoryBarrier.subresourceRange.levelCount = 1u;
-    imageMemoryBarrier.subresourceRange.layerCount = 1u;
-    imageMemoryBarrier.subresourceRange.aspectMask = texture->aspectFlags_;
+  VkImageMemoryBarrier imageMemoryBarrier = {};
+  imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  imageMemoryBarrier.pNext = nullptr;
+  imageMemoryBarrier.oldLayout = texture->layout_;
+  imageMemoryBarrier.newLayout = newLayout;
+  imageMemoryBarrier.image = texture->image_;
+  imageMemoryBarrier.subresourceRange = subResourceRange;
 
-    // Source layouts (old)
-    // Source access mask controls actions that have to be finished on the old layout
-    // before it will be transitioned to the new layout
-    switch (texture->layout_)
+  // Source layouts (old)
+  // Source access mask controls actions that have to be finished on the old layout
+  // before it will be transitioned to the new layout
+  switch (texture->layout_)
+  {
+  case VK_IMAGE_LAYOUT_UNDEFINED:
+    // Image layout is undefined (or does not matter)
+    // Only valid as initial layout
+    // No flags required, listed only for completeness
+    imageMemoryBarrier.srcAccessMask = 0;
+    break;
+
+  case VK_IMAGE_LAYOUT_PREINITIALIZED:
+    // Image is preinitialized
+    // Only valid as initial layout for linear images, preserves memory contents
+    // Make sure host writes have been finished
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    break;
+
+  case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+    // Image is a color attachment
+    // Make sure any writes to the color buffer have been finished
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    break;
+
+  case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+    // Image is a depth/stencil attachment
+    // Make sure any writes to the depth/stencil buffer have been finished
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    break;
+
+  case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+    // Image is a transfer source 
+    // Make sure any reads from the image have been finished
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    break;
+
+  case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+    // Image is a transfer destination
+    // Make sure any writes to the image have been finished
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    break;
+
+  case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+    // Image is read by a shader
+    // Make sure any shader reads from the image have been finished
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    break;
+  default:
+    // Other source layouts aren't handled (yet)
+    break;
+  }
+
+  // Target layouts (new)
+  // Destination access mask controls the dependency for the new image layout
+  switch (newLayout)
+  {
+  case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+    // Image will be used as a transfer destination
+    // Make sure any writes to the image have been finished
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    break;
+
+  case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+    // Image will be used as a transfer source
+    // Make sure any reads from the image have been finished
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    break;
+
+  case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+    // Image will be used as a color attachment
+    // Make sure any writes to the color buffer have been finished
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    break;
+
+  case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+    // Image layout will be used as a depth/stencil attachment
+    // Make sure any writes to depth/stencil buffer have been finished
+    imageMemoryBarrier.dstAccessMask = imageMemoryBarrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    break;
+
+  case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+    // Image will be read in a shader (sampler, input attachment)
+    // Make sure any writes to the image have been finished
+    if (imageMemoryBarrier.srcAccessMask == 0)
     {
-    case VK_IMAGE_LAYOUT_UNDEFINED:
-      // Image layout is undefined (or does not matter)
-      // Only valid as initial layout
-      // No flags required, listed only for completeness
-      imageMemoryBarrier.srcAccessMask = 0;
-      break;
-
-    case VK_IMAGE_LAYOUT_PREINITIALIZED:
-      // Image is preinitialized
-      // Only valid as initial layout for linear images, preserves memory contents
-      // Make sure host writes have been finished
-      imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-      break;
-
-    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-      // Image is a color attachment
-      // Make sure any writes to the color buffer have been finished
-      imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-      break;
-
-    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-      // Image is a depth/stencil attachment
-      // Make sure any writes to the depth/stencil buffer have been finished
-      imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-      break;
-
-    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-      // Image is a transfer source 
-      // Make sure any reads from the image have been finished
-      imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-      break;
-
-    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-      // Image is a transfer destination
-      // Make sure any writes to the image have been finished
-      imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-      break;
-
-    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-      // Image is read by a shader
-      // Make sure any shader reads from the image have been finished
-      imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-      break;
-    default:
-      // Other source layouts aren't handled (yet)
-      break;
+      imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
     }
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    break;
+  default:
+    // Other source layouts aren't handled (yet)
+    break;
+  }
 
-    // Target layouts (new)
-    // Destination access mask controls the dependency for the new image layout
-    switch (newLayout)
-    {
-    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-      // Image will be used as a transfer destination
-      // Make sure any writes to the image have been finished
-      imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-      break;
+  // Put barrier inside setup command buffer
+  vkCmdPipelineBarrier(
+    cmdBuffer,
+    srcStageMask,
+    dstStageMask,
+    0,
+    0, nullptr,
+    0, nullptr,
+    1, &imageMemoryBarrier);
 
-    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-      // Image will be used as a transfer source
-      // Make sure any reads from the image have been finished
-      imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-      break;
-
-    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-      // Image will be used as a color attachment
-      // Make sure any writes to the color buffer have been finished
-      imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-      break;
-
-    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-      // Image layout will be used as a depth/stencil attachment
-      // Make sure any writes to depth/stencil buffer have been finished
-      imageMemoryBarrier.dstAccessMask = imageMemoryBarrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-      break;
-
-    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-      // Image will be read in a shader (sampler, input attachment)
-      // Make sure any writes to the image have been finished
-      if (imageMemoryBarrier.srcAccessMask == 0)
-      {
-        imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-      }
-      imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-      break;
-    default:
-      // Other source layouts aren't handled (yet)
-      break;
-    }
-
-    // Put barrier inside setup command buffer
-    vkCmdPipelineBarrier(
-      cmdBuffer,
-      srcStageMask,
-      dstStageMask,
-      0,
-      0, nullptr,
-      0, nullptr,
-      1, &imageMemoryBarrier);
-  
 
   texture->layout_ = newLayout;
   texture->descriptor_.imageLayout = newLayout;
 }
+void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
+{
+  VkImageSubresourceRange subresourceRange = {};
+  subresourceRange.levelCount = 1u;
+  subresourceRange.layerCount = 1u;
+  subresourceRange.aspectMask = texture->aspectFlags_;
 
+  textureChangeLayout(context, cmdBuffer, newLayout, srcStageMask, dstStageMask, subresourceRange, texture);
+}
+
+void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture)
+{
+  if (layout == texture->layout_)
+  {
+    return;
+  }
+
+  //Create command buffer
+  VkCommandBuffer commandBuffer;
+  VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
+  commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  commandBufferAllocateInfo.commandBufferCount = 1;
+  commandBufferAllocateInfo.commandPool = context.commandPool_;
+  commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, &commandBuffer);
+
+  //Begin command buffer
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+  textureChangeLayout(context, commandBuffer, layout, srcStageMask, dstStageMask, subResourceRange, texture);
+
+  vkEndCommandBuffer(commandBuffer);
+
+  ////Queue commandBuffer for execution
+  VkSubmitInfo submitInfo = {};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &commandBuffer;
+  VkFenceCreateInfo fenceCreateInfo = {};
+  fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+  VkFence fence;
+  vkCreateFence(context.device_, &fenceCreateInfo, nullptr, &fence);
+  vkResetFences(context.device_, 1u, &fence);
+  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, fence);
+
+
+  //Destroy command buffer
+  vkWaitForFences(context.device_, 1u, &fence, VK_TRUE, UINT64_MAX);
+  vkFreeCommandBuffers(context.device_, context.commandPool_, 1, &commandBuffer);
+  vkDestroyFence(context.device_, fence, nullptr);
+}
 
 void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
 {
@@ -1522,54 +1795,80 @@ void render::descriptorSetLayoutDestroy(const context_t& context, descriptor_set
   vkDestroyDescriptorSetLayout(context.device_, desriptorSetLayout->handle_, nullptr);
 }
 
-void render::pipelineLayoutCreate(const context_t& context, descriptor_set_layout_t* descriptorSetLayouts, uint32_t descriptorSetLayoutCount, pipeline_layout_t* pipelineLayout)
+void render::pipelineLayoutCreate(const context_t& context,
+                                  descriptor_set_layout_t* descriptorSetLayouts, uint32_t descriptorSetLayoutCount,
+                                  push_constant_range_t* pushConstantRanges, uint32_t pushConstantRangeCount,
+                                  pipeline_layout_t* pipelineLayout)
 {
   //Create pipeline layout
-  pipelineLayout->descriptorSetLayoutCount_ = descriptorSetLayoutCount;
-  pipelineLayout->descriptorSetLayout_ = nullptr;
   pipelineLayout->handle_ = VK_NULL_HANDLE;
 
+
+  pipelineLayout->descriptorSetLayout_ = nullptr;
+  pipelineLayout->descriptorSetLayoutCount_ = descriptorSetLayoutCount;
+  std::vector<VkDescriptorSetLayout> setLayouts(descriptorSetLayoutCount);
   if (descriptorSetLayoutCount > 0)
   {
+    for (uint32_t i(0); i < descriptorSetLayoutCount; ++i)
+    {
+      setLayouts[i] = descriptorSetLayouts[i].handle_;
+    }
+
     pipelineLayout->descriptorSetLayout_ = new descriptor_set_layout_t[descriptorSetLayoutCount];
     memcpy(pipelineLayout->descriptorSetLayout_, descriptorSetLayouts, sizeof(descriptor_set_layout_t)*descriptorSetLayoutCount);
   }
 
-  std::vector<VkDescriptorSetLayout> setLayouts(descriptorSetLayoutCount);
-  for (uint32_t i(0); i < descriptorSetLayoutCount; ++i)
+  pipelineLayout->pushConstantRange_ = nullptr;
+  pipelineLayout->pushConstantRangeCount_ = pushConstantRangeCount;
+  std::vector<VkPushConstantRange> pushConstants(pushConstantRangeCount);
+  if (pushConstantRangeCount > 0)
   {
-    setLayouts[i] = pipelineLayout->descriptorSetLayout_[i].handle_;
+    VkPushConstantRange pushConstantRange;
+    for (uint32_t i(0); i < pushConstantRangeCount; ++i)
+    { 
+      pushConstantRange.stageFlags = pushConstantRanges[i].stageFlags_;
+      pushConstantRange.offset = pushConstantRanges[i].offset_;
+      pushConstantRange.size = pushConstantRanges[i].size_;
+      pushConstants[i] = pushConstantRange;
+    }
+
+    pipelineLayout->pushConstantRange_ = new push_constant_range_t[pushConstantRangeCount];
+    memcpy(pipelineLayout->pushConstantRange_, pushConstantRanges, sizeof(push_constant_range_t)*pushConstantRangeCount );
   }
+
 
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
   pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   pipelineLayoutCreateInfo.setLayoutCount = descriptorSetLayoutCount;
   pipelineLayoutCreateInfo.pSetLayouts = setLayouts.data();
+  pipelineLayoutCreateInfo.pPushConstantRanges = pushConstants.data();
+  pipelineLayoutCreateInfo.pushConstantRangeCount = pushConstantRangeCount;
   vkCreatePipelineLayout(context.device_, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout->handle_);
 }
 
 void render::pipelineLayoutDestroy(const context_t& context, pipeline_layout_t* pipelineLayout)
 {
   delete[] pipelineLayout->descriptorSetLayout_;
+  delete[] pipelineLayout->pushConstantRange_;
   vkDestroyPipelineLayout(context.device_, pipelineLayout->handle_, nullptr);
 }
 
-void render::descriptorPoolCreate(const context_t& context, uint32_t descriptorSetsCount, 
-                                                            uint32_t combinedImageSamplersCount, uint32_t uniformBuffersCount, uint32_t storageBuffersCount, uint32_t storageImagesCount, 
-                                                            descriptor_pool_t* descriptorPool)
+void render::descriptorPoolCreate(const context_t& context, uint32_t descriptorSetsCount,
+  combined_image_sampler_count combinedImageSamplers, uniform_buffer_count uniformBuffers,
+  storage_buffer_count storageBuffers, storage_image_count storageImages,
+  descriptor_pool_t* descriptorPool)
 {
   descriptorPool->descriptorSets_ = descriptorSetsCount;
-  descriptorPool->combinedImageSamplers_ = combinedImageSamplersCount;
-  descriptorPool->uniformBuffers_ = uniformBuffersCount;
-  descriptorPool->storageBuffers_ = storageBuffersCount;
-  descriptorPool->storageImages_ = storageImagesCount;
+  descriptorPool->combinedImageSamplers_ = combinedImageSamplers.data_;
+  descriptorPool->uniformBuffers_ = uniformBuffers.data_;
+  descriptorPool->storageBuffers_ = storageBuffers.data_;
+  descriptorPool->storageImages_ = storageImages.data_;
 
   std::vector<VkDescriptorPoolSize> descriptorPoolSize;
   descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorPool->combinedImageSamplers_ });
   descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorPool->uniformBuffers_ });
   descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, descriptorPool->storageBuffers_ });
   descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, descriptorPool->storageImages_ });
-
 
   //Create DescriptorPool
   VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
@@ -1622,26 +1921,26 @@ void render::descriptorSetUpdate(const context_t& context, const descriptor_set_
 
     switch (descriptorSetLayout.bindings_[i].type_)
     {
-    case descriptor_t::type::SAMPLER:
-    case descriptor_t::type::COMBINED_IMAGE_SAMPLER:
-    case descriptor_t::type::SAMPLED_IMAGE:
-    case descriptor_t::type::STORAGE_IMAGE:
-    {
-      writeDescriptorSets[i].pImageInfo = &descriptorSet->descriptors_[i].imageDescriptor_;
-      break;
-    }
+      case descriptor_t::type::SAMPLER:
+      case descriptor_t::type::COMBINED_IMAGE_SAMPLER:
+      case descriptor_t::type::SAMPLED_IMAGE:
+      case descriptor_t::type::STORAGE_IMAGE:
+      {
+        writeDescriptorSets[i].pImageInfo = &descriptorSet->descriptors_[i].imageDescriptor_;
+        break;
+      }
 
-    case descriptor_t::type::UNIFORM_TEXEL_BUFFER:
-    case descriptor_t::type::STORAGE_TEXEL_BUFFER:
-    case descriptor_t::type::UNIFORM_BUFFER:
-    case descriptor_t::type::STORAGE_BUFFER:
-    case descriptor_t::type::UNIFORM_BUFFER_DYNAMIC:
-    case descriptor_t::type::STORAGE_BUFFER_DYNAMIC:
-    case descriptor_t::type::INPUT_ATTACHMENT:
-    {
-      writeDescriptorSets[i].pBufferInfo = &descriptorSet->descriptors_[i].bufferDescriptor_;
-      break;
-    }
+      case descriptor_t::type::UNIFORM_TEXEL_BUFFER:
+      case descriptor_t::type::STORAGE_TEXEL_BUFFER:
+      case descriptor_t::type::UNIFORM_BUFFER:
+      case descriptor_t::type::STORAGE_BUFFER:
+      case descriptor_t::type::UNIFORM_BUFFER_DYNAMIC:
+      case descriptor_t::type::STORAGE_BUFFER_DYNAMIC:
+      case descriptor_t::type::INPUT_ATTACHMENT:
+      {
+        writeDescriptorSets[i].pBufferInfo = &descriptorSet->descriptors_[i].bufferDescriptor_;
+        break;
+      }
     }
   }
 
@@ -1669,7 +1968,6 @@ void render::descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pi
 
   vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.handle_, firstSet, descriptorSetCount, descriptorSetHandles.data(), 0, 0);
 }
-
 
 void render::graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, uint32_t subpass, const render::vertex_format_t& vertexFormat, 
   const pipeline_layout_t& pipelineLayout, const graphics_pipeline_t::description_t& pipelineDesc, graphics_pipeline_t* pipeline)
@@ -1786,6 +2084,18 @@ void render::computePipelineDestroy(const context_t& context, compute_pipeline_t
 void render::computePipelineBind( VkCommandBuffer commandBuffer, const compute_pipeline_t& pipeline)
 {
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.handle_);
+}
+
+void render::pushConstants(VkCommandBuffer commandBuffer, pipeline_layout_t pipelineLayout, uint32_t offset, const void* constant)
+{
+  for (uint32_t i(0); i < pipelineLayout.pushConstantRangeCount_; ++i)
+  {
+    if (pipelineLayout.pushConstantRange_[i].offset_ == offset)
+    {
+      vkCmdPushConstants(commandBuffer, pipelineLayout.handle_, pipelineLayout.pushConstantRange_[i].stageFlags_, offset, pipelineLayout.pushConstantRange_[i].size_, constant);
+      break;
+    }
+  }
 }
 
 static const VkFormat AttributeFormatLUT[] = { VK_FORMAT_R32_SINT, VK_FORMAT_R32_UINT, VK_FORMAT_R32_SFLOAT,
@@ -2237,4 +2547,18 @@ void render::commandBufferSubmit(const context_t& context, const command_buffer_
   {
     vkQueueSubmit(context.computeQueue_.handle_, 1, &submitInfo, commandBuffer.fence_);
   }
+}
+
+VkSemaphore render::semaphoreCreate(const context_t& context)
+{
+  VkSemaphore semaphore;
+  VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+  semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+  vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &semaphore);
+  return semaphore;
+}
+
+void render::semaphoreDestroy(const context_t& context, VkSemaphore semaphore)
+{
+  vkDestroySemaphore(context.device_, semaphore, nullptr);
 }

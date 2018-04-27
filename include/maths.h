@@ -861,7 +861,7 @@ namespace bkk
     }
 
     template <typename T>
-    inline Matrix<T, 4, 4> computeTransform(const Vector<T, 3>& translation, const Vector<T, 3>& scale, const Quaternion<T>& rotation)
+    inline Matrix<T, 4, 4> createTransform(const Vector<T, 3>& translation, const Vector<T, 3>& scale, const Quaternion<T>& rotation)
     {
       Matrix<T, 4, 4> result;
 
@@ -901,7 +901,7 @@ namespace bkk
 
     //Inverse of a transform matrix
     template <typename T>
-    inline Matrix<T, 4, 4> computeInverseTransform(const Matrix<T, 4, 4>& m)
+    inline Matrix<T, 4, 4> invertTransform(const Matrix<T, 4, 4>& m)
     {
       Matrix<T, 4, 4> result;
 
@@ -920,9 +920,10 @@ namespace bkk
       result[10] = m[10];
       result[11] = 0.0f;
 
-      result[12] = -((m[0] * m[12]) + (m[1] * m[13]) + (m[2] * m[14]) + (m[3] * m[15]));
-      result[13] = -((m[4] * m[12]) + (m[5] * m[13]) + (m[6] * m[14]) + (m[7] * m[15]));
-      result[14] = -((m[8] * m[12]) + (m[9] * m[13]) + (m[10] * m[14]) + (m[11] * m[15]));
+      
+      result[12] = -((m[0] * m[12]) + (m[1] * m[13]) + (m[2] * m[14]));
+      result[13] = -((m[4] * m[12]) + (m[5] * m[13]) + (m[6] * m[14]));
+      result[14] = -((m[8] * m[12]) + (m[9] * m[13]) + (m[10] * m[14]));
       result[15] = 1.0f;
 
 
@@ -931,7 +932,7 @@ namespace bkk
 
     //Inverse of a matrix
     template <typename T>
-    inline bool computeInverse(const Matrix<T, 4, 4>& m, Matrix<T, 4, 4>& result)
+    inline bool invertMatrix(const Matrix<T, 4, 4>& m, Matrix<T, 4, 4>& result)
     {
 
       result[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] + m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
@@ -967,7 +968,7 @@ namespace bkk
     }
 
     template <typename T>
-    inline Matrix<T, 4u, 4u> computePerspectiveProjectionMatrix(T fov, T aspect, T n, T f)
+    inline Matrix<T, 4u, 4u> perspectiveProjectionMatrix(T fov, T aspect, T n, T f)
     {
       Matrix<T, 4u, 4u> result = {};
       T height = tan(fov * T(0.5))*n;
@@ -982,9 +983,39 @@ namespace bkk
       return result;
     }
 
+    template <typename T>
+    inline Matrix<T, 4u, 4u> lookAtMatrix(Vector<T, 3> eye, Vector<T, 3> center, Vector<T, 3> up )
+    {
+      Vector<T, 3> view = normalize( eye-center );
+      Vector<T, 3> right = normalize( cross(up,view) );
+      up = normalize(cross(view,right));
+      
+      Matrix<T, 4u, 4u> cameraTx;
+      cameraTx[0] = right.x;
+      cameraTx[1] = right.y;
+      cameraTx[2] = right.z;
+      cameraTx[3] = 0.0f;
+
+      cameraTx[4] = up.x;
+      cameraTx[5] = up.y;
+      cameraTx[6] = up.z;
+      cameraTx[7] = 0.0f;
+
+      cameraTx[8] = view.x;
+      cameraTx[9] = view.y;
+      cameraTx[10] = view.z;
+      cameraTx[11] = 0.0f;
+
+      cameraTx[12] = eye.x;
+      cameraTx[13] = eye.y;
+      cameraTx[14] = eye.z;
+      cameraTx[15] = 1.0f;
+
+      return invertTransform(cameraTx);
+    }
 
     template <typename T>
-    inline Matrix<T, 4, 4> computeOrthographicProjectionMatrix(T left, T right, T bottom, T top, T nearPlane, T farPlane)
+    inline Matrix<T, 4, 4> orthographicProjectionMatrix(T left, T right, T bottom, T top, T nearPlane, T farPlane)
     {
       Matrix<T, 4, 4> result;
 

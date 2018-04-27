@@ -111,7 +111,7 @@ int main()
   
   //Create pipeline layout
   bkk::render::pipeline_layout_t pipelineLayout;
-  bkk::render::pipelineLayoutCreate(context, nullptr, 0u, &pipelineLayout);
+  bkk::render::pipelineLayoutCreate(context, nullptr, 0u, nullptr, 0u, &pipelineLayout);
 
   //Load shaders  
   bkk::render::shader_t vertexShader, fragmentShader;

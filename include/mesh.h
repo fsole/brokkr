@@ -140,7 +140,7 @@ namespace bkk
     void destroy(const render::context_t& context, mesh_t* mesh, render::gpu_memory_allocator_t* allocator = nullptr);
 
     //Animator
-    void animatorCreate(const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float durationInMs, skeletal_animator_t* animator);
+    void animatorCreate(const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float speedFactor, skeletal_animator_t* animator);
     void animatorUpdate(const render::context_t& context, f32 deltaTimeInMs, skeletal_animator_t* animator);
     void animatorDestroy(const render::context_t& context, skeletal_animator_t* animator);
 

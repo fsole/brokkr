@@ -23,6 +23,7 @@
 */
 
 #include "render.h"
+#include "image.h"
 #include "window.h"
 #include "mesh.h"
 #include "maths.h"
@@ -528,7 +529,12 @@ public:
     render::gpuAllocatorCreate(context, 100 * 1024 * 1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_);
 
     //Create descriptor pool
-    render::descriptorPoolCreate(context, 1000u, 1000u, 1000u, 0u, 0u, &descriptorPool_);
+    render::descriptorPoolCreate(context, 1000u,
+      render::combined_image_sampler_count(1000u),
+      render::uniform_buffer_count(1000u),
+      render::storage_buffer_count(0u),
+      render::storage_image_count(0u),
+      &descriptorPool_);
 
     //Create vertex format (position + normal)
     uint32_t vertexSize = 2 * sizeof(maths::vec3) + sizeof(maths::vec2);
@@ -557,8 +563,8 @@ public:
     camera_.position_ = vec3(-1.1f, 0.6f, -0.1f);
     camera_.angle_ = vec2(0.2f, 1.57f);
     camera_.Update();
-    uniforms_.projectionMatrix_ = computePerspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.01f, 10.0f);
-    computeInverse(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
+    uniforms_.projectionMatrix_ = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.01f, 10.0f);
+    invertMatrix(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
     uniforms_.worldToViewMatrix_ = camera_.view_;
     uniforms_.viewToWorldMatrix_ = camera_.tx_;
     uniforms_.imageSize_ = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
@@ -591,7 +597,7 @@ public:
     //Presentation descriptor set layout and pipeline layout
     binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
     bkk::render::descriptorSetLayoutCreate(context, &binding, 1u, &presentationDescriptorSetLayout_);
-    bkk::render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, &presentationPipelineLayout_);
+    bkk::render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, nullptr, 0u, &presentationPipelineLayout_);
 
     //Presentation descriptor sets
     descriptor = bkk::render::getDescriptor(finalImage_);
@@ -692,10 +698,10 @@ public:
 
       mat4 lightViewMatrix;
       quat orientation(vec3(0.0f, 0.0f, 1.0f), lightDirection);
-      mat4 lightModelMatrix = maths::computeTransform(position, VEC3_ONE, orientation);
-      computeInverse(lightModelMatrix, lightViewMatrix);
+      mat4 lightModelMatrix = maths::createTransform(position, VEC3_ONE, orientation);
+      invertMatrix(lightModelMatrix, lightViewMatrix);
 
-      directionalLight_->uniforms_.worldToClipSpace_ = lightViewMatrix * computeOrthographicProjectionMatrix(-1.0f, 1.0f, 1.0f, -1.0f, 0.01f, 2.0f);
+      directionalLight_->uniforms_.worldToClipSpace_ = lightViewMatrix * orthographicProjectionMatrix(-1.0f, 1.0f, 1.0f, -1.0f, 0.01f, 2.0f);
       directionalLight_->uniforms_.shadowMapSize_ = vec4((float)shadowMapSize_, (float)shadowMapSize_, 1.0f / (float)shadowMapSize_, 1.0f / (float)shadowMapSize_);
 
       //Create uniform buffer and descriptor set
@@ -875,7 +881,7 @@ public:
       render::frameBufferDestroy(context, &shadowFrameBuffer_);
       render::renderPassDestroy(context, &shadowRenderPass_);
       render::commandBufferDestroy(context, &shadowCommandBuffer_);
-      vkDestroySemaphore(context.device_, shadowPassComplete_, nullptr);
+      render::semaphoreDestroy(context, shadowPassComplete_);
       delete directionalLight_;
     }
 
@@ -932,7 +938,7 @@ public:
     render::gpuBufferDestroy(context, &allocator_, &globalsUbo_);
     render::gpuAllocatorDestroy(context, &allocator_);
     render::descriptorPoolDestroy(context, &descriptorPool_);
-    vkDestroySemaphore(context.device_, renderComplete_, nullptr);    
+    render::semaphoreDestroy(context, renderComplete_);
   }
 
 private:
@@ -973,16 +979,14 @@ private:
     //Objects
     for (u32 i(0); i < meshCount; ++i)
     {
-      addObject(meshHandles[i], materialHandles[materialIndex[i]], maths::computeTransform(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(0.001f, 0.001f, 0.001f), maths::QUAT_UNIT));
+      addObject(meshHandles[i], materialHandles[materialIndex[i]], maths::createTransform(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(0.001f, 0.001f, 0.001f), maths::QUAT_UNIT));
     }
 
     delete[] materialIndex;
   }
   void initializeShadowPass(render::context_t& context)
   {
-    VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;    
-    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &shadowPassComplete_);
+    shadowPassComplete_ = render::semaphoreCreate(context);
 
     shadowRenderPass_ = {};
     render::render_pass_t::attachment_t shadowAttachments[2];
@@ -1032,7 +1036,7 @@ private:
     render::descriptor_t descriptor = render::getDescriptor(directionalLight_->ubo_);
     render::descriptorSetCreate(context, descriptorPool_, shadowGlobalsDescriptorSetLayout_, &descriptor, &shadowGlobalsDescriptorSet_);
     render::descriptor_set_layout_t shadowDescriptorSetLayouts[2] = { shadowGlobalsDescriptorSetLayout_, objectDescriptorSetLayout_ };
-    render::pipelineLayoutCreate(context, shadowDescriptorSetLayouts, 2, &shadowPipelineLayout_);
+    render::pipelineLayoutCreate(context, shadowDescriptorSetLayouts, 2, nullptr, 0u, &shadowPipelineLayout_);
 
     //Create shadow pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gShadowPassVertexShaderSource, &shadowVertexShader_);
@@ -1055,9 +1059,7 @@ private:
   void initializeOffscreenPass(render::context_t& context, const uvec2& size)
   {
     //Semaphore to indicate rendering has completed
-    VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-    semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    vkCreateSemaphore(context.device_, &semaphoreCreateInfo, nullptr, &renderComplete_);
+    renderComplete_ = render::semaphoreCreate(context);
 
     //Create offscreen render pass (GBuffer + light subpasses)
     renderPass_ = {};
@@ -1155,7 +1157,7 @@ private:
 
     //Create gBuffer pipeline layout
     render::descriptor_set_layout_t descriptorSetLayouts[3] = { globalsDescriptorSetLayout_, objectDescriptorSetLayout_, materialDescriptorSetLayout_ };
-    render::pipelineLayoutCreate(context, descriptorSetLayouts, 3u, &gBufferPipelineLayout_);
+    render::pipelineLayoutCreate(context, descriptorSetLayouts, 3u, nullptr, 0u, &gBufferPipelineLayout_);
 
     //Create geometry pass pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gGeometryPassVertexShaderSource, &gBuffervertexShader_);
@@ -1199,7 +1201,7 @@ private:
 
     //Create light pass pipeline layout
     render::descriptor_set_layout_t lightPassDescriptorSetLayouts[3] = { globalsDescriptorSetLayout_, lightPassTexturesDescriptorSetLayout_, lightDescriptorSetLayout_ };
-    render::pipelineLayoutCreate(context, lightPassDescriptorSetLayouts, 3u, &lightPipelineLayout_);
+    render::pipelineLayoutCreate(context, lightPassDescriptorSetLayouts, 3u, nullptr, 0u, &lightPipelineLayout_);
 
     //Create point light pass pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gPointLightPassVertexShaderSource, &pointLightVertexShader_);

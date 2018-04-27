@@ -104,8 +104,8 @@ public:
   skinning_sample_t()
   :application_t("Skinning", 600u, 600u, 3u),
    camera_(25.0f, vec2(0.8f, 0.0f), 0.01f),
-   projectionTx_( computePerspectiveProjectionMatrix(1.5f, 1.0f, 1.0f, 1000.0f) ),
-   modelTx_( computeTransform(vec3(0.0,-17.0,0.0), VEC3_ONE, QUAT_UNIT) )
+   projectionTx_( perspectiveProjectionMatrix(1.5f, 1.0f, 1.0f, 1000.0f) ),
+   modelTx_( createTransform(vec3(0.0,-17.0,0.0), VEC3_ONE, QUAT_UNIT) )
   {
     render::context_t& context = getRenderContext();
             
@@ -142,10 +142,16 @@ public:
                                                };
 
     render::descriptorSetLayoutCreate(context, bindings, 3u, &descriptorSetLayout_);
-    render::pipelineLayoutCreate(context, &descriptorSetLayout_, 1u, &pipelineLayout_);
+    render::pipelineLayoutCreate(context, &descriptorSetLayout_, 1u, nullptr, 0u, &pipelineLayout_);
 
     //Create descriptor set
-    render::descriptorPoolCreate(context, 1u, 1u, 2u, 0u, 0u, &descriptorPool_);
+    render::descriptorPoolCreate(context, 1u,
+      render::combined_image_sampler_count(1u),
+      render::uniform_buffer_count(1u),
+      render::storage_buffer_count(1u),
+      render::storage_image_count(0u),
+      &descriptorPool_);
+
     render::descriptor_t descriptors[3] = { render::getDescriptor(globalUnifomBuffer_), render::getDescriptor(animator_.buffer_), render::getDescriptor( texture_) };
     render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, descriptors, &descriptorSet_);
 
@@ -207,7 +213,7 @@ public:
   void onResize(u32 width, u32 height) 
   {
     buildCommandBuffers();
-    projectionTx_ = computePerspectiveProjectionMatrix(1.5f, width / (float)height, 1.0f, 1000.0f);
+    projectionTx_ = perspectiveProjectionMatrix(1.5f, width / (float)height, 1.0f, 1000.0f);
   }
 
   void onKeyEvent(window::key_e key, bool pressed) 

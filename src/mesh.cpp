@@ -567,7 +567,7 @@ void mesh::animatorUpdate(const render::context_t& context, f32 deltaTime, skele
   for (u32 i(0); i<animator->animation_->nodeCount_; ++i)
   {
     //Compute new local transform of the bone
-    mat4 nodeLocalTx = maths::computeTransform(maths::lerp(transform0->position_, transform1->position_, t),
+    mat4 nodeLocalTx = maths::createTransform(maths::lerp(transform0->position_, transform1->position_, t),
                                              maths::lerp(transform0->scale_, transform1->scale_, t),
                                              maths::slerp(transform0->orientation_, transform1->orientation_, t));
 

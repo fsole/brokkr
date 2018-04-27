@@ -25,6 +25,7 @@
 #include "render.h"
 #include "window.h"
 #include "mesh.h"
+#include "image.h"
 #include "../utility.h"
 
 #include "mesh.h"
@@ -70,7 +71,7 @@ bkk::render::texture_t createTexture(const bkk::render::context_t& context)
   else
   {
     //Create the texture
-    bkk::render::texture2DCreate(context, &image, 1, bkk::render::texture_sampler_t(), &texture);    
+    bkk::render::texture2DCreate(context, &image, 1, bkk::render::texture_sampler_t(), &texture);
     bkk::image::unload(&image);
   }
 
@@ -109,7 +110,12 @@ int main()
 
   //Create descriptor pool
   bkk::render::descriptor_pool_t descriptorPool;
-  bkk::render::descriptorPoolCreate(context, 1u, 1u, 0u, 0u, 0u, &descriptorPool);
+  render::descriptorPoolCreate(context, 1u,
+    render::combined_image_sampler_count(1u),
+    render::uniform_buffer_count(0u),
+    render::storage_buffer_count(0u),
+    render::storage_image_count(0u),
+    &descriptorPool);
 
   //Create descriptor layout
   bkk::render::descriptor_set_layout_t descriptorSetLayout;
@@ -118,7 +124,7 @@ int main()
 
   //Create pipeline layout
   bkk::render::pipeline_layout_t pipelineLayout;
-  bkk::render::pipelineLayoutCreate(context, &descriptorSetLayout, 1u, &pipelineLayout);
+  bkk::render::pipelineLayoutCreate(context, &descriptorSetLayout, 1u, nullptr, 0u, &pipelineLayout);
 
   //Create descriptor set
   bkk::render::descriptor_set_t descriptorSet;

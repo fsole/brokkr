@@ -325,10 +325,15 @@ private:
     render::descriptorSetLayoutCreate(context, &binding, 1u, &descriptorSetLayout_);
 
     //Create pipeline layout  
-    render::pipelineLayoutCreate(context, &descriptorSetLayout_, 1u, &pipelineLayout_);
+    render::pipelineLayoutCreate(context, &descriptorSetLayout_, 1u, nullptr, 0u, &pipelineLayout_);
 
     //Create descriptor pool
-    render::descriptorPoolCreate(context, 2u, 1u, 1u, 0u, 1u, &descriptorPool_);
+    render::descriptorPoolCreate(context, 2u,
+      render::combined_image_sampler_count(1u),
+      render::uniform_buffer_count(0u),
+      render::storage_buffer_count(1u),
+      render::storage_image_count(1u),
+      &descriptorPool_);
 
     //Create descriptor set
     render::descriptor_t descriptor = render::getDescriptor(renderedImage_);
@@ -364,7 +369,7 @@ private:
     render::descriptorSetLayoutCreate(context, bindings, 2u, &computeDescriptorSetLayout_);
 
     //Create pipeline layout
-    render::pipelineLayoutCreate(context, &computeDescriptorSetLayout_, 1u, &computePipelineLayout_);
+    render::pipelineLayoutCreate(context, &computeDescriptorSetLayout_, 1u, nullptr, 0u, &computePipelineLayout_);
 
     //Create descriptor set
     render::descriptor_t descriptors[2] = { render::getDescriptor(renderedImage_), render::getDescriptor(sceneBuffer_) };
