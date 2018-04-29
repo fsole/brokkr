@@ -294,7 +294,7 @@ private:
     
     //Create the texture that will be updated by the compute shader
     render::texture2DCreate(context, imageSize_.x, imageSize_.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &renderedImage_);
-    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, &renderedImage_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_GENERAL, &renderedImage_);
 
     //Create data to be passed to the gpu
     buffer_data_t data;

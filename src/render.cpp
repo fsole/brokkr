@@ -1138,7 +1138,7 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
   texture->aspectFlags_ = VK_IMAGE_ASPECT_COLOR_BIT;
   texture->format_ = format;
 
-  textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, texture);
+  textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, texture);
 }
 
 void render::texture2DCreate(const context_t& context,
@@ -1433,7 +1433,7 @@ void render::textureCubemapCreate(const context_t& context, const image::image2D
   gpuMemoryDeallocate(context, nullptr, stagingBufferMemory);
   vkDestroyBuffer(context.device_, stagingBuffer, nullptr);
 
-  textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, texture);
+  textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, texture);
 }
 
 
@@ -1564,14 +1564,14 @@ void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBu
   texture->layout_ = newLayout;
   texture->descriptor_.imageLayout = newLayout;
 }
-void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
+
+void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture)
 {
   VkImageSubresourceRange subresourceRange = {};
   subresourceRange.levelCount = 1u;
   subresourceRange.layerCount = 1u;
   subresourceRange.aspectMask = texture->aspectFlags_;
-
-  textureChangeLayout(context, cmdBuffer, newLayout, srcStageMask, dstStageMask, subresourceRange, texture);
+  textureChangeLayout(context, cmdBuffer, layout, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, texture);
 }
 
 void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture)
@@ -1619,50 +1619,14 @@ void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layo
   vkDestroyFence(context.device_, fence, nullptr);
 }
 
-void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
+void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, texture_t* texture)
 {
-  if (layout == texture->layout_)
-  {
-    return;
-  }
-
-  //Create command buffer
-  VkCommandBuffer commandBuffer;
-  VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
-  commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  commandBufferAllocateInfo.commandBufferCount = 1;
-  commandBufferAllocateInfo.commandPool = context.commandPool_;
-  commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, &commandBuffer); 
-
-  //Begin command buffer
-  VkCommandBufferBeginInfo beginInfo = {};
-  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-  textureChangeLayout(context, commandBuffer, layout, srcStageMask, dstStageMask, texture);
-  vkEndCommandBuffer(commandBuffer);
-
-  ////Queue commandBuffer for execution
-  VkSubmitInfo submitInfo = {};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &commandBuffer;
-  VkFenceCreateInfo fenceCreateInfo = {};
-  fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-  VkFence fence;
-  vkCreateFence(context.device_, &fenceCreateInfo, nullptr, &fence);
-  vkResetFences(context.device_, 1u, &fence);
-  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, fence);
-
-
-  //Destroy command buffer
-  vkWaitForFences(context.device_, 1u, &fence, VK_TRUE, UINT64_MAX);
-  vkFreeCommandBuffers(context.device_, context.commandPool_, 1, &commandBuffer);
-  vkDestroyFence(context.device_, fence, nullptr);
+  VkImageSubresourceRange subresourceRange = {};
+  subresourceRange.levelCount = 1u;
+  subresourceRange.layerCount = 1u;
+  subresourceRange.aspectMask = texture->aspectFlags_;
+  textureChangeLayoutNow(context, layout, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, texture);
 }
-
 
 
 void render::gpuBufferCreate(const context_t& context,
