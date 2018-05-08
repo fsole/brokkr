@@ -175,6 +175,11 @@ static const char* gLightPassFragmentShaderSource = R"(
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
   }
 
+  vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+  {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+  }   
+
   float DistributionGGX(vec3 N, vec3 H, float roughness)
   {
     float a = roughness*roughness;
@@ -237,11 +242,11 @@ static const char* gLightPassFragmentShaderSource = R"(
     float metallic = RT2Value.w;
     vec3 V = -normalize(positionVS);
     vec3 H = normalize(V + L);
-    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+    vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness );
     float NDF = DistributionGGX(N, H, roughness);
     float G = GeometrySmith(N, V, L, roughness);
     vec3 kS = F;
-    vec3 kD = vec3(1.0) - kS;
+    vec3 kD = max( vec3(0), vec3(1.0) - kS );
     kD *= 1.0 - metallic;
     vec3 nominator = NDF * G * F;
     float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;
@@ -254,6 +259,93 @@ static const char* gLightPassFragmentShaderSource = R"(
     color = pow(color, vec3(1.0 / 2.2));
     result = vec4(color,1.0);
     
+  }
+)";
+
+
+static const char* gAmbientLightVertexShaderSource = R"(
+  #version 440 core
+  layout(location = 0) in vec3 aPosition;
+  void main(void)
+  {
+    gl_Position = vec4(aPosition,1.0);
+  }
+)";
+
+
+static const char* gAmbientLightFragmentShaderSource = R"(
+  #version 440 core
+
+  layout(set = 0, binding = 0) uniform SCENE
+  {
+    mat4 view;
+    mat4 projection;
+    mat4 projectionInverse;
+    vec4 imageSize;
+  }scene;
+
+  layout(set = 1, binding = 0) uniform sampler2D RT0;
+  layout(set = 1, binding = 1) uniform sampler2D RT1;
+  layout(set = 1, binding = 2) uniform sampler2D RT2;
+  layout(set = 1, binding = 3) uniform samplerCube irradianceMap;
+  layout(set = 1, binding = 4) uniform samplerCube specularMap;
+  layout(set = 1, binding = 5) uniform sampler2D brdfLUT;
+
+  layout(location = 0) in vec3 lightPositionVS;
+  
+  layout(location = 0) out vec4 result;
+
+  const float PI = 3.14159265359;
+  vec3 ViewSpacePositionFromDepth(vec2 uv, float depth)
+  {
+    vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);
+    vec4 viewSpacePosition = scene.projectionInverse * vec4(clipSpacePosition,1.0);
+    return(viewSpacePosition.xyz / viewSpacePosition.w);
+  }
+
+  vec3 fresnelSchlick(float cosTheta, vec3 F0)
+  {
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+  }
+
+  vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+  {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
+  }   
+
+  void main(void)
+  {
+    vec2 uv = gl_FragCoord.xy * scene.imageSize.zw;
+    vec4 RT0Value = texture(RT0, uv);
+    vec3 albedo = RT0Value.xyz;
+    float roughness = RT0Value.w;
+    vec4 RT1Value = texture(RT1, uv);
+    vec3 N = normalize(RT1Value.xyz); 
+    float depth = RT1Value.w;
+    vec4 RT2Value = texture(RT2, uv);
+    vec3 positionVS = ViewSpacePositionFromDepth( uv,depth );
+    vec3 F0 = RT2Value.xyz;
+    float metallic = RT2Value.w;
+    vec3 V = -normalize(positionVS);
+    vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+    
+    vec3 kD = max( vec3(0), vec3(1.0) - F );
+    kD *= 1.0 - metallic;
+
+
+    vec3 normalWS = normalize( vec4( inverse( scene.view ) * vec4(N,0.0) ).xyz);
+    vec3 irradiance = texture(irradianceMap, normalWS).rgb;
+    vec3 diffuse = irradiance * albedo;
+
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 reflection = reflect(-V, N);
+    vec3 reflectionWS = normalize( vec4( inverse( scene.view ) * vec4(reflection,0.0) ).xyz);
+    vec3 prefilteredColor = textureLod(specularMap, reflectionWS,  roughness * MAX_REFLECTION_LOD).rgb;  
+    vec2 envBRDF  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+    vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+
+    vec3 ambient = kD * diffuse + specular;
+    result = vec4(ambient,1.0);
   }
 )";
 
@@ -300,14 +392,15 @@ static const char* gPresentationFragmentShaderSource = R"(
   layout(location = 0) out vec4 color;
   void main(void)
   {
-    //color = texture(uTexture,uv);
-
-    float depth = texture( uDepthNormals, uv ).w;
-    if( depth == 0.0 )
-      color = texture(uCubeMap,uvCubemap);
+    vec4 depthNormalValue = texture(uDepthNormals, uv);
+    if( depthNormalValue.w == 0.0 )
+    {
+      color = textureLod(uCubeMap,uvCubemap, 0);
+    }
     else
+    {
       color = texture(uTexture,uv);
-
+    }
   }
 )";
 
@@ -360,7 +453,7 @@ struct pbr_renderer_t : public application_t
   };
 
   pbr_renderer_t()
-    :application_t("PBR Renderer", 1200u, 800u, 3u),
+    :application_t("PBR Renderer", 1600u, 1000u, 3u),
     camera_(vec3(0.0f, 9.0f, 5.0f), vec2(0.6f, 0.0f), 1.0f, 0.01f),
     bAnimateLights_(false)
   {
@@ -411,8 +504,10 @@ struct pbr_renderer_t : public application_t
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &finalImage_);
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
 
-    
-    cubemapFromImage("../resources/circus.png", 512, 512, &cubemap_);
+    cubemapFromImage("../resources/circus.png", 2046, 2046, &cubemap_);
+    diffuseConvolution(cubemap_, 64u, &irradianceMap_);
+    specularConvolution(cubemap_, 256u, 4u, &specularMap_);
+    brdfConvolution(512u, &brdfLut_);
 
 
     //Presentation descriptor set layout and pipeline layout
@@ -674,8 +769,8 @@ struct pbr_renderer_t : public application_t
     }
 
 
-    render::shaderDestroy(context, &gBuffervertexShader_);
-    render::shaderDestroy(context, &gBufferfragmentShader_);
+    render::shaderDestroy(context, &gBufferVertexShader_);
+    render::shaderDestroy(context, &gBufferFragmentShader_);
     render::shaderDestroy(context, &lightVertexShader_);
     render::shaderDestroy(context, &lightFragmentShader_);
     render::shaderDestroy(context, &presentationVertexShader_);
@@ -704,6 +799,10 @@ struct pbr_renderer_t : public application_t
     render::textureDestroy(context, &gBufferRT1_);
     render::textureDestroy(context, &gBufferRT2_);
     render::textureDestroy(context, &finalImage_);
+    render::textureDestroy(context, &brdfLut_);
+    render::textureDestroy(context, &irradianceMap_);
+    render::textureDestroy(context, &specularMap_);
+
     render::depthStencilBufferDestroy(context, &depthStencilBuffer_);
 
     mesh::destroy(context, &fullScreenQuad_);
@@ -823,8 +922,8 @@ private:
     render::pipelineLayoutCreate(context, descriptorSetLayouts, 3u, nullptr, 0u, &gBufferPipelineLayout_);
 
     //Create geometry pass pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gGeometryPassVertexShaderSource, &gBuffervertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gGeometryPassFragmentShaderSource, &gBufferfragmentShader_);
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gGeometryPassVertexShaderSource, &gBufferVertexShader_);
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gGeometryPassFragmentShaderSource, &gBufferFragmentShader_);
     bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
     pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
@@ -839,30 +938,41 @@ private:
     pipelineDesc.depthTestEnabled_ = true;
     pipelineDesc.depthWriteEnabled_ = true;
     pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
-    pipelineDesc.vertexShader_ = gBuffervertexShader_;
-    pipelineDesc.fragmentShader_ = gBufferfragmentShader_;
+    pipelineDesc.vertexShader_ = gBufferVertexShader_;
+    pipelineDesc.fragmentShader_ = gBufferFragmentShader_;
     render::graphicsPipelineCreate(context, renderPass_.handle_, 0u, vertexFormat_, gBufferPipelineLayout_, pipelineDesc, &gBufferPipeline_);
 
     //Create light pass descriptorSet layouts
-    render::descriptor_binding_t bindings[3];
+    render::descriptor_binding_t bindings[6];
     bindings[0] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
     bindings[1] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 1, render::descriptor_t::stage::FRAGMENT };
     bindings[2] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2, render::descriptor_t::stage::FRAGMENT };
+    bindings[3] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 3, render::descriptor_t::stage::FRAGMENT };
+    bindings[4] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 4, render::descriptor_t::stage::FRAGMENT };
+    bindings[5] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 5, render::descriptor_t::stage::FRAGMENT };
     render::descriptorSetLayoutCreate(context, bindings, 3u, &lightPassTexturesDescriptorSetLayout_);
+    render::descriptorSetLayoutCreate(context, bindings, 6u, &ambientLightPassTexturesDescriptorSetLayout_);
 
     binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
     render::descriptorSetLayoutCreate(context, &binding, 1u, &lightDescriptorSetLayout_);
 
     //Create descriptor sets for light pass (GBuffer textures)
-    render::descriptor_t descriptors[3];
+    render::descriptor_t descriptors[6];
     descriptors[0] = render::getDescriptor(gBufferRT0_);
     descriptors[1] = render::getDescriptor(gBufferRT1_);
     descriptors[2] = render::getDescriptor(gBufferRT2_);
+    descriptors[3] = render::getDescriptor(irradianceMap_);
+    descriptors[4] = render::getDescriptor(specularMap_);
+    descriptors[5] = render::getDescriptor(brdfLut_);
     render::descriptorSetCreate(context, descriptorPool_, lightPassTexturesDescriptorSetLayout_, descriptors, &lightPassTexturesDescriptorSet_);
+    render::descriptorSetCreate(context, descriptorPool_, ambientLightPassTexturesDescriptorSetLayout_, descriptors, &ambientLightPassTexturesDescriptorSet_);
 
     //Create light pass pipeline layout
-    render::descriptor_set_layout_t lightPassDescriptorSetLayouts[3] = { globalsDescriptorSetLayout_, lightPassTexturesDescriptorSetLayout_, lightDescriptorSetLayout_ };
+    render::descriptor_set_layout_t lightPassDescriptorSetLayouts[3] = { globalsDescriptorSetLayout_, lightPassTexturesDescriptorSetLayout_, lightDescriptorSetLayout_ };    
     render::pipelineLayoutCreate(context, lightPassDescriptorSetLayouts, 3u, nullptr, 0u, &lightPipelineLayout_);
+
+    render::descriptor_set_layout_t ambientLightPassDescriptorSetLayouts[2] = { globalsDescriptorSetLayout_, ambientLightPassTexturesDescriptorSetLayout_ };
+    render::pipelineLayoutCreate(context, ambientLightPassDescriptorSetLayouts, 2u, nullptr, 0u, &ambientLightPipelineLayout_);
 
     //Create light pass pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gLightPassVertexShaderSource, &lightVertexShader_);
@@ -885,6 +995,29 @@ private:
     lightPipelineDesc.vertexShader_ = lightVertexShader_;
     lightPipelineDesc.fragmentShader_ = lightFragmentShader_;
     render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, sphereMesh_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
+
+
+    //Create ambient light pass pipeline
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gAmbientLightVertexShaderSource, &ambientLightVertexShader_);
+    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gAmbientLightFragmentShaderSource, &ambientLightFragmentShader_);
+    bkk::render::graphics_pipeline_t::description_t ambientLightPipelineDesc = {};
+    ambientLightPipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
+    ambientLightPipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
+    ambientLightPipelineDesc.blendState_.resize(1);
+    ambientLightPipelineDesc.blendState_[0].colorWriteMask = 0xF;
+    ambientLightPipelineDesc.blendState_[0].blendEnable = VK_TRUE;
+    ambientLightPipelineDesc.blendState_[0].colorBlendOp = VK_BLEND_OP_ADD;
+    ambientLightPipelineDesc.blendState_[0].alphaBlendOp = VK_BLEND_OP_ADD;
+    ambientLightPipelineDesc.blendState_[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    ambientLightPipelineDesc.blendState_[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    ambientLightPipelineDesc.blendState_[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    ambientLightPipelineDesc.blendState_[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    ambientLightPipelineDesc.cullMode_ = VK_CULL_MODE_NONE;
+    ambientLightPipelineDesc.depthTestEnabled_ = false;
+    ambientLightPipelineDesc.depthWriteEnabled_ = false;
+    ambientLightPipelineDesc.vertexShader_ = ambientLightVertexShader_;
+    ambientLightPipelineDesc.fragmentShader_ = ambientLightFragmentShader_;
+    render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, fullScreenQuad_.vertexFormat_, ambientLightPipelineLayout_, ambientLightPipelineDesc, &ambientLightPipeline_);
   }
 
   bool cubemapFromImage(const char* file, uint32_t width, uint32_t height, bkk::render::texture_cubemap_t* cubemap )
@@ -938,7 +1071,8 @@ private:
 
     //Load shaders
     render::shader_t vertexShader;
-    const char* vsSource = R"(  #version 440 core
+    const char* vsSource = R"(  
+                                #version 440 core
                                 layout(push_constant) uniform PushConstants
                                 {
 	                                layout (offset = 0) mat4 viewProjection;
@@ -953,7 +1087,8 @@ private:
     render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, vsSource, &vertexShader);
 
     render::shader_t fragmentShader;
-    const char* fsSource = R"(  #version 440 core
+    const char* fsSource = R"(  
+                                #version 440 core
                                 layout(location = 0) in vec3 localPos;
                                 layout (set = 0, binding = 0) uniform sampler2D uTexture;
                                 layout(location = 0) out vec4 color;
@@ -1061,6 +1196,638 @@ private:
   }
 
 
+  bool diffuseConvolution( bkk::render::texture_cubemap_t environmentMap, uint32_t size, bkk::render::texture_cubemap_t* irradiance)
+  {
+    render::context_t& context = getRenderContext();
+    
+    mesh::mesh_t cube;
+    mesh::createFromFile(context, "../resources/cube.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &cube);
+
+    bkk::render::textureCubemapCreate(context, VK_FORMAT_R32G32B32A32_SFLOAT, size, size, 1u, bkk::render::texture_sampler_t(), irradiance);
+    //Change cubemap layout for transfer
+    VkImageSubresourceRange subresourceRange = {};
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = 1;
+    subresourceRange.layerCount = 6;
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, irradiance);
+
+    //Create pipeline
+    render::graphics_pipeline_t pipeline;
+    render::pipeline_layout_t pipelineLayout;
+    render::descriptor_set_layout_t descriptorSetLayout;
+    render::descriptor_binding_t bindings = { render::descriptor_t::type::SAMPLED_IMAGE, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
+    render::descriptorSetLayoutCreate(context, &bindings, 1u, &descriptorSetLayout);
+
+    render::push_constant_range_t pushConstantsRange = { VK_SHADER_STAGE_VERTEX_BIT, sizeof(mat4), 0u };
+    render::pipelineLayoutCreate(context, &descriptorSetLayout, 1u, &pushConstantsRange, 1u, &pipelineLayout);
+
+    render::render_pass_t renderPass = {};
+    render::render_pass_t::attachment_t attachments = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLE_COUNT_1_BIT,
+      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+      VK_ATTACHMENT_STORE_OP_STORE,VK_ATTACHMENT_LOAD_OP_CLEAR };
+    render::renderPassCreate(context, &attachments, 1u, nullptr, 0u, nullptr, 0u, &renderPass);
+
+    //Create render target and framebuffer
+    render::texture_t renderTarget;
+    render::frame_buffer_t frameBuffer = {};
+    render::texture2DCreate(context, size, size, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &renderTarget);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTarget);
+    render::frameBufferCreate(context, size, size, renderPass, &renderTarget.imageView_, &frameBuffer);
+
+    //Load shaders
+    render::shader_t vertexShader;
+    const char* vsSource = R"(  
+                                #version 440 core
+                                layout(push_constant) uniform PushConstants
+                                {
+	                                layout (offset = 0) mat4 viewProjection;
+                                }pushConstants;  
+                                layout(location = 0) in vec3 aPosition;
+                                layout(location = 0) out vec3 localPos;
+                                void main(void)
+                                {
+                                  localPos = aPosition;
+                                  gl_Position = pushConstants.viewProjection * vec4(aPosition,1.0);
+                                })";
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, vsSource, &vertexShader);
+
+    render::shader_t fragmentShader;
+    const char* fsSource = R"(  
+                                #version 440 core
+                                layout(location = 0) in vec3 localPos;
+                                layout (set = 0, binding = 0) uniform samplerCube uTexture;
+                                layout(location = 0) out vec4 color;
+                                const vec2 invAtan = vec2(0.1591, 0.3183);
+                                const float PI = 3.14159265359;
+                                void main(void)
+                                {
+                                  vec3 normal = normalize( localPos );
+                                  vec3 irradiance = vec3(0.0);  
+
+                                  vec3 up    = vec3(0.0, 1.0, 0.0);
+                                  vec3 right = normalize( cross(up, normal) );
+                                  up         = normalize( cross(normal, right) );
+
+                                  float sampleDelta = 0.025;
+                                  float nrSamples = 0.0; 
+                                  for(float phi = 0.0; phi < 2.0 * PI; phi += sampleDelta)
+                                  {
+                                      for(float theta = 0.0; theta < 0.5 * PI; theta += sampleDelta)
+                                      {
+                                          // spherical to cartesian (in tangent space)
+                                          vec3 tangentSample = vec3(sin(theta) * cos(phi),  sin(theta) * sin(phi), cos(theta));
+                                          // tangent space to world
+                                          vec3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * normal; 
+
+                                          irradiance += texture(uTexture, sampleVec).rgb * cos(theta) * sin(theta);
+                                          nrSamples++;
+                                      }
+                                  }
+                                  irradiance = PI * irradiance * (1.0 / float(nrSamples));                                  
+                                  color = vec4(irradiance,1.0);
+                                })";
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, fsSource, &fragmentShader);
+
+    render::graphics_pipeline_t::description_t pipelineDesc = {};
+    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)size, (float)size, 0.0f, 1.0f };
+    pipelineDesc.scissorRect_ = { { 0,0 },{ size, size } };
+    pipelineDesc.blendState_.resize(1);
+    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode_ = VK_CULL_MODE_FRONT_BIT;
+    pipelineDesc.depthTestEnabled_ = false;
+    pipelineDesc.depthWriteEnabled_ = false;
+    pipelineDesc.vertexShader_ = vertexShader;
+    pipelineDesc.fragmentShader_ = fragmentShader;
+    render::graphicsPipelineCreate(context, renderPass.handle_, 0u, cube.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
+
+    //Create descriptor set
+    render::descriptor_t texture = render::getDescriptor(environmentMap);
+    render::descriptor_set_t descriptorSet;
+    render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout, &texture, &descriptorSet);
+
+    //Create command buffer
+    VkSemaphore diffuseConvolutionComplete = render::semaphoreCreate(context);
+
+    VkClearValue clearValue;
+    clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+
+    render::command_buffer_t commandBuffer = {};
+    render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &diffuseConvolutionComplete, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+
+    mat4 projection = maths::perspectiveProjectionMatrix(1.57f, 1.0f, 0.1f, 1.0f);
+    mat4 view[6] = { maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)),
+      maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(-1.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)),
+      maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f)),
+      maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, -1.0f, 0.0f), vec3(0.0f, 0.0f,-1.0f)),
+      maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, -1.0f), vec3(0.0f, 1.0f, 0.0f)),
+      maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 1.0f, 0.0f)) };
+
+    for (u32 i(0); i<6; ++i)
+    {
+      mat4 viewProjection = view[i] * projection;
+      render::commandBufferBegin(context, &frameBuffer, &clearValue, 1u, commandBuffer);
+
+      render::pushConstants(commandBuffer.handle_, pipelineLayout, 0u, &viewProjection);
+      render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
+      bkk::render::descriptorSetBindForGraphics(commandBuffer.handle_, pipelineLayout, 0, &descriptorSet, 1u);
+      mesh::draw(commandBuffer.handle_, cube);
+
+      //Copy render target to cubemap layer
+      render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTarget);
+
+      VkImageCopy copyRegion = {};
+      copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      copyRegion.srcSubresource.baseArrayLayer = 0;
+      copyRegion.srcSubresource.mipLevel = 0;
+      copyRegion.srcSubresource.layerCount = 1;
+      copyRegion.srcOffset = { 0, 0, 0 };
+
+      copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      copyRegion.dstSubresource.baseArrayLayer = i;
+      copyRegion.dstSubresource.mipLevel = 0;
+      copyRegion.dstSubresource.layerCount = 1;
+      copyRegion.dstOffset = { 0, 0, 0 };
+
+      copyRegion.extent.width = size;
+      copyRegion.extent.height = size;
+      copyRegion.extent.depth = 1;
+
+      vkCmdCopyImage(commandBuffer.handle_,
+        renderTarget.image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        irradiance->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1, &copyRegion);
+
+      render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTarget);
+      render::commandBufferEnd(commandBuffer);
+      render::commandBufferSubmit(context, commandBuffer);
+    }
+
+    //Change cubemap layout for shader access
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, irradiance);
+
+    //Clean-up
+    render::descriptorSetLayoutDestroy(context, &descriptorSetLayout);
+    render::pipelineLayoutDestroy(context, &pipelineLayout);
+    render::renderPassDestroy(context, &renderPass);
+    render::textureDestroy(context, &renderTarget);
+    render::frameBufferDestroy(context, &frameBuffer);
+    render::shaderDestroy(context, &vertexShader);
+    render::shaderDestroy(context, &fragmentShader);
+    render::graphicsPipelineDestroy(context, &pipeline);
+    render::descriptorSetDestroy(context, &descriptorSet);
+    render::commandBufferDestroy(context, &commandBuffer);
+    mesh::destroy(context, &cube);
+
+    return true;
+  }
+
+  bool specularConvolution(bkk::render::texture_cubemap_t environmentMap, uint32_t size, u32 maxMipmapLevels, bkk::render::texture_cubemap_t* specularMap)
+  {
+    render::context_t& context = getRenderContext();
+
+    mesh::mesh_t cube;
+    mesh::createFromFile(context, "../resources/cube.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &cube);
+
+    u32 mipLevels = min( 1 + floor(log2(size)), maxMipmapLevels );
+    bkk::render::textureCubemapCreate(context, VK_FORMAT_R32G32B32A32_SFLOAT, size, size, mipLevels, bkk::render::texture_sampler_t(), specularMap);
+    //Change cubemap layout for transfer
+    VkImageSubresourceRange subresourceRange = {};
+    subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    subresourceRange.baseMipLevel = 0;
+    subresourceRange.levelCount = mipLevels;
+    subresourceRange.layerCount = 6;
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, specularMap);
+
+    //Create pipeline
+    render::graphics_pipeline_t pipeline;
+    render::pipeline_layout_t pipelineLayout;
+    render::descriptor_set_layout_t descriptorSetLayout;
+    render::descriptor_binding_t bindings = { render::descriptor_t::type::SAMPLED_IMAGE, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
+    render::descriptorSetLayoutCreate(context, &bindings, 1u, &descriptorSetLayout);
+
+    struct push_constants_t
+    {
+      mat4 viewProjection_;
+      float roughness_;
+    }pushConstants;
+
+    render::push_constant_range_t pushConstantsRange = { VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(pushConstants), 0u };
+    render::pipelineLayoutCreate(context, &descriptorSetLayout, 1u, &pushConstantsRange, 1u, &pipelineLayout);
+
+    render::render_pass_t::attachment_t attachments = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLE_COUNT_1_BIT,
+                                                        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+                                                        VK_ATTACHMENT_STORE_OP_STORE,VK_ATTACHMENT_LOAD_OP_CLEAR };
+    render::render_pass_t renderPass = {};
+    render::renderPassCreate(context, &attachments, 1u, nullptr, 0u, nullptr, 0u, &renderPass);
+
+    //Load shaders
+    render::shader_t vertexShader;
+    const char* vsSource = R"(  
+                                #version 440 core
+                                layout(push_constant) uniform PushConstants
+                                {
+	                                layout (offset = 0) mat4 viewProjection;
+                                  layout (offset = 64) float roughness;
+                                }pushConstants;
+                                layout(location = 0) in vec3 aPosition;
+                                layout(location = 0) out vec3 localPos;
+                                void main(void)
+                                {
+                                  localPos = aPosition;
+                                  gl_Position = pushConstants.viewProjection * vec4(aPosition,1.0);
+                                })";
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, vsSource, &vertexShader);
+
+    render::shader_t fragmentShader;
+    const char* fsSource = R"(  
+                                #version 440 core
+                                layout(push_constant) uniform PushConstants
+                                {
+	                                layout (offset = 0) mat4 viewProjection;
+                                  layout (offset = 64) float roughness;
+                                }pushConstants;
+
+                                layout(location = 0) in vec3 localPos;
+                                layout (set = 0, binding = 0) uniform samplerCube uTexture;
+                                layout(location = 0) out vec4 color;
+                                const vec2 invAtan = vec2(0.1591, 0.3183);
+                                const float PI = 3.14159265359;
+
+                                float RadicalInverse_VdC(uint bits) 
+                                {
+                                    bits = (bits << 16u) | (bits >> 16u);
+                                    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+                                    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+                                    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+                                    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+                                    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+                                }
+                                // ----------------------------------------------------------------------------
+                                vec2 Hammersley(uint i, uint N)
+                                {
+                                    return vec2(float(i)/float(N), RadicalInverse_VdC(i));
+                                }
+
+                                vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
+                                {
+                                    float a = roughness*roughness;
+	
+                                    float phi = 2.0 * PI * Xi.x;
+                                    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+                                    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+	
+                                    // from spherical coordinates to cartesian coordinates
+                                    vec3 H;
+                                    H.x = cos(phi) * sinTheta;
+                                    H.y = sin(phi) * sinTheta;
+                                    H.z = cosTheta;
+	
+                                    // from tangent-space vector to world-space sample vector
+                                    vec3 up        = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+                                    vec3 tangent   = normalize(cross(up, N));
+                                    vec3 bitangent = cross(N, tangent);
+	
+                                    vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
+                                    return normalize(sampleVec);
+                                }  
+                                void main()
+                                {		
+                                    vec3 N = normalize(localPos);    
+                                    vec3 R = N;
+                                    vec3 V = R;
+
+                                    const uint SAMPLE_COUNT = 1024u;
+                                    float totalWeight = 0.0;   
+                                    vec3 prefilteredColor = vec3(0.0);     
+                                    for(uint i = 0u; i < SAMPLE_COUNT; ++i)
+                                    {
+                                        vec2 Xi = Hammersley(i, SAMPLE_COUNT);
+                                        vec3 H  = ImportanceSampleGGX(Xi, N, pushConstants.roughness);
+                                        vec3 L  = normalize(2.0 * dot(V, H) * H - V);
+
+                                        float NdotL = max(dot(N, L), 0.0);
+                                        if(NdotL > 0.0)
+                                        {
+                                            prefilteredColor += texture(uTexture, L).rgb * NdotL;
+                                            totalWeight      += NdotL;
+                                        }
+                                    }
+                                    prefilteredColor = prefilteredColor / totalWeight;
+                                    color = vec4(prefilteredColor, 1.0);
+                                }
+                          )";
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, fsSource, &fragmentShader);
+
+    render::graphics_pipeline_t::description_t pipelineDesc = {};
+    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)size, (float)size, 0.0f, 1.0f };
+    pipelineDesc.scissorRect_ = { { 0,0 },{ size, size } };
+    pipelineDesc.blendState_.resize(1);
+    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode_ = VK_CULL_MODE_FRONT_BIT;
+    pipelineDesc.depthTestEnabled_ = false;
+    pipelineDesc.depthWriteEnabled_ = false;
+    pipelineDesc.vertexShader_ = vertexShader;
+    pipelineDesc.fragmentShader_ = fragmentShader;
+    render::graphicsPipelineCreate(context, renderPass.handle_, 0u, cube.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
+
+    //Create descriptor set
+    render::descriptor_t texture = render::getDescriptor(environmentMap);
+    render::descriptor_set_t descriptorSet;
+    render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout, &texture, &descriptorSet);
+
+    //Create command buffer
+    VkSemaphore specularConvolutionComplete = render::semaphoreCreate(context);
+
+    VkClearValue clearValue;
+    clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+
+    render::command_buffer_t commandBuffer = {};
+    render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &specularConvolutionComplete, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+
+    mat4 projection = maths::perspectiveProjectionMatrix(1.57f, 1.0f, 0.1f, 1.0f);
+    mat4 view[6] = {  maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f),  vec3(0.0f, 1.0f, 0.0f)),
+                      maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(-1.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f)),
+                      maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f),  vec3(0.0f, 0.0f, 1.0f)),
+                      maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, -1.0f, 0.0f), vec3(0.0f, 0.0f,-1.0f)),
+                      maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, -1.0f), vec3(0.0f, 1.0f, 0.0f)),
+                      maths::lookAtMatrix(vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f),  vec3(0.0f, 1.0f, 0.0f)) };
+
+    std::vector<render::frame_buffer_t> frameBuffers(mipLevels);
+    std::vector<render::texture_t> renderTargets(mipLevels);
+    u32 mipSize = size;
+    for (u32 mipLevel = 0; mipLevel < mipLevels; ++mipLevel)
+    {
+      //Create render target and framebuffer
+      frameBuffers[mipLevel] = {};
+      render::texture2DCreate(context, mipSize, mipSize, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &renderTargets[mipLevel]);
+      bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+      render::frameBufferCreate(context, mipSize, mipSize, renderPass, &renderTargets[mipLevel].imageView_, &frameBuffers[mipLevel]);
+
+      pushConstants.roughness_ = (float)mipLevel / (float)(mipLevels - 1);
+      for (u32 i(0); i < 6; ++i)
+      {
+        pushConstants.viewProjection_ = view[i] * projection;
+        
+        render::commandBufferBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
+        render::pushConstants(commandBuffer.handle_, pipelineLayout, 0u, &pushConstants);
+        render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
+        bkk::render::descriptorSetBindForGraphics(commandBuffer.handle_, pipelineLayout, 0, &descriptorSet, 1u);
+        mesh::draw(commandBuffer.handle_, cube);
+
+        //Copy render target to cubemap layer
+        render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
+
+        VkImageCopy copyRegion = {};
+        copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        copyRegion.srcSubresource.baseArrayLayer = 0;
+        copyRegion.srcSubresource.mipLevel = 0;
+        copyRegion.srcSubresource.layerCount = 1;
+        copyRegion.srcOffset = { 0, 0, 0 };
+
+        copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        copyRegion.dstSubresource.baseArrayLayer = i;
+        copyRegion.dstSubresource.mipLevel = mipLevel;
+        copyRegion.dstSubresource.layerCount = 1;
+        copyRegion.dstOffset = { 0, 0, 0 };
+
+        copyRegion.extent.width = mipSize;
+        copyRegion.extent.height = mipSize;
+        copyRegion.extent.depth = 1;
+
+        vkCmdCopyImage(commandBuffer.handle_,
+          renderTargets[mipLevel].image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+          specularMap->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+          1, &copyRegion);
+
+        render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+        render::commandBufferEnd(commandBuffer);
+        render::commandBufferSubmit(context, commandBuffer);
+      }
+      mipSize /= 2;
+     
+    }
+    //Change cubemap layout for shader access
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, specularMap);
+
+    //Clean-up
+
+    for (u32 i(0); i < mipLevels; ++i)
+    {
+      render::textureDestroy(context, &renderTargets[i]);
+      render::frameBufferDestroy(context, &frameBuffers[i]);
+
+    }
+    render::descriptorSetLayoutDestroy(context, &descriptorSetLayout);
+    render::pipelineLayoutDestroy(context, &pipelineLayout);
+    render::renderPassDestroy(context, &renderPass);
+    
+    render::shaderDestroy(context, &vertexShader);
+    render::shaderDestroy(context, &fragmentShader);
+    render::graphicsPipelineDestroy(context, &pipeline);
+    render::descriptorSetDestroy(context, &descriptorSet);
+    render::commandBufferDestroy(context, &commandBuffer);
+    mesh::destroy(context, &cube);
+
+    return true;
+  }
+
+  bool brdfConvolution(uint32_t size, bkk::render::texture_t* brdfConvolution)
+  {
+    render::context_t& context = getRenderContext();
+
+    mesh::mesh_t quad = sample_utils::fullScreenQuad(context);
+    render::texture2DCreate(context, size, size, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), brdfConvolution);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, brdfConvolution);
+
+
+    //Create pipeline    
+    render::pipeline_layout_t pipelineLayout;
+    render::pipelineLayoutCreate(context, nullptr, 0u, nullptr, 0u, &pipelineLayout);
+
+    
+    render::render_pass_t::attachment_t attachments = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLE_COUNT_1_BIT,
+                                                        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+                                                        VK_ATTACHMENT_STORE_OP_STORE,VK_ATTACHMENT_LOAD_OP_CLEAR };
+    render::render_pass_t renderPass = {};
+    render::renderPassCreate(context, &attachments, 1u, nullptr, 0u, nullptr, 0u, &renderPass);
+
+    //Load shaders
+    render::shader_t vertexShader;
+    const char* vsSource = R"(  
+                                #version 440 core
+                                layout(location = 0) in vec3 aPosition;
+                                layout(location = 1) in vec2 aTexCoord;
+                                layout(location = 0) out vec2 uv;
+                                void main(void)
+                                {
+                                  gl_Position = vec4(aPosition,1.0);
+                                  uv = aTexCoord;
+                                })";
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, vsSource, &vertexShader);
+
+    render::shader_t fragmentShader;
+    const char* fsSource = R"(  
+                                #version 440 core
+                                layout(location = 0) out vec4 color;
+                                layout(location = 0) in vec2 uv;
+
+                                const float PI = 3.14159265359;
+                                float GeometrySchlickGGX(float NdotV, float roughness)
+                                {
+                                    float a = roughness;
+                                    float k = (a * a) / 2.0;
+
+                                    float nom   = NdotV;
+                                    float denom = NdotV * (1.0 - k) + k;
+
+                                    return nom / denom;
+                                }
+
+                                // ----------------------------------------------------------------------------
+                                float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+                                {
+                                    float NdotV = max(dot(N, V), 0.0);
+                                    float NdotL = max(dot(N, L), 0.0);
+                                    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+                                    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+
+                                    return ggx1 * ggx2;
+                                }  
+
+                                float RadicalInverse_VdC(uint bits) 
+                                {
+                                    bits = (bits << 16u) | (bits >> 16u);
+                                    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+                                    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+                                    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+                                    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+                                    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+                                }
+
+                                vec2 Hammersley(uint i, uint N)
+                                {
+                                    return vec2(float(i)/float(N), RadicalInverse_VdC(i));
+                                }
+
+                                vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
+                                {
+                                    float a = roughness*roughness;
+	
+                                    float phi = 2.0 * PI * Xi.x;
+                                    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+                                    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+	
+                                    // from spherical coordinates to cartesian coordinates
+                                    vec3 H;
+                                    H.x = cos(phi) * sinTheta;
+                                    H.y = sin(phi) * sinTheta;
+                                    H.z = cosTheta;
+	
+                                    // from tangent-space vector to world-space sample vector
+                                    vec3 up        = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+                                    vec3 tangent   = normalize(cross(up, N));
+                                    vec3 bitangent = cross(N, tangent);
+	
+                                    vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
+                                    return normalize(sampleVec);
+                                }  
+
+                                vec2 IntegrateBRDF(float NdotV, float roughness)
+                                {
+                                    vec3 V;
+                                    V.x = sqrt(1.0 - NdotV*NdotV);
+                                    V.y = 0.0;
+                                    V.z = NdotV;
+
+                                    float A = 0.0;
+                                    float B = 0.0;
+
+                                    vec3 N = vec3(0.0, 0.0, 1.0);
+
+                                    const uint SAMPLE_COUNT = 1024u;
+                                    for(uint i = 0u; i < SAMPLE_COUNT; ++i)
+                                    {
+                                        vec2 Xi = Hammersley(i, SAMPLE_COUNT);
+                                        vec3 H  = ImportanceSampleGGX(Xi, N, roughness);
+                                        vec3 L  = normalize(2.0 * dot(V, H) * H - V);
+
+                                        float NdotL = max(L.z, 0.0);
+                                        float NdotH = max(H.z, 0.0);
+                                        float VdotH = max(dot(V, H), 0.0);
+
+                                        if(NdotL > 0.0)
+                                        {
+                                            float G = GeometrySmith(N, V, L, roughness);
+                                            float G_Vis = (G * VdotH) / (NdotH * NdotV);
+                                            float Fc = pow(1.0 - VdotH, 5.0);
+
+                                            A += (1.0 - Fc) * G_Vis;
+                                            B += Fc * G_Vis;
+                                        }
+                                    }
+                                    A /= float(SAMPLE_COUNT);
+                                    B /= float(SAMPLE_COUNT);
+                                    return vec2(A, B);
+                                }
+                                void main()
+                                {
+                                  vec2 integratedBRDF = IntegrateBRDF(uv.x, 1.0-uv.y);
+                                  color = vec4(integratedBRDF,0,0);
+                                }
+                          )";
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, fsSource, &fragmentShader);
+
+    render::graphics_pipeline_t::description_t pipelineDesc = {};
+    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)size, (float)size, 0.0f, 1.0f };
+    pipelineDesc.scissorRect_ = { { 0,0 },{ size, size } };
+    pipelineDesc.blendState_.resize(1);
+    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+    pipelineDesc.depthTestEnabled_ = false;
+    pipelineDesc.depthWriteEnabled_ = false;
+    pipelineDesc.vertexShader_ = vertexShader;
+    pipelineDesc.fragmentShader_ = fragmentShader;
+    render::graphics_pipeline_t pipeline = {};
+    render::graphicsPipelineCreate(context, renderPass.handle_, 0u, quad.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
+
+
+    VkClearValue clearValue;
+    clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+
+    render::command_buffer_t commandBuffer = {};
+    render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+
+    //Create render target and framebuffer
+    render::frame_buffer_t frameBuffer = {};      
+    render::frameBufferCreate(context, size, size, renderPass, &brdfConvolution->imageView_, &frameBuffer);
+
+    render::commandBufferBegin(context, &frameBuffer, &clearValue, 1u, commandBuffer);
+    render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
+    mesh::draw(commandBuffer.handle_, quad);
+
+    render::commandBufferEnd(commandBuffer);
+    render::commandBufferSubmit(context, commandBuffer);
+    
+    //Change cubemap layout for shader access
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, brdfConvolution);
+
+    //Clean-up
+    render::frameBufferDestroy(context, &frameBuffer);
+    render::pipelineLayoutDestroy(context, &pipelineLayout);
+    render::renderPassDestroy(context, &renderPass);
+
+    render::shaderDestroy(context, &vertexShader);
+    render::shaderDestroy(context, &fragmentShader);
+    render::graphicsPipelineDestroy(context, &pipeline);
+    render::commandBufferDestroy(context, &commandBuffer);
+
+    return true;
+  }
+
   void buildAndSubmitCommandBuffer()
   {
     render::context_t& context = getRenderContext();
@@ -1108,6 +1875,12 @@ private:
         mesh::draw(commandBuffer_.handle_, sphereMesh_);
         ++lightIter;
       }
+
+      //Ambient light pass
+      bkk::render::graphicsPipelineBind(commandBuffer_.handle_, ambientLightPipeline_);
+      descriptorSets[1] = ambientLightPassTexturesDescriptorSet_;
+      bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, ambientLightPipelineLayout_, 0u, descriptorSets, 2u);
+      mesh::draw(commandBuffer_.handle_, fullScreenQuad_);
     }
 
     render::commandBufferEnd(commandBuffer_);
@@ -1178,11 +1951,13 @@ private:
   render::descriptor_set_layout_t objectDescriptorSetLayout_;
   render::descriptor_set_layout_t lightDescriptorSetLayout_;
   render::descriptor_set_layout_t lightPassTexturesDescriptorSetLayout_;
+  render::descriptor_set_layout_t ambientLightPassTexturesDescriptorSetLayout_;
   render::descriptor_set_layout_t presentationDescriptorSetLayout_;
 
   render::descriptor_set_t presentationDescriptorSet_;
   render::descriptor_set_t globalsDescriptorSet_;
   render::descriptor_set_t lightPassTexturesDescriptorSet_;
+  render::descriptor_set_t ambientLightPassTexturesDescriptorSet_;
 
   render::vertex_format_t vertexFormat_;
 
@@ -1190,6 +1965,9 @@ private:
   render::graphics_pipeline_t gBufferPipeline_;
   render::pipeline_layout_t lightPipelineLayout_;
   render::graphics_pipeline_t lightPipeline_;
+  render::pipeline_layout_t ambientLightPipelineLayout_;
+  render::graphics_pipeline_t ambientLightPipeline_;
+
 
   render::pipeline_layout_t presentationPipelineLayout_;
   render::graphics_pipeline_t presentationPipeline_;
@@ -1208,11 +1986,17 @@ private:
   render::texture_t finalImage_;
   render::depth_stencil_buffer_t depthStencilBuffer_;
   render::texture_cubemap_t cubemap_;
+  render::texture_cubemap_t irradianceMap_;
+  render::texture_cubemap_t specularMap_;
+  render::texture_t brdfLut_;
 
-  render::shader_t gBuffervertexShader_;
-  render::shader_t gBufferfragmentShader_;
+  render::shader_t gBufferVertexShader_;
+  render::shader_t gBufferFragmentShader_;
   render::shader_t lightVertexShader_;
   render::shader_t lightFragmentShader_;
+  render::shader_t ambientLightVertexShader_;
+  render::shader_t ambientLightFragmentShader_;
+
   render::shader_t presentationVertexShader_;
   render::shader_t presentationFragmentShader_;
 
@@ -1230,35 +2014,38 @@ int main()
 
   bkk::handle_t sphere = renderer.addMesh("../resources/sphere_hipoly.obj");
 
-  u32 roughnessSamples = 9;
-  u32 metalnessSamples = 9;
-  std::vector<bkk::handle_t> materials(roughnessSamples*metalnessSamples);
-  std::vector<bkk::handle_t> objects(roughnessSamples*metalnessSamples);
+  u32 roughnessSamples = 10;
+  std::vector<bkk::handle_t> materials(roughnessSamples*roughnessSamples);
+  std::vector<bkk::handle_t> objects(roughnessSamples*roughnessSamples);
   float roughness = 1.0f / roughnessSamples;
-  float metalness = 1.0f / metalnessSamples;
+  float F0 = 1.0f / roughnessSamples;
+
   float deltaX = 2.5f;
   float deltaY = -2.5f;
   float x = -((roughnessSamples - 1) * deltaX)* 0.5f;
   float y = 0.0f;
-  for (u32 j = 0; j < metalnessSamples; ++j)
+  
+  for (u32 j = 0; j < roughnessSamples; ++j)
   {
     float roughness = 1.0f / roughnessSamples;
     x = -((roughnessSamples - 1) * deltaX)* 0.5f;
     y += deltaY;
-    metalness += 1.0f / metalnessSamples;
+    
     for (u32 i = 0; i < roughnessSamples; ++i)
     {
-      u32 index = j * metalnessSamples + i;
-      materials[index] = renderer.addMaterial(vec3(0.5f, 0.5f, 0.5f), metalness, vec3(0.05f, 0.05f, 0.05f), roughness);
+      u32 index = j * roughnessSamples + i;
+      materials[index] = renderer.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(F0, F0, F0), roughness);
       objects[index] = renderer.addObject(sphere, materials[index], maths::createTransform(maths::vec3(x, 0.0, y), maths::VEC3_ONE, maths::QUAT_UNIT));
 
-      roughness += 1.0f / roughnessSamples;
+      roughness += 1.0f / roughnessSamples;      
       x += deltaX;
     }
+
+    F0 += 1.0f / roughnessSamples;
   }
 
-  //Lights
-  renderer.addLight(vec3(0.0f, 0.0f, 1.0f), 0.0f, vec3(1.5f, 1.5f, 1.5f));
+  //Light
+  renderer.addLight(vec3(0.0f, 0.0f, 1.0f), 0.0f, vec3(0.5f, 0.5f, 0.5f));
 
   renderer.loop();
   return 0;

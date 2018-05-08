@@ -1253,7 +1253,7 @@ void render::textureCubemapCreate(const context_t& context, VkFormat format, uin
   imageViewCreateInfo.format = imageCreateInfo.format;
   imageViewCreateInfo.image = texture->image_;
   imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-  imageViewCreateInfo.subresourceRange.levelCount = 1;
+  imageViewCreateInfo.subresourceRange.levelCount = mipLevels;
   imageViewCreateInfo.subresourceRange.layerCount = 1;
   imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
   vkCreateImageView(context.device_, &imageViewCreateInfo, nullptr, &texture->imageView_);
@@ -1281,7 +1281,7 @@ void render::textureCubemapCreate(const context_t& context, VkFormat format, uin
   texture->descriptor_.sampler = texture->sampler_;
   texture->layout_ = VK_IMAGE_LAYOUT_GENERAL;
   texture->extent_ = extents;
-  texture->mipLevels_ = 1;
+  texture->mipLevels_ = mipLevels;
   texture->aspectFlags_ = VK_IMAGE_ASPECT_COLOR_BIT;
   texture->format_ = format;
 }
@@ -2060,6 +2060,17 @@ void render::pushConstants(VkCommandBuffer commandBuffer, pipeline_layout_t pipe
       break;
     }
   }
+}
+
+void render::setViewport(const command_buffer_t& commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+  VkViewport viewPort = { (float)x, (float)y, (float)width, (float)height, 0.0f, 1.0f };
+  vkCmdSetViewport(commandBuffer.handle_, 0, 1, &viewPort);
+}
+void render::setScissor(const command_buffer_t& commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+  VkRect2D scissorRect = { { x,y },{ width,height } };
+  vkCmdSetScissor(commandBuffer.handle_, 0, 1, &scissorRect);
 }
 
 static const VkFormat AttributeFormatLUT[] = { VK_FORMAT_R32_SINT, VK_FORMAT_R32_UINT, VK_FORMAT_R32_SFLOAT,
