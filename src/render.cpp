@@ -945,15 +945,12 @@ void render::gpuAllocatorDestroy(const context_t& context, gpu_memory_allocator_
   vkFreeMemory(context.device_, allocator->memory_, nullptr);
 }
 
-void render::texture2DCreate(const context_t& context, const image::image2D_t* images, uint32_t imageCount, texture_sampler_t sampler, texture_t* texture)
+static VkFormat getImageFormat(image::image2D_t image)
 {
-  //Get base level image width and height
-  VkExtent3D extents = { images[0].width_, images[0].height_, 1u };
-
   VkFormat format = VK_FORMAT_UNDEFINED;
-  if(images[0].componentCount_ == 3)
+  if (image.componentCount_ == 3)
   {
-    if (images[0].componentSize_ == sizeof(float))
+    if (image.componentSize_ == 4)
     {
       format = VK_FORMAT_R32G32B32_SFLOAT;
     }
@@ -962,9 +959,9 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
       format = VK_FORMAT_R8G8B8_UNORM;
     }
   }
-  else if (images[0].componentCount_ == 4)
+  else if (image.componentCount_ == 4)
   {
-    if (images[0].componentSize_ == sizeof(float))
+    if (image.componentSize_ == 4)
     {
       format = VK_FORMAT_R32G32B32A32_SFLOAT;
     }
@@ -973,6 +970,15 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
       format = VK_FORMAT_R8G8B8A8_UNORM;
     }
   }
+
+  return format;
+}
+
+void render::texture2DCreate(const context_t& context, const image::image2D_t* images, uint32_t imageCount, texture_sampler_t sampler, texture_t* texture)
+{
+  //Get base level image width and height
+  VkExtent3D extents = { images[0].width_, images[0].height_, 1u };
+  VkFormat format = getImageFormat(images[0]);
 
   //Create the image
   VkImageCreateInfo imageCreateInfo = {};
@@ -1303,17 +1309,7 @@ void render::textureCubemapCreate(const context_t& context, VkFormat format, uin
 void render::textureCubemapCreate(const context_t& context, const image::image2D_t* images, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture)
 {
   VkExtent3D extents = { images[0].width_, images[0].height_, 1u };
-
-  VkFormat format = VK_FORMAT_UNDEFINED;
-  if (images[0].componentCount_ == 3)
-  {
-    format = VK_FORMAT_R8G8B8_UNORM;
-  }
-  else if (images[0].componentCount_ == 4)
-  {
-    format = VK_FORMAT_R8G8B8A8_UNORM;
-  }
-
+  VkFormat format = getImageFormat(images[0]);
   textureCubemapCreate(context, format, images[0].width_, images[0].height_, mipLevels, sampler, texture);
   
   //Create a staging buffer and memory store for the buffer  
@@ -2076,12 +2072,12 @@ void render::pushConstants(VkCommandBuffer commandBuffer, pipeline_layout_t pipe
   }
 }
 
-void render::setViewport(const command_buffer_t& commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+void render::setViewport(const command_buffer_t& commandBuffer, int32_t x, int32_t y, uint32_t width, uint32_t height)
 {
   VkViewport viewPort = { (float)x, (float)y, (float)width, (float)height, 0.0f, 1.0f };
   vkCmdSetViewport(commandBuffer.handle_, 0, 1, &viewPort);
 }
-void render::setScissor(const command_buffer_t& commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+void render::setScissor(const command_buffer_t& commandBuffer, int32_t x, int32_t y, uint32_t width, uint32_t height)
 {
   VkRect2D scissorRect = { { x,y },{ width,height } };
   vkCmdSetScissor(commandBuffer.handle_, 0, 1, &scissorRect);

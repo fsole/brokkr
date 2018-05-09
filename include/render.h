@@ -145,8 +145,8 @@ namespace bkk
     void commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, uint32_t clearValuesCount, const command_buffer_t& commandBuffer);
     void commandBufferNextSubpass(const command_buffer_t& commandBuffer);
 
-    void setViewport(const command_buffer_t& commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
-    void setScissor(const command_buffer_t& commandBuffer, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+    void setViewport(const command_buffer_t& commandBuffer, int32_t x, int32_t y, uint32_t width, uint32_t height);
+    void setScissor(const command_buffer_t& commandBuffer, int32_t x, int32_t y, uint32_t width, uint32_t height);
 
     void commandBufferEnd(const command_buffer_t& commandBuffer);
     void commandBufferSubmit(const context_t& context, const command_buffer_t& commandBuffer );

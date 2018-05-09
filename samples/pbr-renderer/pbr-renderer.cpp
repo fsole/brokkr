@@ -337,10 +337,10 @@ static const char* gAmbientLightFragmentShaderSource = R"(
     vec3 irradiance = texture(irradianceMap, normalWS).rgb;
     vec3 diffuse = irradiance * albedo;
 
-    const float MAX_REFLECTION_LOD = 3.0;
+    const float MAX_REFLECTION_LOD = 4;
     vec3 reflection = reflect(-V, N);
     vec3 reflectionWS = normalize( vec4( inverse( scene.view ) * vec4(reflection,0.0) ).xyz);
-    vec3 prefilteredColor = textureLod(specularMap, reflectionWS,  roughness * MAX_REFLECTION_LOD).rgb;  
+    vec3 prefilteredColor = textureLod(specularMap, reflectionWS,  min(roughness * MAX_REFLECTION_LOD,MAX_REFLECTION_LOD)).rgb;  
     vec2 envBRDF  = texture(brdfLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
     vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
 
@@ -1003,8 +1003,8 @@ private:
       return false;
     }
 
-    bkk::render::texture_t envMap;
-    bkk::render::texture2DCreate(context, &image, 1, bkk::render::texture_sampler_t(), &envMap);
+    bkk::render::texture_t texture;
+    bkk::render::texture2DCreate(context, &image, 1, bkk::render::texture_sampler_t(), &texture);
     bkk::render::textureCubemapCreate(context, VK_FORMAT_R32G32B32A32_SFLOAT, width, height, 1u, bkk::render::texture_sampler_t(), cubemap);
 
     mesh::mesh_t cube;
@@ -1087,9 +1087,9 @@ private:
     render::graphicsPipelineCreate(context, renderPass.handle_, 0u, cube.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
 
     //Create descriptor set
-    render::descriptor_t texture = render::getDescriptor(envMap);
+    render::descriptor_t textureDescriptor = render::getDescriptor(texture);
     render::descriptor_set_t descriptorSet;
-    render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout, &texture, &descriptorSet);
+    render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout, &textureDescriptor, &descriptorSet);
 
     //Create command buffer
     VkSemaphore diffuseConvolutionComplete = render::semaphoreCreate(context);
@@ -1362,7 +1362,7 @@ private:
     mesh::mesh_t cube;
     mesh::createFromFile(context, "../resources/cube.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &cube);
 
-    u32 mipLevels = min( 1 + floor(log2(size)), maxMipmapLevels );
+    u32 mipLevels = maths::minValue( (u32)(1 + floor(log2(size))), maxMipmapLevels );
     bkk::render::textureCubemapCreate(context, VK_FORMAT_R32G32B32A32_SFLOAT, size, size, mipLevels, bkk::render::texture_sampler_t(), specularMap);
     //Change cubemap layout for transfer
     VkImageSubresourceRange subresourceRange = {};
@@ -1436,7 +1436,7 @@ private:
                                     bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
                                     return float(bits) * 2.3283064365386963e-10; // / 0x100000000
                                 }
-                                // ----------------------------------------------------------------------------
+
                                 vec2 Hammersley(uint i, uint N)
                                 {
                                     return vec2(float(i)/float(N), RadicalInverse_VdC(i));
@@ -1655,7 +1655,6 @@ private:
                                     return nom / denom;
                                 }
 
-                                // ----------------------------------------------------------------------------
                                 float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
                                 {
                                     float NdotV = max(dot(N, V), 0.0);
@@ -1903,7 +1902,6 @@ private:
   render::pipeline_layout_t ambientLightPipelineLayout_;
   render::graphics_pipeline_t ambientLightPipeline_;
 
-
   render::pipeline_layout_t presentationPipelineLayout_;
   render::graphics_pipeline_t presentationPipeline_;
 
@@ -1941,13 +1939,12 @@ private:
   free_camera_t camera_;
 };
 
-
 int main()
 {
   pbr_renderer_t renderer;
 
-  bkk::handle_t sphere = renderer.addMesh("../resources/sphere_hipoly.obj");
-
+  //Generate scene
+  bkk::handle_t sphere = renderer.addMesh("../resources/sphere_hipoly.obj");  
   u32 roughnessSamples = 10;
   std::vector<bkk::handle_t> materials(roughnessSamples*roughnessSamples);
   std::vector<bkk::handle_t> objects(roughnessSamples*roughnessSamples);
@@ -1957,24 +1954,20 @@ int main()
   float deltaX = 2.5f;
   float deltaY = -2.5f;
   float x = -((roughnessSamples - 1) * deltaX)* 0.5f;
-  float y = 0.0f;
-  
+  float y = 0.0f;  
   for (u32 j = 0; j < roughnessSamples; ++j)
   {
     float roughness = 1.0f / roughnessSamples;
     x = -((roughnessSamples - 1) * deltaX)* 0.5f;
     y += deltaY;
-    
     for (u32 i = 0; i < roughnessSamples; ++i)
     {
       u32 index = j * roughnessSamples + i;
       materials[index] = renderer.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(F0, F0, F0), roughness);
       objects[index] = renderer.addObject(sphere, materials[index], maths::createTransform(maths::vec3(x, 0.0, y), maths::VEC3_ONE, maths::QUAT_UNIT));
-
       roughness += 1.0f / roughnessSamples;      
       x += deltaX;
     }
-
     F0 += 1.0f / roughnessSamples;
   }
 

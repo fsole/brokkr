@@ -50,16 +50,16 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
 
   uint8_t* data = nullptr;
 
-  size_t componentSize = 0;
+  uint32_t componentSize = 0;
   if (strcmp("hdr", getFileExtension(path)) == 0 )
   {
     data = (uint8_t*)stbi_loadf(path, &width, &height, &componentCount, 0);
-    componentSize = sizeof(float);
+    componentSize = 4;
   }
   else
   {
     data = stbi_load(path, &width, &height, &componentCount, 0);    
-    componentSize = sizeof(uint8_t);
+    componentSize = 1;
   }
 
   if (data == nullptr)
