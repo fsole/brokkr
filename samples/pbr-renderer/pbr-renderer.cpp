@@ -337,7 +337,7 @@ static const char* gAmbientLightFragmentShaderSource = R"(
     vec3 irradiance = texture(irradianceMap, normalWS).rgb;
     vec3 diffuse = irradiance * albedo;
 
-    const float MAX_REFLECTION_LOD = 4.0;
+    const float MAX_REFLECTION_LOD = 3.0;
     vec3 reflection = reflect(-V, N);
     vec3 reflectionWS = normalize( vec4( inverse( scene.view ) * vec4(reflection,0.0) ).xyz);
     vec3 prefilteredColor = textureLod(specularMap, reflectionWS,  roughness * MAX_REFLECTION_LOD).rgb;  
@@ -401,6 +401,9 @@ static const char* gPresentationFragmentShaderSource = R"(
     {
       color = texture(uTexture,uv);
     }
+
+    color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
+    
   }
 )";
 
@@ -454,8 +457,7 @@ struct pbr_renderer_t : public application_t
 
   pbr_renderer_t()
     :application_t("PBR Renderer", 1600u, 1000u, 3u),
-    camera_(vec3(0.0f, 9.0f, 5.0f), vec2(0.6f, 0.0f), 1.0f, 0.01f),
-    bAnimateLights_(false)
+    camera_(vec3(0.0f, 9.0f, 5.0f), vec2(0.6f, 0.0f), 1.0f, 0.01f)
   {
     render::context_t& context = getRenderContext();
     uvec2 size = getWindowSize();
@@ -464,16 +466,17 @@ struct pbr_renderer_t : public application_t
     render::gpuAllocatorCreate(context, 100 * 1024 * 1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_);
 
     //Create descriptor pool
-    render::descriptorPoolCreate(context, 1000u,
-      render::combined_image_sampler_count(1000u),
-      render::uniform_buffer_count(1000u),
-      render::storage_buffer_count(0u),
-      render::storage_image_count(0u),
-      &descriptorPool_);
+    render::descriptorPoolCreate( context, 1000u,
+                                  render::combined_image_sampler_count(1000u),
+                                  render::uniform_buffer_count(1000u),
+                                  render::storage_buffer_count(0u),
+                                  render::storage_image_count(0u),
+                                  &descriptorPool_);
 
     //Create vertex format (position + normal)
     uint32_t vertexSize = 2 * sizeof(maths::vec3);
-    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize },{ render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize } };
+    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize },
+                                                 { render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize } };
     render::vertexFormatCreate(attributes, 2u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes
@@ -504,11 +507,10 @@ struct pbr_renderer_t : public application_t
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &finalImage_);
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
 
-    cubemapFromImage("../resources/circus.png", 2046, 2046, &cubemap_);
+    cubemapFromImage("../resources/Tropical_Beach_3k.hdr", 2046, 2046, &cubemap_);
     diffuseConvolution(cubemap_, 64u, &irradianceMap_);
     specularConvolution(cubemap_, 256u, 4u, &specularMap_);
     brdfConvolution(512u, &brdfLut_);
-
 
     //Presentation descriptor set layout and pipeline layout
     bkk::render::descriptor_binding_t presentationBindings[4] = {
@@ -544,35 +546,11 @@ struct pbr_renderer_t : public application_t
     pipelineDesc.depthWriteEnabled_ = false;
     pipelineDesc.vertexShader_ = presentationVertexShader_;
     pipelineDesc.fragmentShader_ = presentationFragmentShader_;
-    bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
+    bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_,
+                                        presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
 
     initializeOffscreenPass(context, size);
     buildPresentationCommandBuffers();
-  }
-
-  bkk::handle_t addQuadMesh()
-  {
-    struct Vertex
-    {
-      float position[3];
-      float normal[3];
-    };
-
-    static const Vertex vertices[] = { { { -1.0f, 0.0f, +1.0f },{ 0.0f, 1.0f, 0.0f } },
-    { { +1.0f, 0.0f, +1.0f },{ 0.0f, 1.0f, 0.0f } },
-    { { -1.0f, 0.0f, -1.0f },{ 0.0f, 1.0f, 0.0f } },
-    { { +1.0f, 0.0f, -1.0f },{ 0.0f, 1.0f, 0.0f } }
-    };
-
-    static const uint32_t indices[] = { 0,1,2,1,3,2 };
-
-    static render::vertex_attribute_t attributes[2];
-    attributes[0] = { render::vertex_attribute_t::format::VEC3, 0, sizeof(Vertex) };
-    attributes[1] = { render::vertex_attribute_t::format::VEC3, offsetof(Vertex, normal), sizeof(Vertex) };
-
-    mesh::mesh_t mesh;
-    mesh::create(getRenderContext(), indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &allocator_, &mesh);
-    return mesh_.add(mesh);
   }
 
   bkk::handle_t addMesh(const char* url)
@@ -593,8 +571,8 @@ struct pbr_renderer_t : public application_t
     material.uniforms_.F0_ = F0;
     material.uniforms_.roughness_ = roughness;
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
-      &material.uniforms_, sizeof(material_t::uniforms_t),
-      &allocator_, &material.ubo_);
+                            &material.uniforms_, sizeof(material_t::uniforms_t),
+                            &allocator_, &material.ubo_);
 
     render::descriptor_t descriptor = render::getDescriptor(material.ubo_);
     render::descriptorSetCreate(context, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_);
@@ -610,8 +588,8 @@ struct pbr_renderer_t : public application_t
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
-      nullptr, sizeof(mat4),
-      &allocator_, &ubo);
+                            nullptr, sizeof(mat4),
+                            &allocator_, &ubo);
 
     object_t object = { meshId, materialId, transformId, ubo };
     render::descriptor_t descriptor = render::getDescriptor(object.ubo_);
@@ -655,8 +633,7 @@ struct pbr_renderer_t : public application_t
   {
     render::context_t& context = getRenderContext();
 
-    //Update scene
-    animateLights();
+    //Update scene    
     transformManager_.update();
     sceneUniforms_.viewMatrix_ = camera_.view_;
     render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
@@ -709,11 +686,6 @@ struct pbr_renderer_t : public application_t
         camera_.Move(0.5f, 0.0f);
         break;
       }
-      case window::key_e::KEY_P:
-      {
-        bAnimateLights_ = !bAnimateLights_;
-        break;
-      }
       default:
         break;
       }
@@ -730,7 +702,6 @@ struct pbr_renderer_t : public application_t
 
   void onQuit()
   {
-
     render::context_t& context = getRenderContext();
 
     //Destroy meshes
@@ -819,6 +790,7 @@ struct pbr_renderer_t : public application_t
   }
 
 private:
+
   ///Helper methods
   void initializeOffscreenPass(render::context_t& context, const uvec2& size)
   {
@@ -1606,20 +1578,19 @@ private:
         render::commandBufferEnd(commandBuffer);
         render::commandBufferSubmit(context, commandBuffer);
       }
-      mipSize /= 2;
-     
+      mipSize /= 2;     
     }
+
     //Change cubemap layout for shader access
     render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, specularMap);
 
     //Clean-up
-
     for (u32 i(0); i < mipLevels; ++i)
     {
       render::textureDestroy(context, &renderTargets[i]);
       render::frameBufferDestroy(context, &frameBuffers[i]);
-
     }
+
     render::descriptorSetLayoutDestroy(context, &descriptorSetLayout);
     render::pipelineLayoutDestroy(context, &pipelineLayout);
     render::renderPassDestroy(context, &renderPass);
@@ -1641,13 +1612,11 @@ private:
     mesh::mesh_t quad = sample_utils::fullScreenQuad(context);
     render::texture2DCreate(context, size, size, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), brdfConvolution);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, brdfConvolution);
-
-
+    
     //Create pipeline    
     render::pipeline_layout_t pipelineLayout;
     render::pipelineLayoutCreate(context, nullptr, 0u, nullptr, 0u, &pipelineLayout);
-
-    
+        
     render::render_pass_t::attachment_t attachments = { VK_FORMAT_R32G32B32A32_SFLOAT, VK_SAMPLE_COUNT_1_BIT,
                                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
                                                         VK_ATTACHMENT_STORE_OP_STORE,VK_ATTACHMENT_LOAD_OP_CLEAR };
@@ -1793,8 +1762,7 @@ private:
     pipelineDesc.fragmentShader_ = fragmentShader;
     render::graphics_pipeline_t pipeline = {};
     render::graphicsPipelineCreate(context, renderPass.handle_, 0u, quad.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
-
-
+    
     VkClearValue clearValue;
     clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
@@ -1846,7 +1814,6 @@ private:
 
     render::commandBufferBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
     {
-
       //GBuffer pass
       bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
@@ -1900,38 +1867,6 @@ private:
       bkk::render::descriptorSetBindForGraphics(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_, 1u);
       bkk::mesh::draw(commandBuffers[i], fullScreenQuad_);
       bkk::render::endPresentationCommandBuffer(context, i);
-    }
-  }
-
-  void animateLights()
-  {
-    if (!bAnimateLights_)
-      return;
-
-    static const vec3 light_path[] =
-    {
-      vec3(-3.0f,  3.0f, 4.0f),
-      vec3(-3.0f,  3.0f, -3.0f),
-      vec3(3.0f,   3.0f, -3.0f),
-      vec3(3.0f,   3.0f, 4.0f),
-      vec3(-3.0f,  3.0f, 4.0f)
-    };
-
-    static f32 totalTime = 0.0f;
-    totalTime += getTimeDelta()*0.001f;
-    std::vector<light_t>& lights = light_.getData();
-    for (u32 i(0); i < lights.size(); ++i)
-    {
-      float t = totalTime + i* 5.0f / lights.size();
-      int baseFrame = (int)t;
-      float f = t - baseFrame;
-
-      vec3 p0 = light_path[(baseFrame + 0) % 5];
-      vec3 p1 = light_path[(baseFrame + 1) % 5];
-      vec3 p2 = light_path[(baseFrame + 2) % 5];
-      vec3 p3 = light_path[(baseFrame + 3) % 5];
-
-      lights[i].uniforms_.position_ = vec4(maths::cubicInterpolation(p0, p1, p2, p3, f), 1.0);
     }
   }
 
@@ -2004,7 +1939,6 @@ private:
   mesh::mesh_t fullScreenQuad_;
 
   free_camera_t camera_;
-  bool bAnimateLights_;
 };
 
 

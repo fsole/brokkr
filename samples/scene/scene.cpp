@@ -1435,9 +1435,9 @@ int main()
 
   //Lights
   scene.addDirectionalLight(vec3(0.0, 1.5, 0.0), vec3(0.0f, 1.0f, 0.3f), vec3(5.0f, 5.0f, 5.0f), 0.1f);
-  scene.addPointLight(vec3(0.0f, 0.1f, 0.0f), 0.5f, vec3(0.5f, 0.0f, 0.0f));
-  scene.addPointLight(vec3(-1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.5f, 0.0f));
-  scene.addPointLight(vec3(1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.0f, 0.5f));
+  //scene.addPointLight(vec3(0.0f, 0.1f, 0.0f), 0.5f, vec3(0.5f, 0.0f, 0.0f));
+  //scene.addPointLight(vec3(-1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.5f, 0.0f));
+  //scene.addPointLight(vec3(1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.0f, 0.5f));
   
   scene.loop();
   return 0;

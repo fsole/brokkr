@@ -37,6 +37,7 @@ namespace bkk
 			uint32_t width_;
 			uint32_t height_;
 			uint32_t componentCount_;
+      uint32_t componentSize_;
 			uint32_t dataSize_;
 			uint8_t* data_;
 		};

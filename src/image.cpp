@@ -31,6 +31,13 @@
 using namespace bkk;
 using namespace bkk::image;
 
+static const char* getFileExtension(const char *filename) 
+{
+  const char *dot = strrchr(filename, '.');
+  if (!dot || dot == filename) return "";
+  return dot + 1;
+}
+
 bool image::load( const char* path, bool flipVertical, image2D_t* image )
 {
   if( image->data_ != nullptr )
@@ -40,8 +47,22 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
 
   int width, height, componentCount;
   stbi_set_flip_vertically_on_load(flipVertical);
-  uint8_t* data = stbi_load(path, &width, &height, &componentCount, 0);
-  if( data == nullptr )
+
+  uint8_t* data = nullptr;
+
+  size_t componentSize = 0;
+  if (strcmp("hdr", getFileExtension(path)) == 0 )
+  {
+    data = (uint8_t*)stbi_loadf(path, &width, &height, &componentCount, 0);
+    componentSize = sizeof(float);
+  }
+  else
+  {
+    data = stbi_load(path, &width, &height, &componentCount, 0);    
+    componentSize = sizeof(uint8_t);
+  }
+
+  if (data == nullptr)
   {
     return false;
   }
@@ -49,56 +70,60 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
   image->width_ = width;
   image->height_ = height;
   image->componentCount_ = componentCount;
-  image->dataSize_ = width * height * componentCount;
+  image->componentSize_ = componentSize;
+  image->dataSize_ = width * height * componentCount * componentSize;
   image->data_ = data;
 
  
-  //Add missing channels.
-  //TODO: Figure out how to handle textures with less than 4 channels :)
-  if(componentCount == 3)
-  {    
-    image->componentCount_ = 4;
-    image->dataSize_ = width * height * 4;
-    image->data_ = (uint8_t*)malloc(image->dataSize_);
-    for (int i(0); i < width*height; ++i )
-    {
-      image->data_[4*i] =   data[3*i];
-      image->data_[4*i+1] = data[3*i+1];
-      image->data_[4*i+2] = data[3*i+2];
-      image->data_[4*i+3] = 0u;
-    }
-
-    free( data );
-  }
-  else if (componentCount == 2)
+  if( componentSize == 1 )
   {
-    image->componentCount_ = 4;
-    image->dataSize_ = width * height * 4;
-    image->data_ = (uint8_t*)malloc(image->dataSize_);
-    for (int i(0); i < width*height; ++i)
-    {
-      image->data_[4 * i] = data[2 * i];
-      image->data_[4 * i + 1] = data[2 * i + 1];
-      image->data_[4 * i + 2] = 0u;
-      image->data_[4 * i + 3] = 0u;
-    }
+    //Add missing channels.
+    //TODO: Figure out how to handle textures with less than 4 channels :)
+    if(componentCount == 3)
+    {    
+      image->componentCount_ = 4;
+      image->dataSize_ = width * height * 4;
+      image->data_ = (uint8_t*)malloc(image->dataSize_);
+      for (int i(0); i < width*height; ++i )
+      {
+        image->data_[4*i] =   data[3*i];
+        image->data_[4*i+1] = data[3*i+1];
+        image->data_[4*i+2] = data[3*i+2];
+        image->data_[4*i+3] = 0u;
+      }
 
-    free(data);
-  }
-  else if (componentCount == 1)
-  {
-    image->componentCount_ = 4;
-    image->dataSize_ = width * height * 4;
-    image->data_ = (uint8_t*)malloc(image->dataSize_);
-    for (int i(0); i < width*height; ++i)
-    {
-      image->data_[4 * i] = data[i];
-      image->data_[4 * i + 1] = 0u;
-      image->data_[4 * i + 2] = 0u;
-      image->data_[4 * i + 3] = 0u;
+      free( data );
     }
+    else if (componentCount == 2)
+    {
+      image->componentCount_ = 4;
+      image->dataSize_ = width * height * 4;
+      image->data_ = (uint8_t*)malloc(image->dataSize_);
+      for (int i(0); i < width*height; ++i)
+      {
+        image->data_[4 * i] = data[2 * i];
+        image->data_[4 * i + 1] = data[2 * i + 1];
+        image->data_[4 * i + 2] = 0u;
+        image->data_[4 * i + 3] = 0u;
+      }
 
-    free(data);
+      free(data);
+    }
+    else if (componentCount == 1)
+    {
+      image->componentCount_ = 4;
+      image->dataSize_ = width * height * 4;
+      image->data_ = (uint8_t*)malloc(image->dataSize_);
+      for (int i(0); i < width*height; ++i)
+      {
+        image->data_[4 * i] = data[i];
+        image->data_[4 * i + 1] = 0u;
+        image->data_[4 * i + 2] = 0u;
+        image->data_[4 * i + 3] = 0u;
+      }
+
+      free(data);
+    }
   }
   
   return true;

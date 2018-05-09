@@ -953,11 +953,25 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
   VkFormat format = VK_FORMAT_UNDEFINED;
   if(images[0].componentCount_ == 3)
   {
-    format = VK_FORMAT_R8G8B8_UNORM;
+    if (images[0].componentSize_ == sizeof(float))
+    {
+      format = VK_FORMAT_R32G32B32_SFLOAT;
+    }
+    else
+    {
+      format = VK_FORMAT_R8G8B8_UNORM;
+    }
   }
   else if (images[0].componentCount_ == 4)
   {
-    format = VK_FORMAT_R8G8B8A8_UNORM;
+    if (images[0].componentSize_ == sizeof(float))
+    {
+      format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    }
+    else
+    {
+      format = VK_FORMAT_R8G8B8A8_UNORM;
+    }
   }
 
   //Create the image

@@ -254,6 +254,7 @@ static const char* gPresentationFragmentShaderSource = R"(
   void main(void)
   {
     color = texture(uTexture, uv);
+    color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
   }
 )";
 
