@@ -24,13 +24,16 @@
 
 
 // This sample is work in progress.
+#include "application.h"
 #include "render.h"
 #include "window.h"
 #include "image.h"
 #include "mesh.h"
-#include "../utility.h"
+#include "camera.h"
 
 using namespace bkk;
+using namespace bkk::maths;
+
 static const char* gVertexShaderSource = R"(
   #version 440 core
 
@@ -106,7 +109,7 @@ static render::shader_t gVertexShader;
 static render::shader_t gFragmentShader;
 static render::shader_t gComputeShader;
 
-static sample_utils::free_camera_t gCamera( vec3(0.0f,0.0f,5.0f), vec2(0.0f,0.0f), 1.0f, 0.01f);
+static camera::free_camera_t gCamera( vec3(0.0f,0.0f,5.0f), vec2(0.0f,0.0f), 1.0f, 0.01f);
 static maths::vec2 gMousePosition = vec2(0.0f, 0.0f);
 static bool gMouseButtonPressed = false;
 
@@ -310,7 +313,7 @@ bool createUniformBuffer()
   data.maxBounces = 3;
   data.imageSize = gImageSize;
   data.camera.tx = gCamera.tx_;
-  data.camera.verticalFov = (f32)M_PI_2;
+  data.camera.verticalFov = (f32)PI_2;
   data.camera.focalDistance = 5.0f;
   data.camera.aperture = 0.05f;
  
@@ -571,7 +574,7 @@ int main()
   //Initialize gContext
   render::contextCreate("Distance Field", "", gWindow, 3, &gContext);
   
-  gFSQuad = sample_utils::fullScreenQuad(gContext);
+  gFSQuad = mesh::fullScreenQuad(gContext);
   createUniformBuffer();
   
   //Create distance field buffer
@@ -583,8 +586,8 @@ int main()
   buildCommandBuffers();
   buildComputeCommandBuffer();
 
-  sample_utils::frame_counter_t frameCounter;
-  frameCounter.init(&gWindow);
+  
+  
   bool quit = false;
   while (!quit)
   {
@@ -629,7 +632,6 @@ int main()
     }
 
     renderFrame();
-    frameCounter.endFrame();
   }
 
 

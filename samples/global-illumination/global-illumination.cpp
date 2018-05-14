@@ -27,14 +27,15 @@
 *    - Press 'G' to enable disable Global illumination
 */
 
+#include "application.h"
 #include "render.h"
 #include "window.h"
 #include "mesh.h"
 #include "maths.h"
 #include "timer.h"
-#include "../utility.h"
 #include "transform-manager.h"
 #include "packed-freelist.h"
+#include "camera.h"
 
 static const char* gGeometryPassVertexShaderSource = R"(
   #version 440 core
@@ -625,7 +626,6 @@ static const char* gPresentationFragmentShaderSource = R"(
 
 using namespace bkk;
 using namespace maths;
-using namespace sample_utils;
 
 class global_illumination_sample_t : public application_t
 {
@@ -722,7 +722,7 @@ public:
     render::vertexFormatCreate(attributes, 3u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes
-    fullScreenQuad_ = sample_utils::fullScreenQuad(context);
+    fullScreenQuad_ = mesh::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
     //Initialize camera transformation
@@ -872,7 +872,7 @@ public:
       {
         float e1 =  float((double)rand() / (RAND_MAX));
         float e2 =  float((double)rand() / (RAND_MAX));        
-        directionalLight_->uniforms_.samples_[i] = vec4(maxRadius * e1 * sinf(2.0f *(float) M_PI * e2), maxRadius * e1 * cosf(2.0f * (float)M_PI * e2), e1*e1, 0.0f);
+        directionalLight_->uniforms_.samples_[i] = vec4(maxRadius * e1 * sinf(2.0f *(float) PI * e2), maxRadius * e1 * cosf(2.0f * (float)PI * e2), e1*e1, 0.0f);
       }
       //Create uniform buffer and descriptor set
       render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
@@ -1646,7 +1646,7 @@ private:
   mesh::mesh_t fullScreenQuad_;
 
   directional_light_t* directionalLight_ = nullptr;
-  free_camera_t camera_;
+  camera::free_camera_t camera_;
   bool globalIllumination_ = true;
 };
 

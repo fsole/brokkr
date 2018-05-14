@@ -79,7 +79,8 @@ namespace bkk
 
     void textureCubemapCreate(const context_t& context, VkFormat format, uint32_t width, uint32_t height, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture);
     void textureCubemapCreate( const context_t& context, const image::image2D_t* images, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture);
-    
+    bool textureCubemapCreateFromEquirectangularImage(const context_t& context, const image::image2D_t& image, uint32_t size, bool generateMipmaps, texture_cubemap_t* cubemap);
+
     //Buffers
     void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, uint32_t memoryType, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
     void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
@@ -169,6 +170,11 @@ namespace bkk
     void depthStencilBufferCreate(const context_t& context, uint32_t width, uint32_t height, depth_stencil_buffer_t* depthStencilBuffer);
     void depthStencilBufferDestroy(const context_t& context, depth_stencil_buffer_t* depthStencilBuffer);   
     void depthStencilBufferChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, depth_stencil_buffer_t* depthStencilBuffer);
+
+    //Utility functions    
+    bool diffuseConvolution(const context_t& context,texture_cubemap_t environmentMap, uint32_t size, texture_cubemap_t* irradiance);
+    bool specularConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, uint32_t maxMipmapLevels, texture_cubemap_t* specularMap);
+    bool brdfConvolution(const context_t& context, uint32_t size, texture_t* brdfConvolution);
 
   } //namespace render
 

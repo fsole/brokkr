@@ -22,18 +22,18 @@
 * SOFTWARE.
 */
 
+#include "application.h"
 #include "render.h"
 #include "window.h"
 #include "mesh.h"
 #include "maths.h"
 #include "timer.h"
-#include "../utility.h"
 #include "transform-manager.h"
 #include "packed-freelist.h"
+#include "camera.h"
 
 using namespace bkk;
 using namespace maths;
-using namespace sample_utils;
 
 static const char* gGeometryPassVertexShaderSource = R"(
   #version 440 core
@@ -332,7 +332,7 @@ struct deferred_shading_sample_t : public application_t
     render::vertexFormatCreate(attributes, 2u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes
-    fullScreenQuad_ = sample_utils::fullScreenQuad(context);
+    fullScreenQuad_ = mesh::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
     //Create globals uniform buffer    
@@ -991,7 +991,7 @@ private:
   mesh::mesh_t sphereMesh_;
   mesh::mesh_t fullScreenQuad_;
   
-  free_camera_t camera_;
+  camera::free_camera_t camera_;
   bool bAnimateLights_;
 };
 

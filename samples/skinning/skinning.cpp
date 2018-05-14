@@ -22,17 +22,17 @@
 * SOFTWARE.
 */
 
+#include "application.h"
 #include "render.h"
 #include "window.h"
 #include "image.h"
 #include "mesh.h"
 #include "maths.h"
-#include "../utility.h"
 #include "timer.h"
+#include "camera.h"
 
 using namespace bkk;
 using namespace maths;
-using namespace sample_utils;
 
 static const char* gVertexShaderSource = R"(
   #version 440 core
@@ -287,7 +287,7 @@ private:
   render::shader_t vertexShader_;
   render::shader_t fragmentShader_;
 
-  orbiting_camera_t camera_;
+  camera::orbiting_camera_t camera_;
   maths::mat4 projectionTx_;
   maths::mat4 modelTx_;
 };

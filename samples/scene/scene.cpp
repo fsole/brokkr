@@ -22,13 +22,14 @@
 * SOFTWARE.
 */
 
+#include "application.h"
+#include "camera.h"
 #include "render.h"
 #include "image.h"
 #include "window.h"
 #include "mesh.h"
 #include "maths.h"
 #include "timer.h"
-#include "../utility.h"
 #include "transform-manager.h"
 #include "packed-freelist.h"
 
@@ -447,8 +448,6 @@ static const char* gPresentationFragmentShaderSource = R"(
 
 using namespace bkk;
 using namespace maths;
-using namespace sample_utils;
-
 
 class scene_sample_t : public application_t
 {
@@ -544,7 +543,7 @@ public:
     render::vertexFormatCreate(attributes, 3u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes
-    fullScreenQuad_ = sample_utils::fullScreenQuad(context);
+    fullScreenQuad_ = mesh::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
     //Create default diffuse map
@@ -1426,7 +1425,7 @@ private:
   mesh::mesh_t fullScreenQuad_;
 
   directional_light_t* directionalLight_ = nullptr;
-  free_camera_t camera_;
+  camera::free_camera_t camera_;
 };
 
 int main()
@@ -1435,9 +1434,9 @@ int main()
 
   //Lights
   scene.addDirectionalLight(vec3(0.0, 1.5, 0.0), vec3(0.0f, 1.0f, 0.3f), vec3(5.0f, 5.0f, 5.0f), 0.1f);
-  //scene.addPointLight(vec3(0.0f, 0.1f, 0.0f), 0.5f, vec3(0.5f, 0.0f, 0.0f));
-  //scene.addPointLight(vec3(-1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.5f, 0.0f));
-  //scene.addPointLight(vec3(1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.0f, 0.5f));
+  scene.addPointLight(vec3(0.0f, 0.1f, 0.0f), 0.5f, vec3(0.5f, 0.0f, 0.0f));
+  scene.addPointLight(vec3(-1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.5f, 0.0f));
+  scene.addPointLight(vec3(1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.0f, 0.5f));
   
   scene.loop();
   return 0;

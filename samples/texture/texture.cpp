@@ -26,9 +26,8 @@
 #include "window.h"
 #include "mesh.h"
 #include "image.h"
-#include "../utility.h"
-
 #include "mesh.h"
+#include "camera.h"
 
 static const char* gVertexShaderSource = R"(
   #version 440 core
@@ -105,17 +104,17 @@ int main()
   bkk::render::contextCreate("Textured Quad", "", window, 3, &context);
 
   //Create a quad and a texture
-  bkk::mesh::mesh_t mesh = sample_utils::fullScreenQuad(context);
+  bkk::mesh::mesh_t mesh = bkk::mesh::fullScreenQuad(context);
   bkk::render::texture_t texture = createTexture(context);
 
   //Create descriptor pool
   bkk::render::descriptor_pool_t descriptorPool;
-  render::descriptorPoolCreate(context, 1u,
-    render::combined_image_sampler_count(1u),
-    render::uniform_buffer_count(0u),
-    render::storage_buffer_count(0u),
-    render::storage_image_count(0u),
-    &descriptorPool);
+  bkk::render::descriptorPoolCreate( context, 1u,
+                                bkk::render::combined_image_sampler_count(1u),
+                                bkk::render::uniform_buffer_count(0u),
+                                bkk::render::storage_buffer_count(0u),
+                                bkk::render::storage_image_count(0u),
+                                &descriptorPool);
 
   //Create descriptor layout
   bkk::render::descriptor_set_layout_t descriptorSetLayout;
@@ -187,7 +186,7 @@ int main()
   bkk::render::shaderDestroy(context, &fragmentShader);
 
   bkk::render::graphicsPipelineDestroy(context, &pipeline);
-  render::descriptorSetLayoutDestroy(context, &descriptorSetLayout);
+  bkk::render::descriptorSetLayoutDestroy(context, &descriptorSetLayout);
   bkk::render::descriptorSetDestroy(context, &descriptorSet);
   bkk::render::descriptorPoolDestroy(context, &descriptorPool);
   bkk::render::pipelineLayoutDestroy(context, &pipelineLayout);

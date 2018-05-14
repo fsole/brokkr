@@ -121,6 +121,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\include\application.h" />
+    <ClInclude Include="..\..\include\camera.h" />
     <ClInclude Include="..\..\include\image.h" />
     <ClInclude Include="..\..\include\maths.h" />
     <ClInclude Include="..\..\include\mesh.h" />
@@ -132,6 +134,8 @@
     <ClInclude Include="..\..\include\window.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\application.cpp" />
+    <ClCompile Include="..\..\src\camera.cpp" />
     <ClCompile Include="..\..\src\image.cpp" />
     <ClCompile Include="..\..\src\mesh.cpp" />
     <ClCompile Include="..\..\src\render.cpp" />

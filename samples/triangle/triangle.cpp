@@ -41,7 +41,6 @@ static const char* gVertexShaderSource = R"(
   }
 )";
 
-
 static const char* gFragmentShaderSource = R"(
   #version 440 core
 

@@ -30,6 +30,9 @@
 #include <iostream>
 
 
+#define PI       3.14159265358979323846
+#define PI_2     1.57079632679489661923 
+
 typedef uint8_t       u8;
 typedef uint16_t      u16;
 typedef uint32_t      u32;
@@ -49,13 +52,13 @@ namespace bkk
     template <typename T>
     inline T degreeToRadian(T angle)
     {
-      return T(angle * M_PI / 180.0);
+      return T(angle * PI / 180.0);
     }
 
     template <typename T>
     inline T radianToDegree(T angle)
     {
-      return T(angle * 180.0 / M_PI);
+      return T(angle * 180.0 / PI);
     }
 
     template <typename T>

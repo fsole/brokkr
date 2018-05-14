@@ -22,11 +22,16 @@
 * SOFTWARE.
 */
 
+#include "application.h"
 #include "render.h"
 #include "window.h"
 #include "image.h"
 #include "mesh.h"
-#include "../utility.h"
+#include "camera.h"
+#include "maths.h"
+
+using namespace bkk;
+using namespace bkk::maths;
 
 static const char* gVertexShaderSource = R"(
   #version 440 core
@@ -61,9 +66,6 @@ static const char* gFragmentShaderSource = R"(
     result = vec4(color, 1.0);
   }
 )";
-
-using namespace bkk;
-using namespace sample_utils;
 
 class path_tracing_sample_t : public application_t
 {
@@ -290,7 +292,7 @@ private:
     render::context_t& context = getRenderContext();
 
     //Create a full screen quad to display the image
-    fullscreenQuadmesh_ = fullScreenQuad(context);
+    fullscreenQuadmesh_ = mesh::fullScreenQuad(context);
     
     //Create the texture that will be updated by the compute shader
     render::texture2DCreate(context, imageSize_.x, imageSize_.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &renderedImage_);
@@ -302,7 +304,7 @@ private:
     data.maxBounces = 3u;
     data.imageSize = imageSize_;
     data.camera.tx.setIdentity();
-    data.camera.verticalFov = (f32)M_PI_2;
+    data.camera.verticalFov = (f32)PI_2;
     data.camera.focalDistance = 5.0f;
     data.camera.aperture = 0.075f;
     generateScene(150u, vec3(25.0f, 0.0f, 25.0f), &data.scene);
@@ -440,7 +442,7 @@ private:
   render::shader_t fragmentShader_;
   render::shader_t computeShader_;
 
-  free_camera_t camera_;
+  camera::free_camera_t camera_;
   maths::uvec2 imageSize_;
   u32 sampleCount_ = 0u;
 };

@@ -144,6 +144,8 @@ namespace bkk
     void animatorUpdate(const render::context_t& context, f32 deltaTimeInMs, skeletal_animator_t* animator);
     void animatorDestroy(const render::context_t& context, skeletal_animator_t* animator);
 
+    mesh_t fullScreenQuad(const bkk::render::context_t& context);
+
   } //mesh namespace
 }//namespace bkk
 #endif  /*  MESH_H   */

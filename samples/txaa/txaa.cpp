@@ -22,18 +22,18 @@
 * SOFTWARE.
 */
 
+#include "application.h"
+#include "camera.h"
 #include "render.h"
 #include "window.h"
 #include "mesh.h"
 #include "maths.h"
 #include "timer.h"
-#include "../utility.h"
 #include "transform-manager.h"
 #include "packed-freelist.h"
 
 using namespace bkk;
 using namespace maths;
-using namespace sample_utils;
 
 static const char* gGeometryPassVertexShaderSource = R"(
   #version 440 core
@@ -384,7 +384,7 @@ struct TXAA_sample_t : public application_t
     render::vertexFormatCreate(attributes, 2u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes
-    fullScreenQuad_ = sample_utils::fullScreenQuad(context);
+    fullScreenQuad_ =  mesh::fullScreenQuad(context);
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
     
     //Create render targets 
@@ -1172,7 +1172,7 @@ private:
   mesh::mesh_t sphereMesh_;
   mesh::mesh_t fullScreenQuad_;
 
-  free_camera_t camera_;
+  camera::free_camera_t camera_;
   bool bTemporalAA_;
   uint32_t currentFrame_;
 };
@@ -1191,7 +1191,6 @@ int main()
   //Meshes
   bkk::handle_t teapot = scene.addMesh("../resources/teapot.obj");
   bkk::handle_t quad = scene.addQuadMesh();
-
  
   //Objects
   scene.addObject(quad, wall, maths::createTransform(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));
