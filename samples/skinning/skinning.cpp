@@ -54,7 +54,7 @@ static const char* gVertexShaderSource = R"(
     mat4 bones[];
   }bonesTx;
 
-  out OUTPUT
+  layout(location = 0) out OUTPUT
   {
     vec3 normalViewSpace;
     vec3 lightViewSpace;
@@ -79,7 +79,7 @@ static const char* gVertexShaderSource = R"(
 static const char* gFragmentShaderSource = R"(
   #version 440 core
 
-  in INPUT
+  layout(location = 0) in INPUT
   {
     vec3 normalViewSpace;
     vec3 lightViewSpace;

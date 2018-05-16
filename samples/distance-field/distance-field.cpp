@@ -39,8 +39,7 @@ static const char* gVertexShaderSource = R"(
 
   layout(location = 0) in vec3 aPosition;
   layout(location = 1) in vec2 aTexCoord;
-
-  out vec2 uv;
+  layout(location = 0)out vec2 uv;
 
   void main(void)
   {
@@ -52,10 +51,8 @@ static const char* gVertexShaderSource = R"(
 static const char* gFragmentShaderSource = R"(
   #version 440 core
 
-  in vec2 uv;
-
   layout(binding = 0) uniform sampler2D uTexture;
-
+  layout(location = 0) in vec2 uv;  
   layout(location = 0) out vec4 result;
 
   void main(void)
@@ -109,7 +106,7 @@ static render::shader_t gVertexShader;
 static render::shader_t gFragmentShader;
 static render::shader_t gComputeShader;
 
-static camera::free_camera_t gCamera( vec3(0.0f,0.0f,5.0f), vec2(0.0f,0.0f), 1.0f, 0.01f);
+static camera::free_camera_t gCamera;
 static maths::vec2 gMousePosition = vec2(0.0f, 0.0f);
 static bool gMouseButtonPressed = false;
 
@@ -575,6 +572,9 @@ int main()
   render::contextCreate("Distance Field", "", gWindow, 3, &gContext);
   
   gFSQuad = mesh::fullScreenQuad(gContext);
+  gCamera.position_ = vec3(0.0f, 0.0f, 5.0f);
+  gCamera.Update();
+
   createUniformBuffer();
   
   //Create distance field buffer

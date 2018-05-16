@@ -38,8 +38,7 @@ static const char* gVertexShaderSource = R"(
 
   layout(location = 0) in vec3 aPosition;
   layout(location = 1) in vec2 aTexCoord;
-
-  out vec2 uv;
+  layout(location = 0)out vec2 uv;
 
   void main(void)
   {
@@ -51,10 +50,8 @@ static const char* gVertexShaderSource = R"(
 static const char* gFragmentShaderSource = R"(
   #version 440 core
 
-  in vec2 uv;
-
   layout(binding = 0) uniform sampler2D uTexture;
-
+  layout(location = 0) in vec2 uv;  
   layout(location = 0) out vec4 result;
 
   void main(void)
