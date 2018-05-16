@@ -33,7 +33,6 @@
 using namespace bkk;
 using namespace bkk::render;
 
-//#define VK_DEBUG_LAYERS
 
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
@@ -47,7 +46,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
   void* userData)
 {
 
-  std::cerr << "VULKAN_ERROR: " << msg << std::endl;
+  std::cerr << std::endl << "VULKAN_ERROR: " << msg << std::endl;
   return VK_FALSE;
 }
   
@@ -1274,7 +1273,7 @@ void render::textureCubemapCreate(const context_t& context, VkFormat format, uin
   imageViewCreateInfo.image = texture->image_;
   imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
   imageViewCreateInfo.subresourceRange.levelCount = mipLevels;
-  imageViewCreateInfo.subresourceRange.layerCount = 1;
+  imageViewCreateInfo.subresourceRange.layerCount = 6;
   imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
   vkCreateImageView(context.device_, &imageViewCreateInfo, nullptr, &texture->imageView_);
 
@@ -1296,10 +1295,10 @@ void render::textureCubemapCreate(const context_t& context, VkFormat format, uin
 
 
   texture->descriptor_ = {};
-  texture->descriptor_.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+  texture->descriptor_.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   texture->descriptor_.imageView = texture->imageView_;
   texture->descriptor_.sampler = texture->sampler_;
-  texture->layout_ = VK_IMAGE_LAYOUT_GENERAL;
+  texture->layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
   texture->extent_ = extents;
   texture->mipLevels_ = mipLevels;
   texture->aspectFlags_ = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1839,10 +1838,18 @@ void render::descriptorPoolCreate(const context_t& context, uint32_t descriptorS
   descriptorPool->storageImages_ = storageImages.data_;
 
   std::vector<VkDescriptorPoolSize> descriptorPoolSize;
-  descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorPool->combinedImageSamplers_ });
-  descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorPool->uniformBuffers_ });
-  descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, descriptorPool->storageBuffers_ });
-  descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, descriptorPool->storageImages_ });
+
+  if(descriptorPool->combinedImageSamplers_ > 0u )
+    descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorPool->combinedImageSamplers_ });
+
+  if (descriptorPool->uniformBuffers_ > 0u)
+    descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptorPool->uniformBuffers_ });
+
+  if (descriptorPool->storageBuffers_ > 0u)
+    descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, descriptorPool->storageBuffers_ });
+
+  if (descriptorPool->storageImages_ > 0u)
+    descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, descriptorPool->storageImages_ });
 
   //Create DescriptorPool
   VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = {};
@@ -2326,7 +2333,7 @@ void render::renderPassCreate(const context_t& context,
       for (uint32_t j = 0; j < inputAttachmentCount; ++j)
       {
         inputAttachmentRef[i][j].attachment = subpasses[i].inputAttachmentIndex_[j];
-        inputAttachmentRef[i][j].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        inputAttachmentRef[i][j].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       }
       subpassDescription[i].inputAttachmentCount = inputAttachmentCount;
       subpassDescription[i].pInputAttachments = inputAttachmentRef[i].data();
@@ -2581,7 +2588,7 @@ bool render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
   render::graphics_pipeline_t pipeline;
   render::pipeline_layout_t pipelineLayout;
   render::descriptor_set_layout_t descriptorSetLayout;
-  render::descriptor_binding_t bindings = { render::descriptor_t::type::SAMPLED_IMAGE, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
+  render::descriptor_binding_t bindings = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
   render::descriptorSetLayoutCreate(context, &bindings, 1u, &descriptorSetLayout);
 
   render::push_constant_range_t pushConstantsRange = { VK_SHADER_STAGE_VERTEX_BIT, sizeof(maths::mat4), 0u };
@@ -2644,13 +2651,11 @@ bool render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
   render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &textureDescriptor, &descriptorSet);
 
   //Create command buffer
-  VkSemaphore diffuseConvolutionComplete = render::semaphoreCreate(context);
-
   VkClearValue clearValue;
   clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
   render::command_buffer_t commandBuffer = {};
-  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &diffuseConvolutionComplete, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
 
   maths::mat4 projection = maths::perspectiveProjectionMatrix(1.57f, 1.0f, 0.1f, 1.0f);
   maths::mat4 view[6] = { maths::lookAtMatrix(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(1.0f, 0.0f, 0.0f),  maths::vec3(0.0f, 1.0f, 0.0f)),
@@ -2667,7 +2672,7 @@ bool render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
   {
     //Create render target and framebuffer
     frameBuffers[mipLevel] = {};
-    render::texture2DCreate(context, mipSize, mipSize, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &renderTargets[mipLevel]);
+    render::texture2DCreate(context, mipSize, mipSize, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, render::texture_sampler_t(), &renderTargets[mipLevel]);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
     render::frameBufferCreate(context, mipSize, mipSize, renderPass, &renderTargets[mipLevel].imageView_, &frameBuffers[mipLevel]);
 
@@ -2766,7 +2771,7 @@ bool render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
   render::graphics_pipeline_t pipeline;
   render::pipeline_layout_t pipelineLayout;
   render::descriptor_set_layout_t descriptorSetLayout;
-  render::descriptor_binding_t bindings = { render::descriptor_t::type::SAMPLED_IMAGE, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
+  render::descriptor_binding_t bindings = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
   render::descriptorSetLayoutCreate(context, &bindings, 1u, &descriptorSetLayout);
 
   render::push_constant_range_t pushConstantsRange = { VK_SHADER_STAGE_VERTEX_BIT, sizeof(maths::mat4), 0u };
@@ -2858,13 +2863,11 @@ bool render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
   render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &texture, &descriptorSet);
 
   //Create command buffer
-  VkSemaphore diffuseConvolutionComplete = render::semaphoreCreate(context);
-
   VkClearValue clearValue;
   clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
   render::command_buffer_t commandBuffer = {};
-  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &diffuseConvolutionComplete, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
 
   maths::mat4 projection = maths::perspectiveProjectionMatrix(1.57f, 1.0f, 0.1f, 1.0f);
   maths::mat4 view[6] = { maths::lookAtMatrix(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(1.0f, 0.0f, 0.0f),  maths::vec3(0.0f, 1.0f, 0.0f)),
@@ -2962,7 +2965,7 @@ bool render::specularConvolution(const context_t& context, texture_cubemap_t env
   render::graphics_pipeline_t pipeline;
   render::pipeline_layout_t pipelineLayout;
   render::descriptor_set_layout_t descriptorSetLayout;
-  render::descriptor_binding_t bindings = { render::descriptor_t::type::SAMPLED_IMAGE, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
+  render::descriptor_binding_t bindings = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
   render::descriptorSetLayoutCreate(context, &bindings, 1u, &descriptorSetLayout);
 
   struct push_constants_t
@@ -3125,13 +3128,11 @@ bool render::specularConvolution(const context_t& context, texture_cubemap_t env
   render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &texture, &descriptorSet);
 
   //Create command buffer
-  VkSemaphore specularConvolutionComplete = render::semaphoreCreate(context);
-
   VkClearValue clearValue;
   clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
   render::command_buffer_t commandBuffer = {};
-  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &specularConvolutionComplete, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
 
   maths::mat4 projection = maths::perspectiveProjectionMatrix(1.57f, 1.0f, 0.1f, 1.0f);
   maths::mat4 view[6] = { maths::lookAtMatrix(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(1.0f, 0.0f, 0.0f),  maths::vec3(0.0f, 1.0f, 0.0f)),

@@ -49,9 +49,9 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
   stbi_set_flip_vertically_on_load(flipVertical);
 
   uint8_t* data = nullptr;
-
   uint32_t componentSize = 0;
-  if (strcmp("hdr", getFileExtension(path)) == 0 )
+
+  if (strcmp(getFileExtension(path), "hdr") == 0 )
   {
     data = (uint8_t*)stbi_loadf(path, &width, &height, &componentCount, 0);
     componentSize = 4;
@@ -74,56 +74,33 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
   image->dataSize_ = width * height * componentCount * componentSize;
   image->data_ = data;
 
- 
-  if( componentSize == 1 )
-  {
-    //Add missing channels.
-    //TODO: Figure out how to handle textures with less than 4 channels :)
-    if(componentCount == 3)
-    {    
-      image->componentCount_ = 4;
-      image->dataSize_ = width * height * 4;
-      image->data_ = (uint8_t*)malloc(image->dataSize_);
-      for (int i(0); i < width*height; ++i )
-      {
-        image->data_[4*i] =   data[3*i];
-        image->data_[4*i+1] = data[3*i+1];
-        image->data_[4*i+2] = data[3*i+2];
-        image->data_[4*i+3] = 0u;
-      }
+ //Add missing channels, otherwise Vulkan validation layers will complain
+  if( componentCount < 4 )
+  {    
+    image->componentCount_ = 4;
+    image->dataSize_ = width * height * 4 * componentSize;
+    image->data_ = (uint8_t*)malloc(image->dataSize_);
 
-      free( data );
-    }
-    else if (componentCount == 2)
+    if (componentSize == 1)
     {
-      image->componentCount_ = 4;
-      image->dataSize_ = width * height * 4;
-      image->data_ = (uint8_t*)malloc(image->dataSize_);
+      for (int i(0); i < width*height; ++i)
+      { 
+        for (int component(0); component<4; ++component)
+          image->data_[4*i + component] = component < componentCount ? data[componentCount*i + component] : 0u;
+      }
+    }
+    else if (componentSize == 4)
+    {
+      float* imageDataPtr = (float*)image->data_;
+      float* dataPtr = (float*)data;
       for (int i(0); i < width*height; ++i)
       {
-        image->data_[4 * i] = data[2 * i];
-        image->data_[4 * i + 1] = data[2 * i + 1];
-        image->data_[4 * i + 2] = 0u;
-        image->data_[4 * i + 3] = 0u;
+        for (int component(0); component<4; ++component)
+          imageDataPtr[4*i + component] = component < componentCount ? dataPtr[componentCount*i + component] : 0.0f;
       }
-
-      free(data);
     }
-    else if (componentCount == 1)
-    {
-      image->componentCount_ = 4;
-      image->dataSize_ = width * height * 4;
-      image->data_ = (uint8_t*)malloc(image->dataSize_);
-      for (int i(0); i < width*height; ++i)
-      {
-        image->data_[4 * i] = data[i];
-        image->data_[4 * i + 1] = 0u;
-        image->data_[4 * i + 2] = 0u;
-        image->data_[4 * i + 3] = 0u;
-      }
 
-      free(data);
-    }
+    free(data);
   }
   
   return true;
