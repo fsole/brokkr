@@ -49,7 +49,7 @@ static const char* gVertexShaderSource = R"(
     mat4 modelViewProjection;
   }uniforms;
 
-  layout(binding = 1) buffer BONESTX
+  layout(binding = 1)  readonly buffer BONESTX
   {
     mat4 bones[];
   }bonesTx;
@@ -190,7 +190,8 @@ public:
     render::descriptorSetLayoutDestroy(context, &descriptorSetLayout_);
     render::descriptorSetDestroy(context, &descriptorSet_);    
     render::descriptorPoolDestroy(context, &descriptorPool_);
-    render::gpuBufferDestroy(context, nullptr, &globalUnifomBuffer_);    
+    render::gpuBufferDestroy(context, nullptr, &globalUnifomBuffer_);
+    render::textureDestroy(context, &texture_);
   }
   
   void render()

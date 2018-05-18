@@ -745,22 +745,22 @@ public:
     render::descriptorSetCreate(context, descriptorPool_, globalsDescriptorSetLayout_, &descriptor, &globalsDescriptorSet_);
 
     //Create render targets 
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT0_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT1_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT1_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &gBufferRT2_);
-    render::texture2DCreate(context, size.x, size.y, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &finalImage_);
+    render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT0_);
+    render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT1_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
+    render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
+    render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &finalImage_);
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
 
     //Reflective shadow map render targets
-    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT0_);
+    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, 1u, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT0_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &shadowMapRT0_);
-    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT1_);
+    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, 1u, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT1_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &shadowMapRT1_);
-    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT2_);
+    render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, 1u, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMapRT2_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &shadowMapRT2_);
     render::depthStencilBufferCreate(context, shadowMapSize_, shadowMapSize_, &shadowPassDepthStencilBuffer);
 
@@ -1262,29 +1262,29 @@ private:
     renderPass_ = {};
     render::render_pass_t::attachment_t attachments[5];
     attachments[0].format_ = gBufferRT0_.format_;
-    attachments[0].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachments[0].finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachments[0].initialLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[0].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     attachments[0].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[0].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[0].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
     attachments[1].format_ = gBufferRT1_.format_;;
-    attachments[1].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachments[1].finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachments[1].initialLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[1].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     attachments[1].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[1].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[1].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
     attachments[2].format_ = gBufferRT2_.format_;;
-    attachments[2].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachments[2].finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachments[2].initialLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[2].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     attachments[2].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[2].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[2].samples_ = VK_SAMPLE_COUNT_1_BIT;
 
     attachments[3].format_ = finalImage_.format_;
-    attachments[3].initialLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachments[3].finallLayout_ = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachments[3].initialLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[3].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     attachments[3].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[3].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[3].samples_ = VK_SAMPLE_COUNT_1_BIT;
@@ -1308,36 +1308,15 @@ private:
     subpasses[1].colorAttachmentIndex_.push_back(3);
 
     //Dependency chain for layout transitions
-    render::render_pass_t::subpass_dependency_t dependencies[4];
-    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[0].dstSubpass = 0;
-    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    dependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    render::render_pass_t::subpass_dependency_t dependency;
+    dependency.srcSubpass = 0;
+    dependency.dstSubpass = 1;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency.dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
 
-    dependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[1].dstSubpass = 1;
-    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    dependencies[1].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    dependencies[2].srcSubpass = 0;
-    dependencies[2].dstSubpass = 1;
-    dependencies[2].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependencies[2].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dependencies[2].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependencies[2].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    dependencies[3].srcSubpass = 1;
-    dependencies[3].dstSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[3].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependencies[3].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-    dependencies[3].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependencies[3].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    render::renderPassCreate(context, attachments, 5u, subpasses, 2u, dependencies, 4u, &renderPass_);
+    render::renderPassCreate(context, attachments, 5u, subpasses, 2u, &dependency, 1u, &renderPass_);
 
     //Create frame buffer
     VkImageView fbAttachment[5] = { gBufferRT0_.imageView_, gBufferRT1_.imageView_, gBufferRT2_.imageView_, finalImage_.imageView_, depthStencilBuffer_.imageView_ };
@@ -1458,8 +1437,9 @@ private:
         clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
         clearValues[3].depthStencil = { 1.0f,0 };
 
-        render::commandBufferBegin(context, &shadowFrameBuffer_, clearValues, 4u, shadowCommandBuffer_);
+        render::commandBufferBegin(context, shadowCommandBuffer_);
         {
+          render::commandBufferRenderPassBegin(context, &shadowFrameBuffer_, clearValues, 4u, shadowCommandBuffer_);
           //Shadow pass
           bkk::render::graphicsPipelineBind(shadowCommandBuffer_.handle_, shadowPipeline_);
           bkk::render::descriptorSetBindForGraphics(shadowCommandBuffer_.handle_, shadowPipelineLayout_, 0, &shadowGlobalsDescriptorSet_, 1u);
@@ -1473,6 +1453,7 @@ private:
             ++objectIter;
           }
         }
+        render::commandBufferRenderPassEnd(shadowCommandBuffer_);
         render::commandBufferEnd(shadowCommandBuffer_);
       }
 
@@ -1498,8 +1479,10 @@ private:
     clearValues[2].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[3].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
     clearValues[4].depthStencil = { 1.0f,0 };
-    render::commandBufferBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
+    render::commandBufferBegin(context, commandBuffer_);
     {
+      render::commandBufferRenderPassBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
+
       //GBuffer pass
       bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
       bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, &globalsDescriptorSet_, 1u);
@@ -1544,6 +1527,7 @@ private:
         mesh::draw(commandBuffer_.handle_, fullScreenQuad_);
       }
     }
+    render::commandBufferRenderPassEnd(commandBuffer_);
     render::commandBufferEnd(commandBuffer_);
     render::commandBufferSubmit(context, commandBuffer_);
   }

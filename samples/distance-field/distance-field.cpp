@@ -301,7 +301,7 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
 bool createUniformBuffer()
 {
   //Create the texture
-  render::texture2DCreate(gContext, gImageSize.x, gImageSize.y, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &gTexture);
+  render::texture2DCreate(gContext, gImageSize.x, gImageSize.y, 1u, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &gTexture);
   render::textureChangeLayoutNow(gContext, VK_IMAGE_LAYOUT_GENERAL, &gTexture);
 
   //Create data to be passed to the gpu
@@ -442,13 +442,10 @@ void buildComputeCommandBuffer()
   //Build compute command buffer
   render::commandBufferCreate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer);
 
-  render::commandBufferBegin(gContext, nullptr, nullptr, 0u, gComputeCommandBuffer);
-
+  render::commandBufferBegin(gContext, gComputeCommandBuffer);
   bkk::render::computePipelineBind(gComputeCommandBuffer.handle_, gComputePipeline);
   bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer.handle_, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
-
   vkCmdDispatch(gComputeCommandBuffer.handle_, gImageSize.x / 16, gImageSize.y / 16, 1);
-
   render::commandBufferEnd(gComputeCommandBuffer);
 }
 
@@ -586,8 +583,6 @@ int main()
   buildCommandBuffers();
   buildComputeCommandBuffer();
 
-  
-  
   bool quit = false;
   while (!quit)
   {

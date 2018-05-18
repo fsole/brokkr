@@ -292,7 +292,7 @@ private:
     fullscreenQuadmesh_ = mesh::fullScreenQuad(context);
     
     //Create the texture that will be updated by the compute shader
-    render::texture2DCreate(context, imageSize_.x, imageSize_.y, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &renderedImage_);
+    render::texture2DCreate(context, imageSize_.x, imageSize_.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, render::texture_sampler_t(), &renderedImage_);
     render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_GENERAL, &renderedImage_);
 
     //Create data to be passed to the gpu
@@ -401,7 +401,7 @@ private:
 
     //Build compute command buffer
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &computeCommandBuffer_);
-    render::commandBufferBegin(context, nullptr, nullptr, 0u, computeCommandBuffer_);
+    render::commandBufferBegin(context, computeCommandBuffer_);
     bkk::render::computePipelineBind(computeCommandBuffer_.handle_, computePipeline_);
     bkk::render::descriptorSetBindForCompute(computeCommandBuffer_.handle_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
     vkCmdDispatch(computeCommandBuffer_.handle_, imageSize_.x / 16, imageSize_.y / 16, 1);

@@ -68,10 +68,13 @@ namespace bkk
 
     //Textures
     void texture2DCreate(const context_t& context, const image::image2D_t* images, uint32_t mipLevels, texture_sampler_t sampler, texture_t* texture);
-    void texture2DCreate(const context_t& context, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usageFlags, texture_sampler_t sampler, texture_t* texture);    
+    void texture2DCreateAndGenerateMipmaps(const context_t& context, const image::image2D_t& image, texture_sampler_t sampler, texture_t* texture);
+    void texture2DCreate(const context_t& context, uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageUsageFlags usageFlags, texture_sampler_t sampler, texture_t* texture);
+
     void textureDestroy(const context_t& context, texture_t* texture);
     
     void textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture);
+    void textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture);
     void textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture);
     
     void textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture);    
@@ -79,7 +82,7 @@ namespace bkk
 
     void textureCubemapCreate(const context_t& context, VkFormat format, uint32_t width, uint32_t height, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture);
     void textureCubemapCreate( const context_t& context, const image::image2D_t* images, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture);
-    bool textureCubemapCreateFromEquirectangularImage(const context_t& context, const image::image2D_t& image, uint32_t size, bool generateMipmaps, texture_cubemap_t* cubemap);
+    void textureCubemapCreateFromEquirectangularImage(const context_t& context, const image::image2D_t& image, uint32_t size, bool generateMipmaps, texture_cubemap_t* cubemap);
 
     //Buffers
     void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, uint32_t memoryType, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
@@ -143,12 +146,14 @@ namespace bkk
                              command_buffer_t* commandBuffer);
 
     void commandBufferDestroy(const context_t& context, command_buffer_t* commandBuffer );
-    void commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, uint32_t clearValuesCount, const command_buffer_t& commandBuffer);
+    void commandBufferBegin(const context_t& context, const command_buffer_t& commandBuffer);
+    void commandBufferRenderPassBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, uint32_t clearValuesCount, const command_buffer_t& commandBuffer);
     void commandBufferNextSubpass(const command_buffer_t& commandBuffer);
 
     void setViewport(const command_buffer_t& commandBuffer, int32_t x, int32_t y, uint32_t width, uint32_t height);
     void setScissor(const command_buffer_t& commandBuffer, int32_t x, int32_t y, uint32_t width, uint32_t height);
 
+    void commandBufferRenderPassEnd(const command_buffer_t& commandBuffer);
     void commandBufferEnd(const command_buffer_t& commandBuffer);
     void commandBufferSubmit(const context_t& context, const command_buffer_t& commandBuffer );
     
@@ -172,9 +177,11 @@ namespace bkk
     void depthStencilBufferChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, depth_stencil_buffer_t* depthStencilBuffer);
 
     //Utility functions    
-    bool diffuseConvolution(const context_t& context,texture_cubemap_t environmentMap, uint32_t size, texture_cubemap_t* irradiance);
-    bool specularConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, uint32_t maxMipmapLevels, texture_cubemap_t* specularMap);
-    bool brdfConvolution(const context_t& context, uint32_t size, texture_t* brdfConvolution);
+    void diffuseConvolution(const context_t& context,texture_cubemap_t environmentMap, uint32_t size, texture_cubemap_t* irradiance);
+    void specularConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, uint32_t maxMipmapLevels, texture_cubemap_t* specularMap);
+    void brdfConvolution(const context_t& context, uint32_t size, texture_t* brdfConvolution);
+    
+    void waitForCommandBufferToFinish(const context_t& context);
 
   } //namespace render
 

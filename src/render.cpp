@@ -944,7 +944,7 @@ void render::gpuAllocatorDestroy(const context_t& context, gpu_memory_allocator_
   vkFreeMemory(context.device_, allocator->memory_, nullptr);
 }
 
-static VkFormat getImageFormat(image::image2D_t image)
+static VkFormat getImageFormat(const image::image2D_t& image)
 {
   VkFormat format = VK_FORMAT_UNDEFINED;
   if (image.componentCount_ == 3)
@@ -1161,7 +1161,7 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
 }
 
 void render::texture2DCreate(const context_t& context,
-  uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage,
+  uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageUsageFlags usage,
   texture_sampler_t sampler, texture_t* texture)
 {
   VkExtent3D extents = { width, height, 1u };
@@ -1180,7 +1180,7 @@ void render::texture2DCreate(const context_t& context,
   VkImageCreateInfo imageCreateInfo = {};
   imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   imageCreateInfo.pNext = nullptr;
-  imageCreateInfo.mipLevels = 1;
+  imageCreateInfo.mipLevels = mipLevels;
   imageCreateInfo.format = format;
   imageCreateInfo.arrayLayers = 1;
   imageCreateInfo.extent = extents;
@@ -1205,7 +1205,7 @@ void render::texture2DCreate(const context_t& context,
   imageViewCreateInfo.format = imageCreateInfo.format;
   imageViewCreateInfo.image = texture->image_;
   imageViewCreateInfo.subresourceRange.aspectMask = aspectFlags;
-  imageViewCreateInfo.subresourceRange.levelCount = 1;
+  imageViewCreateInfo.subresourceRange.levelCount = mipLevels;
   imageViewCreateInfo.subresourceRange.layerCount = 1;
   imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
   vkCreateImageView(context.device_, &imageViewCreateInfo, nullptr, &texture->imageView_);
@@ -1222,7 +1222,7 @@ void render::texture2DCreate(const context_t& context,
   samplerCreateInfo.mipLodBias = 0.0f;
   samplerCreateInfo.compareOp = VK_COMPARE_OP_NEVER;
   samplerCreateInfo.minLod = 0.0f;
-  samplerCreateInfo.maxLod = 0.0;
+  samplerCreateInfo.maxLod = (float)mipLevels;
   samplerCreateInfo.maxAnisotropy = 1.0;
   vkCreateSampler(context.device_, &samplerCreateInfo, nullptr, &texture->sampler_);
 
@@ -1574,13 +1574,18 @@ void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBu
   texture->descriptor_.imageLayout = newLayout;
 }
 
-void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture)
+void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
 {
   VkImageSubresourceRange subresourceRange = {};
   subresourceRange.levelCount = 1u;
   subresourceRange.layerCount = 1u;
   subresourceRange.aspectMask = texture->aspectFlags_;
   textureChangeLayout(context, cmdBuffer, layout, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, texture);
+}
+
+void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture)
+{
+  textureChangeLayout(context, cmdBuffer, layout, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, texture);
 }
 
 void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture)
@@ -2369,6 +2374,7 @@ void render::renderPassCreate(const context_t& context,
       subpassDependencies[i].dstStageMask = dependencies[i].dstStageMask;
       subpassDependencies[i].srcAccessMask = dependencies[i].srcAccessMask;
       subpassDependencies[i].dstAccessMask = dependencies[i].dstAccessMask;
+      subpassDependencies[i].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
     }
 
     VkRenderPassCreateInfo renderPassCreateInfo = {};
@@ -2464,39 +2470,39 @@ void render::commandBufferDestroy(const context_t& context, command_buffer_t* co
   vkDestroyFence(context.device_, commandBuffer->fence_, nullptr);
 }
 
-void render::commandBufferBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, uint32_t clearValuesCount, const command_buffer_t& commandBuffer)
+void render::commandBufferBegin(const context_t& context, const command_buffer_t& commandBuffer)
 {
   vkWaitForFences(context.device_, 1u, &commandBuffer.fence_, VK_TRUE, UINT64_MAX);
-  
+
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  
+
   //Begin command buffer
   vkBeginCommandBuffer(commandBuffer.handle_, &beginInfo);
+}
 
+void render::commandBufferRenderPassBegin(const context_t& context, const frame_buffer_t* frameBuffer, VkClearValue* clearValues, uint32_t clearValuesCount, const command_buffer_t& commandBuffer)
+{ 
+  //Begin render pass
+  VkRenderPassBeginInfo renderPassBeginInfo = {};
+  renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+
+  renderPassBeginInfo.renderArea.extent = { frameBuffer->width_ , frameBuffer->height_ };
+  renderPassBeginInfo.renderPass = frameBuffer->renderPass_.handle_;
+
+  renderPassBeginInfo.pClearValues = clearValues;
+  renderPassBeginInfo.clearValueCount = clearValuesCount;
+
+  //Begin render pass
+  renderPassBeginInfo.framebuffer = frameBuffer->handle_;
+  vkCmdBeginRenderPass(commandBuffer.handle_, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+  //Set viewport and scissor rectangle
+  VkViewport viewPort = { 0.0f, 0.0f, (float)frameBuffer->width_, (float)frameBuffer->height_, 0.0f, 1.0f };
+  VkRect2D scissorRect = { { 0,0 },{ frameBuffer->width_, frameBuffer->height_ } };
+  vkCmdSetViewport(commandBuffer.handle_, 0, 1, &viewPort);
+  vkCmdSetScissor(commandBuffer.handle_, 0, 1, &scissorRect);
   
-  if (commandBuffer.type_ == command_buffer_t::GRAPHICS)
-  {
-    //Begin render pass
-    VkRenderPassBeginInfo renderPassBeginInfo = {};
-    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-
-    renderPassBeginInfo.renderArea.extent = { frameBuffer->width_ , frameBuffer->height_ };
-    renderPassBeginInfo.renderPass = frameBuffer->renderPass_.handle_;
-
-    renderPassBeginInfo.pClearValues = clearValues;
-    renderPassBeginInfo.clearValueCount = clearValuesCount;
-
-    //Begin render pass
-    renderPassBeginInfo.framebuffer = frameBuffer->handle_;
-    vkCmdBeginRenderPass(commandBuffer.handle_, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    //Set viewport and scissor rectangle
-    VkViewport viewPort = { 0.0f, 0.0f, (float)frameBuffer->width_, (float)frameBuffer->height_, 0.0f, 1.0f };
-    VkRect2D scissorRect = { { 0,0 },{ frameBuffer->width_, frameBuffer->height_ } };
-    vkCmdSetViewport(commandBuffer.handle_, 0, 1, &viewPort);
-    vkCmdSetScissor(commandBuffer.handle_, 0, 1, &scissorRect);
-  }
 }
 
 void render::commandBufferNextSubpass(const command_buffer_t& commandBuffer)
@@ -2504,13 +2510,13 @@ void render::commandBufferNextSubpass(const command_buffer_t& commandBuffer)
   vkCmdNextSubpass(commandBuffer.handle_, VK_SUBPASS_CONTENTS_INLINE);
 }
 
+void render::commandBufferRenderPassEnd(const command_buffer_t& commandBuffer)
+{
+  vkCmdEndRenderPass(commandBuffer.handle_);  
+}
+
 void render::commandBufferEnd( const command_buffer_t& commandBuffer)
 {
-  if (commandBuffer.type_ == command_buffer_t::GRAPHICS)
-  {
-    vkCmdEndRenderPass(commandBuffer.handle_);
-  }
-
   vkEndCommandBuffer(commandBuffer.handle_);
 }
 
@@ -2556,7 +2562,7 @@ void render::semaphoreDestroy(const context_t& context, VkSemaphore semaphore)
 }
 
 
-bool render::textureCubemapCreateFromEquirectangularImage(const context_t& context, const image::image2D_t& image, uint32_t size, bool generateMipmaps, texture_cubemap_t* cubemap)
+void render::textureCubemapCreateFromEquirectangularImage(const context_t& context, const image::image2D_t& image, uint32_t size, bool generateMipmaps, texture_cubemap_t* cubemap)
 {
   u32 mipLevels = generateMipmaps ? u32(1 + floor(log2(size))) : 1u;
 
@@ -2672,21 +2678,25 @@ bool render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
   {
     //Create render target and framebuffer
     frameBuffers[mipLevel] = {};
-    render::texture2DCreate(context, mipSize, mipSize, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, render::texture_sampler_t(), &renderTargets[mipLevel]);
+    render::texture2DCreate(context, mipSize, mipSize, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, render::texture_sampler_t(), &renderTargets[mipLevel]);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
     render::frameBufferCreate(context, mipSize, mipSize, renderPass, &renderTargets[mipLevel].imageView_, &frameBuffers[mipLevel]);
 
     for (u32 i(0); i < 6; ++i)
     {
       maths::mat4 viewProjection = view[i] * projection;
-      render::commandBufferBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
+      render::commandBufferBegin(context, commandBuffer);
+      render::commandBufferRenderPassBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
 
       render::pushConstants(commandBuffer.handle_, pipelineLayout, 0u, &viewProjection);
       render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
       bkk::render::descriptorSetBindForGraphics(commandBuffer.handle_, pipelineLayout, 0, &descriptorSet, 1u);
       mesh::draw(commandBuffer.handle_, cube);
 
+      render::commandBufferRenderPassEnd(commandBuffer);
+
       //Copy render target to cubemap layer
+      renderTargets[mipLevel].layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
       render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
 
       VkImageCopy copyRegion = {};
@@ -2712,6 +2722,7 @@ bool render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
         1, &copyRegion);
 
       render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+      
       render::commandBufferEnd(commandBuffer);
       render::commandBufferSubmit(context, commandBuffer);
     }
@@ -2729,7 +2740,7 @@ bool render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
     render::frameBufferDestroy(context, &frameBuffers[i]);
   }
 
-  //Clean-up
+  render::textureDestroy(context, &texture);
   render::descriptorSetLayoutDestroy(context, &descriptorSetLayout);
   render::pipelineLayoutDestroy(context, &pipelineLayout);
   render::renderPassDestroy(context, &renderPass);
@@ -2740,11 +2751,9 @@ bool render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
   render::commandBufferDestroy(context, &commandBuffer);
   render::descriptorPoolDestroy(context, &descriptorPool);
   mesh::destroy(context, &cube);
-
-  return true;
 }
 
-bool render::diffuseConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, texture_cubemap_t* irradiance)
+void render::diffuseConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, texture_cubemap_t* irradiance)
 {
   mesh::mesh_t cube;
   mesh::createFromFile(context, "../resources/cube.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &cube);
@@ -2786,7 +2795,7 @@ bool render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
   //Create render target and framebuffer
   render::texture_t renderTarget;
   render::frame_buffer_t frameBuffer = {};
-  render::texture2DCreate(context, size, size, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &renderTarget);
+  render::texture2DCreate(context, size, size, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, render::texture_sampler_t(), &renderTarget);
   bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTarget);
   render::frameBufferCreate(context, size, size, renderPass, &renderTarget.imageView_, &frameBuffer);
 
@@ -2880,14 +2889,17 @@ bool render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
   for (u32 i(0); i<6; ++i)
   {
     maths::mat4 viewProjection = view[i] * projection;
-    render::commandBufferBegin(context, &frameBuffer, &clearValue, 1u, commandBuffer);
+    render::commandBufferBegin(context, commandBuffer);
+    render::commandBufferRenderPassBegin(context, &frameBuffer, &clearValue, 1u, commandBuffer);
 
     render::pushConstants(commandBuffer.handle_, pipelineLayout, 0u, &viewProjection);
     render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
     bkk::render::descriptorSetBindForGraphics(commandBuffer.handle_, pipelineLayout, 0, &descriptorSet, 1u);
     mesh::draw(commandBuffer.handle_, cube);
+    render::commandBufferRenderPassEnd(commandBuffer);
 
     //Copy render target to cubemap layer
+    renderTarget.layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
     render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTarget);
 
     VkImageCopy copyRegion = {};
@@ -2913,6 +2925,8 @@ bool render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
       1, &copyRegion);
 
     render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTarget);
+
+    
     render::commandBufferEnd(commandBuffer);
     render::commandBufferSubmit(context, commandBuffer);
   }
@@ -2933,11 +2947,9 @@ bool render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
   render::commandBufferDestroy(context, &commandBuffer);
   render::descriptorPoolDestroy(context, &descriptorPool);
   mesh::destroy(context, &cube);
-
-  return true;
 }
 
-bool render::specularConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, uint32_t maxMipmapLevels, texture_cubemap_t* specularMap)
+void render::specularConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, uint32_t maxMipmapLevels, texture_cubemap_t* specularMap)
 {
   mesh::mesh_t cube;
   mesh::createFromFile(context, "../resources/cube.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &cube);
@@ -3149,7 +3161,7 @@ bool render::specularConvolution(const context_t& context, texture_cubemap_t env
   {
     //Create render target and framebuffer
     frameBuffers[mipLevel] = {};
-    render::texture2DCreate(context, mipSize, mipSize, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &renderTargets[mipLevel]);
+    render::texture2DCreate(context, mipSize, mipSize, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, render::texture_sampler_t(), &renderTargets[mipLevel]);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
     render::frameBufferCreate(context, mipSize, mipSize, renderPass, &renderTargets[mipLevel].imageView_, &frameBuffers[mipLevel]);
 
@@ -3158,13 +3170,16 @@ bool render::specularConvolution(const context_t& context, texture_cubemap_t env
     {
       pushConstants.viewProjection_ = view[i] * projection;
 
-      render::commandBufferBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
+      render::commandBufferBegin(context, commandBuffer);
+      render::commandBufferRenderPassBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
       render::pushConstants(commandBuffer.handle_, pipelineLayout, 0u, &pushConstants);
       render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
       bkk::render::descriptorSetBindForGraphics(commandBuffer.handle_, pipelineLayout, 0, &descriptorSet, 1u);
       mesh::draw(commandBuffer.handle_, cube);
+      render::commandBufferRenderPassEnd(commandBuffer);
 
       //Copy render target to cubemap layer
+      renderTargets[mipLevel].layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
       render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
 
       VkImageCopy copyRegion = {};
@@ -3190,6 +3205,7 @@ bool render::specularConvolution(const context_t& context, texture_cubemap_t env
         1, &copyRegion);
 
       render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+      
       render::commandBufferEnd(commandBuffer);
       render::commandBufferSubmit(context, commandBuffer);
     }
@@ -3217,14 +3233,48 @@ bool render::specularConvolution(const context_t& context, texture_cubemap_t env
   render::commandBufferDestroy(context, &commandBuffer);
   render::descriptorPoolDestroy(context, &descriptorPool);
   mesh::destroy(context, &cube);
-
-  return true;
 }
 
-bool render::brdfConvolution(const context_t& context, uint32_t size, texture_t* brdfConvolution)
+void render::waitForCommandBufferToFinish(const context_t& context)
+{
+  //Create command buffer
+  VkCommandBuffer commandBuffer;
+  VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
+  commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  commandBufferAllocateInfo.commandBufferCount = 1;
+  commandBufferAllocateInfo.commandPool = context.commandPool_;
+  commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, &commandBuffer);
+
+  //Begin command buffer
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+  vkEndCommandBuffer(commandBuffer);
+
+  ////Queue commandBuffer for execution
+  VkSubmitInfo submitInfo = {};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &commandBuffer;
+  VkFenceCreateInfo fenceCreateInfo = {};
+  fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+  fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+  VkFence fence;
+  vkCreateFence(context.device_, &fenceCreateInfo, nullptr, &fence);
+  vkResetFences(context.device_, 1u, &fence);
+  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, fence);
+  
+  //Destroy command buffer
+  vkWaitForFences(context.device_, 1u, &fence, VK_TRUE, UINT64_MAX);
+  vkFreeCommandBuffers(context.device_, context.commandPool_, 1, &commandBuffer);
+  vkDestroyFence(context.device_, fence, nullptr);
+}
+
+void render::brdfConvolution(const context_t& context, uint32_t size, texture_t* brdfConvolution)
 {
   mesh::mesh_t quad = mesh::fullScreenQuad(context);
-  render::texture2DCreate(context, size, size, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), brdfConvolution);
+  render::texture2DCreate(context, size, size, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), brdfConvolution);
   bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, brdfConvolution);
 
   //Create pipeline    
@@ -3386,15 +3436,21 @@ bool render::brdfConvolution(const context_t& context, uint32_t size, texture_t*
   render::frame_buffer_t frameBuffer = {};
   render::frameBufferCreate(context, size, size, renderPass, &brdfConvolution->imageView_, &frameBuffer);
 
-  render::commandBufferBegin(context, &frameBuffer, &clearValue, 1u, commandBuffer);
+  render::commandBufferBegin(context, commandBuffer);
+  render::commandBufferRenderPassBegin(context, &frameBuffer, &clearValue, 1u, commandBuffer);
   render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
   mesh::draw(commandBuffer.handle_, quad);
+
+  render::commandBufferRenderPassEnd(commandBuffer);
+
+  //Change cubemap layout for shader access
+  brdfConvolution->layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
+  render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, brdfConvolution);
 
   render::commandBufferEnd(commandBuffer);
   render::commandBufferSubmit(context, commandBuffer);
 
-  //Change cubemap layout for shader access
-  render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, brdfConvolution);
+  waitForCommandBufferToFinish(context);
 
   //Clean-up
   render::frameBufferDestroy(context, &frameBuffer);
@@ -3405,6 +3461,186 @@ bool render::brdfConvolution(const context_t& context, uint32_t size, texture_t*
   render::shaderDestroy(context, &fragmentShader);
   render::graphicsPipelineDestroy(context, &pipeline);
   render::commandBufferDestroy(context, &commandBuffer);
+  mesh::destroy(context, &quad);
+}
 
-  return true;
+void render::texture2DCreateAndGenerateMipmaps(const context_t& context, const image::image2D_t& image, texture_sampler_t sampler, texture_t* texture)
+{
+  mesh::mesh_t quad = mesh::fullScreenQuad(context);
+
+  u32 size = maths::minValue(image.width_, image.height_);
+  u32 mipLevels = (u32)(1 + floor(log2(size)));
+
+  VkFormat format = getImageFormat(image);
+  bkk::render::texture2DCreate(context, size, size, mipLevels, format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, bkk::render::texture_sampler_t(), texture);
+
+  VkImageSubresourceRange subresourceRange = {};
+  subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  subresourceRange.baseMipLevel = 0;
+  subresourceRange.levelCount = mipLevels;
+  subresourceRange.layerCount = 1;
+  render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, texture);
+
+  texture_t inputTexture;
+  bkk::render::texture2DCreate(context, &image, 1u, texture_sampler_t(), &inputTexture);
+
+
+  //Create descriptor pool
+  render::descriptor_pool_t descriptorPool;
+  render::descriptorPoolCreate(context, 1u,
+    render::combined_image_sampler_count(1u + mipLevels ),
+    render::uniform_buffer_count(0u),
+    render::storage_buffer_count(0u),
+    render::storage_image_count(0u),
+    &descriptorPool);
+
+  render::descriptor_set_layout_t descriptorSetLayout;
+  render::descriptor_binding_t bindings = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
+  render::descriptorSetLayoutCreate(context, &bindings, 1u, &descriptorSetLayout);
+
+  //Create descriptor set
+  render::descriptor_t inputTextureDesc = render::getDescriptor(inputTexture);
+  render::descriptor_set_t descriptorSet;
+  render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &inputTextureDesc, &descriptorSet);
+
+
+  //Create pipeline    
+  render::pipeline_layout_t pipelineLayout;
+  render::pipelineLayoutCreate(context, &descriptorSetLayout, 1u, nullptr, 0u, &pipelineLayout);
+
+  render::render_pass_t::attachment_t attachments = { format, VK_SAMPLE_COUNT_1_BIT,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+    VK_ATTACHMENT_STORE_OP_STORE,VK_ATTACHMENT_LOAD_OP_CLEAR };
+  render::render_pass_t renderPass = {};
+  render::renderPassCreate(context, &attachments, 1u, nullptr, 0u, nullptr, 0u, &renderPass);
+
+  //Load shaders
+  render::shader_t vertexShader;
+  const char* vsSource = R"(  
+                                #version 440 core
+                                layout(location = 0) in vec3 aPosition;
+                                layout(location = 1) in vec2 aTexCoord;
+                                layout(location = 0) out vec2 uv;
+                                void main(void)
+                                {
+                                  gl_Position = vec4(aPosition,1.0);
+                                  uv = aTexCoord;
+                                })";
+  render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, vsSource, &vertexShader);
+
+  render::shader_t fragmentShader;
+  const char* fsSource = R"(  
+                                #version 440 core
+                                layout(location = 0) out vec4 color;
+                                layout(location = 0) in vec2 uv;
+                                layout (set = 0, binding = 0) uniform sampler2D uTexture;
+                                void main()
+                                {                                  
+                                  color = texture(uTexture,uv);
+                                }
+                          )";
+  render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, fsSource, &fragmentShader);
+
+  render::graphics_pipeline_t::description_t pipelineDesc = {};
+  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)size, (float)size, 0.0f, 1.0f };
+  pipelineDesc.scissorRect_ = { { 0,0 },{ size, size } };
+  pipelineDesc.blendState_.resize(1);
+  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+  pipelineDesc.depthTestEnabled_ = false;
+  pipelineDesc.depthWriteEnabled_ = false;
+  pipelineDesc.vertexShader_ = vertexShader;
+  pipelineDesc.fragmentShader_ = fragmentShader;
+  render::graphics_pipeline_t pipeline = {};
+  render::graphicsPipelineCreate(context, renderPass.handle_, 0u, quad.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
+
+  VkClearValue clearValue;
+  clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
+
+  render::command_buffer_t commandBuffer = {};
+  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+
+
+  std::vector<render::frame_buffer_t> frameBuffers(mipLevels);
+  std::vector<render::texture_t> renderTargets(mipLevels);
+  u32 mipSize = size;
+  for (u32 mipLevel = 0; mipLevel < mipLevels; ++mipLevel)
+  {
+    //Create render target and framebuffer
+    frameBuffers[mipLevel] = {};
+    render::texture2DCreate(context, mipSize, mipSize, 1u, format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, render::texture_sampler_t(), &renderTargets[mipLevel]);
+    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+    render::frameBufferCreate(context, mipSize, mipSize, renderPass, &renderTargets[mipLevel].imageView_, &frameBuffers[mipLevel]);
+
+    if (mipLevel > 0)
+    {
+      render::descriptorSetDestroy(context, &descriptorSet);
+      descriptor_t descriptor = getDescriptor(renderTargets[mipLevel - 1]);
+      render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &descriptor, &descriptorSet);
+    }
+
+    render::commandBufferBegin(context, commandBuffer);
+    render::commandBufferRenderPassBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
+    render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
+    bkk::render::descriptorSetBindForGraphics(commandBuffer.handle_, pipelineLayout, 0, &descriptorSet, 1u);
+    mesh::draw(commandBuffer.handle_, quad);
+    render::commandBufferRenderPassEnd(commandBuffer);
+
+    //Copy render target to mip level
+    renderTargets[mipLevel].layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
+    render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
+
+    VkImageCopy copyRegion = {};
+    copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.srcSubresource.baseArrayLayer = 0;
+    copyRegion.srcSubresource.mipLevel = 0;
+    copyRegion.srcSubresource.layerCount = 1;
+    copyRegion.srcOffset = { 0, 0, 0 };
+
+    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.dstSubresource.baseArrayLayer = 0;
+    copyRegion.dstSubresource.mipLevel = mipLevel;
+    copyRegion.dstSubresource.layerCount = 1;
+    copyRegion.dstOffset = { 0, 0, 0 };
+
+    copyRegion.extent.width = mipSize;
+    copyRegion.extent.height = mipSize;
+    copyRegion.extent.depth = 1;
+
+    vkCmdCopyImage(commandBuffer.handle_,
+      renderTargets[mipLevel].image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+      texture->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      1, &copyRegion);
+
+    render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+
+    render::commandBufferEnd(commandBuffer);
+    render::commandBufferSubmit(context, commandBuffer);
+
+    mipSize /= 2;
+  }
+
+  //Change cubemap layout for shader access
+  render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, texture);
+
+    
+  //Clean-up
+  for (u32 i(0); i < mipLevels; ++i)
+  {
+    render::textureDestroy(context, &renderTargets[i]);
+    render::frameBufferDestroy(context, &frameBuffers[i]);
+  }
+
+  render::textureDestroy(context, &inputTexture);
+  render::descriptorSetLayoutDestroy(context, &descriptorSetLayout);
+  render::descriptorSetDestroy(context, &descriptorSet);  
+  render::pipelineLayoutDestroy(context, &pipelineLayout);
+  render::renderPassDestroy(context, &renderPass);
+  render::shaderDestroy(context, &vertexShader);
+  render::shaderDestroy(context, &fragmentShader);
+  render::graphicsPipelineDestroy(context, &pipeline);
+  render::commandBufferDestroy(context, &commandBuffer);
+  render::descriptorPoolDestroy(context, &descriptorPool);
+  mesh::destroy(context, &quad);
 }
