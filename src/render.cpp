@@ -781,8 +781,12 @@ bool render::shaderCreateFromSPIRV(const context_t& context, shader_t::type type
 bool render::shaderCreateFromGLSL(const context_t& context, shader_t::type type, const char* file, shader_t* shader)
 {
   std::string spirv_file_path = "temp.spv";
-  std::string glslangvalidator_params = "arg0 -V -o \"" + spirv_file_path + "\" \"" + file + "\"";
-
+  std::string glslangvalidator_params = "arg0 -V -s -o \"" + spirv_file_path + "\" \"" + file + "\"";
+  
+  #ifdef VK_DEBUG_LAYERS
+    glslangvalidator_params = "arg0 -V -o \"" + spirv_file_path + "\" \"" + file + "\"";
+  #endif
+  
   PROCESS_INFORMATION process_info;
   memset(&process_info, 0, sizeof(process_info));
 
