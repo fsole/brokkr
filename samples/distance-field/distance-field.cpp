@@ -59,7 +59,6 @@ static const char* gFragmentShaderSource = R"(
   {
     vec4 texColor = texture(uTexture, uv);
     vec3 color = texColor.rgb;
-    color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0 / 2.2));
     result = vec4(color, 1.0);
   }

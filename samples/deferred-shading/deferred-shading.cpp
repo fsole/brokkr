@@ -220,10 +220,7 @@ static const char* gLightPassFragmentShaderSource = R"(
     float attenuation = 1.0 - clamp( lightDistance / light.radius, 0.0, 1.0);
     attenuation *= attenuation;
     float NdotL =  max( 0.0, dot( N, L ) );
-    vec3 color = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
-    result = vec4(color,1.0);
+    result = vec4( (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL, 1.0 );
   }
 )";
 
@@ -1014,12 +1011,12 @@ int main()
   scene.addObject(teapot, gold, maths::createTransform(maths::vec3(2.0f, 0.0f, -3.0f), maths::vec3(0.5f, 0.5f, 0.5f), maths::QUAT_UNIT));
 
   //Lights
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f,0.0f,0.0f));
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.5f, 0.0f));
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 0.5f));
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.5f, 0.0f, 0.0f));
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.5f, 0.0f));
-  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 0.5f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(1.5f,0.0f,0.0f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 1.5f, 0.0f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 1.5f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(1.5f, 0.0f, 0.0f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 1.5f, 0.0f));
+  scene.addLight(vec3(0.0f, 0.0f, 0.0f), 10.0f, vec3(0.0f, 0.0f, 1.5f));
   
   scene.loop();
   return 0;

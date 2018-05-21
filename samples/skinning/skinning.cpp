@@ -131,7 +131,7 @@ public:
     else
     {
       //Create the texture
-      bkk::render::texture2DCreate(context, &image, 1, bkk::render::texture_sampler_t(), &texture_);
+      bkk::render::texture2DCreateAndGenerateMipmaps(context, image, bkk::render::texture_sampler_t(), &texture_);
       bkk::image::unload(&image);
     }
 

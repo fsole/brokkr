@@ -185,9 +185,9 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   u32 vertexSize = 3;
   u32 attributeCount = 1;
 
-  bool importNormals = (flags & EXPORT_NORMALS) != 0;
-  bool importUV = (flags & EXPORT_UV) != 0;
-  bool importBoneWeights = (flags & EXPORT_BONE_WEIGHTS) != 0;
+  bool importNormals = (((flags & EXPORT_NORMALS) != 0) && bHasNormal);
+  bool importUV = (((flags & EXPORT_UV) != 0) && bHasUV );
+  bool importBoneWeights = (((flags & EXPORT_BONE_WEIGHTS) != 0) && (boneCount > 0));
 
   if (importNormals)
   {
@@ -622,6 +622,67 @@ mesh::mesh_t mesh::fullScreenQuad(const bkk::render::context_t& context)
   attributes[0].stride_ = sizeof(Vertex);
   attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC2;;
   attributes[1].offset_ = offsetof(Vertex, uv);
+  attributes[1].stride_ = sizeof(Vertex);
+
+  bkk::mesh::mesh_t mesh;
+  bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &mesh);
+  return mesh;
+}
+
+mesh_t mesh::unitCube(const bkk::render::context_t& context)
+{
+  struct Vertex
+  {
+    float position[3];
+    float normal[3];
+  };
+
+  //WARNING: IN Vulkan, Y is pointing down in NDC!
+  static const Vertex vertices[] = { {{ -0.5f, -0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f } },
+                                     {{ -0.5f, -0.5f, -0.5f },{ 0.0f, -1.0f, 0.0f } },
+                                     {{ -0.5f, -0.5f, -0.5f },{ -1.0f, 0.0f, 0.0f } },
+
+
+                                     { { -0.5f, -0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f } },
+                                     { { -0.5f, -0.5f,  0.5f },{ 0.0f, -1.0f, 0.0f } },
+                                     { { -0.5f, -0.5f,  0.5f },{ -1.0f, 0.0f, 0.0f } },
+
+
+                                     { { -0.5f,  0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f } },
+                                     { { -0.5f,  0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f } },
+                                     { { -0.5f,  0.5f, -0.5f },{ -1.0f, 0.0f, 0.0f } },
+
+
+                                     { { -0.5f,  0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f } },
+                                     { { -0.5f,  0.5f,  0.5f },{ 0.0f, 1.0f, 0.0f } },
+                                     { { -0.5f,  0.5f,  0.5f },{ -1.0f, 0.0f, 0.0f } },
+
+                                     { { 0.5f, -0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f } },
+                                     { { 0.5f, -0.5f, -0.5f },{ 0.0f, -1.0f, 0.0f } },
+                                     { { 0.5f, -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f } },
+
+                                     { { 0.5f, -0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f } },
+                                     { { 0.5f, -0.5f,  0.5f },{ 0.0f, -1.0f, 0.0f } },
+                                     { { 0.5f, -0.5f,  0.5f },{ 1.0f, 0.0f, 0.0f } },
+
+                                     { { 0.5f,  0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f } },
+                                     { { 0.5f,  0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f } },
+                                     { { 0.5f,  0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f } },
+
+                                     { { 0.5f,  0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f } },
+                                     { { 0.5f,  0.5f,  0.5f },{ 0.0f, 1.0f, 0.0f } },
+                                     { { 0.5f,  0.5f,  0.5f },{ 1.0f, 0.0f, 0.0f } }
+
+  };
+
+  static const uint32_t indices[] = { 3, 21, 9, 0, 18, 12, 0, 6, 18, 2, 11,8, 2, 5, 11, 7, 22, 19, 7, 10, 22, 14, 20, 23, 14, 23, 17, 1, 13, 16, 1, 16, 4, 3, 15, 21 };
+
+  static bkk::render::vertex_attribute_t attributes[2];
+  attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
+  attributes[0].offset_ = 0;
+  attributes[0].stride_ = sizeof(Vertex);
+  attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC3;;
+  attributes[1].offset_ = offsetof(Vertex, normal);
   attributes[1].stride_ = sizeof(Vertex);
 
   bkk::mesh::mesh_t mesh;

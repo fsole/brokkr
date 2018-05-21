@@ -247,10 +247,7 @@ static const char* gLightPassFragmentShaderSource = R"(
 
     attenuation *= attenuation;
     float NdotL =  max( 0.0, dot( N, L ) );
-    vec3 color = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
-    result = vec4(color,1.0);    
+    result = vec4( (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL, 1.0);
   }
 )";
 
@@ -382,7 +379,7 @@ static const char* gPresentationFragmentShaderSource = R"(
     vec4 sceneColor = color = texture(uTexture,uv);
 
     color = envColor * step(depthNormalValue.w, 0.0) + sceneColor * step(0.0, depthNormalValue.w );
-    color.rgb = pow(color.rgb, vec3(1.0 / 2.0));
+    color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
   }
 )";
 
@@ -1134,7 +1131,7 @@ int main()
     for (u32 i = 0; i < roughnessSamples; ++i)
     {
       u32 index = j * roughnessSamples + i;
-      materials[index] = renderer.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(F0, F0, F0), roughness);
+      materials[index] = renderer.addMaterial(vec3(1.0f, 0.0f, 0.0f), 0.0f, vec3(F0, F0, F0), roughness);
       objects[index] = renderer.addObject(sphere, materials[index], maths::createTransform(maths::vec3(x, 0.0, y), maths::VEC3_ONE, maths::QUAT_UNIT));
       roughness += 1.0f / roughnessSamples;      
       x += deltaX;
@@ -1144,6 +1141,7 @@ int main()
 
   //Light
   renderer.addLight(vec3(0.0f, 0.0f, 1.0f), 0.0f, vec3(0.5f, 0.5f, 0.5f));
+  renderer.addLight(vec3(0.0f, 0.0f, -1.0f), 0.0f, vec3(0.1f, 0.1f, 0.1f));
 
   renderer.loop();
   return 0;

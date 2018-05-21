@@ -2574,8 +2574,7 @@ void render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
   bkk::render::texture2DCreate(context, &image, 1, bkk::render::texture_sampler_t(), &texture);
   bkk::render::textureCubemapCreate(context, VK_FORMAT_R32G32B32A32_SFLOAT, size, size, mipLevels, bkk::render::texture_sampler_t(), cubemap);
 
-  mesh::mesh_t cube;
-  mesh::createFromFile(context, "../resources/cube.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &cube);
+  mesh::mesh_t cube = mesh::unitCube(context);
 
   //Change cubemap layout for transfer
   VkImageSubresourceRange subresourceRange = {};
@@ -2759,8 +2758,7 @@ void render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
 
 void render::diffuseConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, texture_cubemap_t* irradiance)
 {
-  mesh::mesh_t cube;
-  mesh::createFromFile(context, "../resources/cube.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &cube);
+  mesh::mesh_t cube = mesh::unitCube(context);
 
   bkk::render::textureCubemapCreate(context, VK_FORMAT_R32G32B32A32_SFLOAT, size, size, 1u, bkk::render::texture_sampler_t(), irradiance);
   //Change cubemap layout for transfer
@@ -2955,8 +2953,7 @@ void render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
 
 void render::specularConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, uint32_t maxMipmapLevels, texture_cubemap_t* specularMap)
 {
-  mesh::mesh_t cube;
-  mesh::createFromFile(context, "../resources/cube.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &cube);
+  mesh::mesh_t cube = mesh::unitCube(context);
 
   u32 mipLevels = maths::minValue((u32)(1 + floor(log2(size))), maxMipmapLevels);
   bkk::render::textureCubemapCreate(context, VK_FORMAT_R32G32B32A32_SFLOAT, size, size, mipLevels, bkk::render::texture_sampler_t(), specularMap);

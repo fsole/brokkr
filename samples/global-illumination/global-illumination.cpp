@@ -227,10 +227,7 @@ static const char* gPointLightPassFragmentShaderSource = R"(
     float attenuation = 1.0 - clamp( lightDistance / light.radius, 0.0, 1.0);
     attenuation *= attenuation;
     float NdotL =  max( 0.0, dot( N, L ) );
-    vec3 color = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
-    result = vec4(color,1.0);
+    result = vec4( (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL, 1.0 );
   }
 )";
 
@@ -378,10 +375,7 @@ static const char* gDirectionalLightPassFragmentShaderSource = R"(
     attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2(-1,-1), 0).r + bias) > postionInLigthClipSpace.z ));
     attenuation += step( 0.5, float((texelFetch( shadowMapRT0, shadowMapUV+ivec2( 1,-1), 0).r + bias) > postionInLigthClipSpace.z ));
     attenuation /= 9.0;
-    vec3 color = (kD * diffuseColor + specular) * (light.color.rgb * attenuation) * NdotL + ambientColor;
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
-    result = vec4(color,1.0);
+    result = vec4( (kD * diffuseColor + specular) * (light.color.rgb * attenuation) * NdotL + ambientColor, 1.0);
   }
 )";
 
@@ -526,8 +520,6 @@ static const char* gDirectionalLightPassGIFragmentShaderSource = R"(
     vec3 positionWS = (scene.viewToWorld * vec4(positionVS, 1.0 )).xyz;
     vec3 normalWS = normalize((transpose( inverse( scene.viewToWorld) ) * vec4(N,0.0)).xyz);
     color += sampleIndirectLight(positionWS, normalWS, shadowMapUV);
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
     result = vec4(color,1.0);
   }
 )";
@@ -621,6 +613,7 @@ static const char* gPresentationFragmentShaderSource = R"(
   void main(void)
   {
     color = texture(uTexture, uv);
+    color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
   }
 )";
 
