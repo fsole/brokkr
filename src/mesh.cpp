@@ -199,7 +199,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     vertexSize += 2;
     ++attributeCount;
   }
-  if(importBoneWeights)
+  if (boneCount > 0 && importBoneWeights)
   {
     vertexSize += 8;  //4 weights and 4 bone index
     attributeCount += 2;
@@ -251,7 +251,9 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   vec3 aabbMax(-FLT_MAX, -FLT_MAX, -FLT_MAX);
   size_t vertexBufferSize(vertexCount * vertexSize * sizeof(f32));
   f32* vertexData = new f32[vertexCount * vertexSize];
-  u32 index(0);
+  memset(vertexData, 0.0f, vertexBufferSize);
+
+  u32 index = 0;
   for (u32 vertex(0); vertex<vertexCount; ++vertex)
   {
     aabbMin = vec3(maths::minValue(aimesh->mVertices[vertex].x, aabbMin.x),
@@ -266,34 +268,32 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     vertexData[index++] = aimesh->mVertices[vertex].y;
     vertexData[index++] = aimesh->mVertices[vertex].z;
 
-    if(importNormals)
-    { 
-      vertexData[index] = aimesh->mNormals[vertex].x;
-      vertexData[index+1] = aimesh->mNormals[vertex].y;
-      vertexData[index+2] = aimesh->mNormals[vertex].z;      
+    if (importNormals)
+    {
+      if (bHasNormal)
+      {
+        vertexData[index] = aimesh->mNormals[vertex].x;
+        vertexData[index+1] = aimesh->mNormals[vertex].y;
+        vertexData[index+2] = aimesh->mNormals[vertex].z;
+      }
+
       index += 3;
     }
 
-    if(importUV)
+    if (importUV)
     {
-      vertexData[index] = aimesh->mTextureCoords[0][vertex].x;
-      vertexData[index+1] = aimesh->mTextureCoords[0][vertex].y;      
+      if (bHasUV)
+      {
+        vertexData[index] = aimesh->mTextureCoords[0][vertex].x;
+        vertexData[index+1] = aimesh->mTextureCoords[0][vertex].y;
+      }
+
       index += 2;
     }
 
-    if(importBoneWeights)
+    if (boneCount > 0 && importBoneWeights)
     {
-      //Bone weight
-      vertexData[index++] = 0.0f;
-      vertexData[index++] = 0.0f;
-      vertexData[index++] = 0.0f;
-      vertexData[index++] = 0.0f;
-
-      //Bone index
-      vertexData[index++] = 0.0f;
-      vertexData[index++] = 0.0f;
-      vertexData[index++] = 0.0f;
-      vertexData[index++] = 0.0f;
+      index += 8; //Bone weight and index will be filled when loading skeleton
     }
   }
 
