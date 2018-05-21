@@ -199,7 +199,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     vertexSize += 2;
     ++attributeCount;
   }
-  if (boneCount > 0 && importBoneWeights)
+  if(importBoneWeights)
   {
     vertexSize += 8;  //4 weights and 4 bone index
     attributeCount += 2;
@@ -266,28 +266,22 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     vertexData[index++] = aimesh->mVertices[vertex].y;
     vertexData[index++] = aimesh->mVertices[vertex].z;
 
-    if (importNormals)
-    {
-      if (bHasNormal)
-      {
-        vertexData[index] = aimesh->mNormals[vertex].x;
-        vertexData[index+1] = aimesh->mNormals[vertex].y;
-        vertexData[index+2] = aimesh->mNormals[vertex].z;
-      }
+    if(importNormals)
+    { 
+      vertexData[index] = aimesh->mNormals[vertex].x;
+      vertexData[index+1] = aimesh->mNormals[vertex].y;
+      vertexData[index+2] = aimesh->mNormals[vertex].z;      
       index += 3;
     }
 
-    if (importUV)
+    if(importUV)
     {
-      if (bHasUV)
-      {
-        vertexData[index] = aimesh->mTextureCoords[0][vertex].x;
-        vertexData[index+1] = aimesh->mTextureCoords[0][vertex].y;
-      }       
+      vertexData[index] = aimesh->mTextureCoords[0][vertex].x;
+      vertexData[index+1] = aimesh->mTextureCoords[0][vertex].y;      
       index += 2;
     }
 
-    if (boneCount > 0 && importBoneWeights)
+    if(importBoneWeights)
     {
       //Bone weight
       vertexData[index++] = 0.0f;
