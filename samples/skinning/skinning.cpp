@@ -102,7 +102,7 @@ class skinning_sample_t : public application_t
 {
 public:
   skinning_sample_t()
-  :application_t("Skinning", 600u, 600u, 3u),
+  :application_t("Skinning", 1200u, 800u, 3u),
    camera_(25.0f, vec2(0.8f, 0.0f), 0.01f),
    projectionTx_( perspectiveProjectionMatrix(1.5f, 1.0f, 1.0f, 1000.0f) ),
    modelTx_( createTransform(vec3(0.0,-17.0,0.0), VEC3_ONE, QUAT_UNIT) )
@@ -255,7 +255,7 @@ public:
     render::context_t& context = getRenderContext();
     
     VkClearValue clearValues[2];
-    clearValues[0].color = { { 0.0f, 0.0f, 1.0f, 1.0f } };
+    clearValues[0].color = { { 0.2f, 0.3f, 0.4f, 1.0f } };
 
     clearValues[1].depthStencil = { 1.0f,0 };
     const VkCommandBuffer* commandBuffers;

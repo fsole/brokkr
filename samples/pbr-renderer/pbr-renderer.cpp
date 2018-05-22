@@ -432,7 +432,7 @@ struct pbr_renderer_t : public application_t
   };
 
   pbr_renderer_t()
-    :application_t("PBR Renderer", 1600u, 1000u, 3u),
+    :application_t("PBR Renderer", 1200u, 800u, 3u),
     camera_(vec3(0.0f, 9.0f, 5.0f), vec2(0.6f, 0.0f), 1.0f, 0.01f)
   {
     render::context_t& context = getRenderContext();
