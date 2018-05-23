@@ -129,6 +129,7 @@ static bkk::mesh::mesh_t createCube(const render::context_t& context, u32 width,
   attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(vec3);
+  attributes[0].instanced_ = false;
 
   bkk::mesh::mesh_t mesh;
   bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 1, nullptr, &mesh);
@@ -345,9 +346,11 @@ void createFullscreenQuad( mesh::mesh_t* quad )
   attributes[0].format_ = render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
+  attributes[0].instanced_ = false;
   attributes[1].format_ = render::vertex_attribute_t::format::VEC2;;
   attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
+  attributes[1].instanced_ = false;
 
   mesh::create(gContext, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, quad);
 }
@@ -411,9 +414,8 @@ void createComputePipeline()
   render::descriptorSetCreate(gContext, gDescriptorPool, gComputeDescriptorSetLayout, descriptors, &gComputeDescriptorSet);
 
   //Create pipeline
-  bkk::render::shaderCreateFromGLSL(gContext, bkk::render::shader_t::COMPUTE_SHADER, "../distance-field/distance-field.comp", &gComputeShader);
-  gComputePipeline.computeShader_ = gComputeShader;
-  render::computePipelineCreate(gContext, gComputePipelineLayout, &gComputePipeline);
+  bkk::render::shaderCreateFromGLSL(gContext, bkk::render::shader_t::COMPUTE_SHADER, "../distance-field/distance-field.comp", &gComputeShader);  
+  render::computePipelineCreate(gContext, gComputePipelineLayout, gComputeShader, &gComputePipeline);
 }
 
 void createPipelines()

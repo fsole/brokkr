@@ -1648,7 +1648,7 @@ void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layo
 
 
 void render::gpuBufferCreate(const context_t& context,
-  gpu_buffer_t::usage usage, uint32_t memoryType, void* data,
+  uint32_t usage, uint32_t memoryType, void* data,
   size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
 {
   //Create the buffer
@@ -1686,7 +1686,7 @@ void render::gpuBufferCreate(const context_t& context,
   buffer->usage_ = usage;
 }
 
-void render::gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
+void render::gpuBufferCreate(const context_t& context, uint32_t usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
 {
   return gpuBufferCreate(context, usage, HOST_VISIBLE, data, size, allocator, buffer);
 }
@@ -2049,9 +2049,11 @@ void render::graphicsPipelineBind(VkCommandBuffer commandBuffer, const graphics_
 }
 
 
-void render::computePipelineCreate(const context_t& context, const pipeline_layout_t& layout, compute_pipeline_t* pipeline)
+void render::computePipelineCreate(const context_t& context, const pipeline_layout_t& layout, const render::shader_t& computeShader, compute_pipeline_t* pipeline)
 {
   //Compute pipeline
+  pipeline->computeShader_ = computeShader;
+
   VkPipelineShaderStageCreateInfo shaderStage = {};
   shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   shaderStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -2114,13 +2116,17 @@ static const uint32_t AttributeFormatSizeLUT[] = { 4u, 4u, 4u,
 void render::vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attributeCount, vertex_format_t* format)
 {
   format->vertexSize_ = 0u;
+
+  format->attributes_ = new vertex_attribute_t[attributeCount];
+  memcpy(format->attributes_, attribute, sizeof(vertex_attribute_t)*attributeCount);
+
   VkVertexInputAttributeDescription* attributeDescription = new VkVertexInputAttributeDescription[attributeCount];;
   VkVertexInputBindingDescription* bindingDescription = new VkVertexInputBindingDescription[attributeCount];
   for (uint32_t i = 0; i < attributeCount; ++i)
   {
     VkFormat attributeFormat = AttributeFormatLUT[attribute[i].format_];
     bindingDescription[i].binding = i;
-    bindingDescription[i].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    bindingDescription[i].inputRate = attribute[i].instanced_ ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
     bindingDescription[i].stride = (uint32_t)attribute[i].stride_;
     attributeDescription[i].binding = i;
     attributeDescription[i].format = attributeFormat;
@@ -2143,13 +2149,78 @@ void render::vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attribut
   format->attributeCount_ = attributeCount;
 }
 
+void render::vertexFormatCopy(const vertex_format_t* formatSrc, vertex_format_t* formatDst)
+{
+  vertexFormatCreate(formatSrc->attributes_, formatSrc->attributeCount_, formatDst);
+};
+
+void render::vertexFormatAddAttributes(vertex_attribute_t* newAttribute, uint32_t newattributeCount, vertex_format_t* format)
+{ 
+  u32 oldAttributeCount = format->attributeCount_;
+  u32 attributeCount = newattributeCount + oldAttributeCount;
+
+  vertex_attribute_t* oldAttributes = format->attributes_;
+  format->vertexSize_ = 0u;
+
+  format->attributes_ = new vertex_attribute_t[attributeCount];
+  memcpy(format->attributes_, oldAttributes, sizeof(vertex_attribute_t)*oldAttributeCount);
+  memcpy(format->attributes_+ oldAttributeCount, newAttribute, sizeof(vertex_attribute_t)*newattributeCount);
+
+  delete[] format->vertexInputState_.pVertexAttributeDescriptions;
+  delete[] format->vertexInputState_.pVertexBindingDescriptions;
+  VkVertexInputAttributeDescription* attributeDescription = new VkVertexInputAttributeDescription[attributeCount];
+  VkVertexInputBindingDescription* bindingDescription = new VkVertexInputBindingDescription[attributeCount];
+
+  //Old attributes
+  uint32_t i = 0;
+  for (; i < oldAttributeCount; ++i)
+  {
+    VkFormat attributeFormat = AttributeFormatLUT[oldAttributes[i].format_];
+    bindingDescription[i].binding = i;
+    bindingDescription[i].inputRate = oldAttributes[i].instanced_ ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
+    bindingDescription[i].stride = (uint32_t)oldAttributes[i].stride_;
+    attributeDescription[i].binding = i;
+    attributeDescription[i].format = attributeFormat;
+    attributeDescription[i].location = i;
+    attributeDescription[i].offset = oldAttributes[i].offset_;
+    format->vertexSize_ += AttributeFormatSizeLUT[oldAttributes[i].format_];
+  }
+
+  //New attributes
+  for (u32 j = 0; i < attributeCount; ++i, ++j)
+  {
+    VkFormat attributeFormat = AttributeFormatLUT[newAttribute[j].format_];
+    bindingDescription[i].binding = i;
+    bindingDescription[i].inputRate = newAttribute[j].instanced_ ? VK_VERTEX_INPUT_RATE_INSTANCE : VK_VERTEX_INPUT_RATE_VERTEX;
+    bindingDescription[i].stride = (uint32_t)newAttribute[j].stride_;
+    attributeDescription[i].binding = i;
+    attributeDescription[i].format = attributeFormat;
+    attributeDescription[i].location = i;
+    attributeDescription[i].offset = newAttribute[j].offset_;
+    format->vertexSize_ += AttributeFormatSizeLUT[newAttribute[j].format_];
+  }
+
+  format->vertexInputState_ = {};
+  format->vertexInputState_.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  format->vertexInputState_.vertexAttributeDescriptionCount = attributeCount;
+  format->vertexInputState_.pVertexAttributeDescriptions = attributeDescription;
+  format->vertexInputState_.vertexBindingDescriptionCount = attributeCount;
+  format->vertexInputState_.pVertexBindingDescriptions = bindingDescription;
+
+  format->inputAssemblyState_ = {};
+  format->inputAssemblyState_.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+  format->inputAssemblyState_.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+  format->attributeCount_ = attributeCount;
+  delete[] oldAttributes;
+}
+
 void render::vertexFormatDestroy(vertex_format_t* format)
 {
   delete[] format->vertexInputState_.pVertexAttributeDescriptions;
   delete[] format->vertexInputState_.pVertexBindingDescriptions;
+  delete[] format->attributes_;
 }
-
-
 
 void render::depthStencilBufferCreate(const context_t& context, uint32_t width, uint32_t height, depth_stencil_buffer_t* depthStencilBuffer)
 {

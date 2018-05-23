@@ -173,7 +173,7 @@ namespace bkk
 
     struct gpu_buffer_t
     {
-      enum struct usage
+      enum usage
       {
         TRANSFER_SRC = 0x00000001,
         TRANSFER_DST = 0x00000002,
@@ -188,7 +188,7 @@ namespace bkk
 
       VkBuffer handle_;
       gpu_memory_t memory_;
-      usage usage_;
+      uint32_t usage_;
       VkDescriptorBufferInfo descriptor_;
     };
 
@@ -338,13 +338,17 @@ namespace bkk
       format format_;
       uint32_t offset_;
       uint32_t stride_;
+      bool instanced_;
     };
 
     struct vertex_format_t
     {
       VkPipelineVertexInputStateCreateInfo vertexInputState_;
       VkPipelineInputAssemblyStateCreateInfo inputAssemblyState_;
+
+      vertex_attribute_t* attributes_;
       uint32_t attributeCount_;
+
       uint32_t vertexSize_;
     };
 

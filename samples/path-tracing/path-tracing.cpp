@@ -374,9 +374,8 @@ private:
     render::descriptorSetCreate(context, descriptorPool_, computeDescriptorSetLayout_, descriptors, &computeDescriptorSet_);
 
     //Create pipeline
-    bkk::render::shaderCreateFromGLSL(context, bkk::render::shader_t::COMPUTE_SHADER, "../path-tracing/path-tracing.comp", &computeShader_);
-    computePipeline_.computeShader_ = computeShader_;
-    render::computePipelineCreate(context, computePipelineLayout_, &computePipeline_);
+    bkk::render::shaderCreateFromGLSL(context, bkk::render::shader_t::COMPUTE_SHADER, "../path-tracing/path-tracing.comp", &computeShader_);    
+    render::computePipelineCreate(context, computePipelineLayout_, computeShader_, &computePipeline_);
   }
   
   void buildPresentationCommandBuffers()

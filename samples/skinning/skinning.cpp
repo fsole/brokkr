@@ -103,12 +103,13 @@ class skinning_sample_t : public application_t
 public:
   skinning_sample_t()
   :application_t("Skinning", 1200u, 800u, 3u),
-   camera_(25.0f, vec2(0.8f, 0.0f), 0.01f),
-   projectionTx_( perspectiveProjectionMatrix(1.5f, 1.0f, 1.0f, 1000.0f) ),
-   modelTx_( createTransform(vec3(0.0,-17.0,0.0), VEC3_ONE, QUAT_UNIT) )
+   camera_(25.0f, vec2(0.8f, 0.0f), 0.01f)   
   {
     render::context_t& context = getRenderContext();
             
+    projectionTx_ = perspectiveProjectionMatrix(1.5f, getWindow().width_ / (float)getWindow().height_, 1.0f, 1000.0f);
+    modelTx_ = createTransform(vec3(0.0, -17.0, 0.0), VEC3_ONE, QUAT_UNIT);
+
     //Create uniform buffer
     mat4 matrices[2];
     matrices[0] = modelTx_ * camera_.view_;

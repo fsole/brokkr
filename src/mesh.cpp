@@ -212,6 +212,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   attributes[0].format_ = render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = vertexSize * sizeof(f32);
+  attributes[0].instanced_ = false;
 
   u32 attribute = 1;
   u32 attributeOffset = 3;
@@ -220,6 +221,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     attributes[attribute].format_ = render::vertex_attribute_t::format::VEC3;
     attributes[attribute].offset_ = sizeof(f32)*attributeOffset;
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
+    attributes[attribute].instanced_ = false;
     ++attribute;
     attributeOffset += 3;
   }
@@ -228,6 +230,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     attributes[attribute].format_ = render::vertex_attribute_t::format::VEC2;
     attributes[attribute].offset_ = sizeof(f32)*attributeOffset;
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
+    attributes[attribute].instanced_ = false;
     ++attribute;
     attributeOffset += 2;
   }
@@ -238,6 +241,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     attributes[attribute].format_ = render::vertex_attribute_t::format::VEC4;
     attributes[attribute].offset_ = sizeof(f32)*attributeOffset;
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
+    attributes[attribute].instanced_ = false;
 
     ++attribute;
     attributeOffset += 4;
@@ -245,13 +249,14 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     attributes[attribute].format_ = render::vertex_attribute_t::format::VEC4;
     attributes[attribute].offset_ = sizeof(f32)*attributeOffset;
     attributes[attribute].stride_ = vertexSize * sizeof(f32);
+    attributes[attribute].instanced_ = false;
   }
 
   vec3 aabbMin(FLT_MAX, FLT_MAX, FLT_MAX);
   vec3 aabbMax(-FLT_MAX, -FLT_MAX, -FLT_MAX);
   size_t vertexBufferSize(vertexCount * vertexSize * sizeof(f32));
   f32* vertexData = new f32[vertexCount * vertexSize];
-  memset(vertexData, 0.0f, vertexBufferSize);
+  memset((u32*)vertexData, 0, vertexBufferSize);
 
   u32 index = 0;
   for (u32 vertex(0); vertex<vertexCount; ++vertex)
@@ -512,6 +517,36 @@ void mesh::draw(VkCommandBuffer commandBuffer, const mesh_t& mesh)
   vkCmdDrawIndexed(commandBuffer, mesh.indexCount_, 1, 0, 0, 0);
 }
 
+void mesh::drawInstanced(VkCommandBuffer commandBuffer, u32 instanceCount, render::gpu_buffer_t* instanceBuffer, u32 instancedAttributesCount, const mesh_t& mesh)
+{
+  vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
+
+  uint32_t attributeCount = mesh.vertexFormat_.attributeCount_;
+  std::vector<VkBuffer> buffers(attributeCount);
+  std::vector<VkDeviceSize> offsets(attributeCount);
+  for (uint32_t i(0); i<attributeCount; ++i)
+  {
+    buffers[i] = mesh.vertexBuffer_.handle_;
+    offsets[i] = 0u;
+  }
+  vkCmdBindVertexBuffers(commandBuffer, 0, attributeCount, &buffers[0], &offsets[0]);
+
+  if (instancedAttributesCount > 0 && instanceBuffer)
+  {
+    std::vector<VkBuffer> instancedBuffers(instancedAttributesCount);
+    std::vector<VkDeviceSize> instancedOffsets(instancedAttributesCount);
+    for (uint32_t i(0); i < instancedAttributesCount; ++i)
+    {
+      instancedBuffers[i] = instanceBuffer->handle_;
+      instancedOffsets[i] = 0u;
+    }
+    vkCmdBindVertexBuffers(commandBuffer, attributeCount, instancedAttributesCount, &instancedBuffers[0], &instancedOffsets[0]);
+  }
+
+  //Draw command
+  vkCmdDrawIndexed(commandBuffer, mesh.indexCount_, instanceCount, 0, 0, 0);
+};
+
 
 void mesh::animatorCreate(const render::context_t& context, const mesh_t& mesh, u32 animationIndex, float speed, skeletal_animator_t* animator)
 {
@@ -614,12 +649,52 @@ mesh::mesh_t mesh::fullScreenQuad(const bkk::render::context_t& context)
   attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
-  attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC2;;
+  attributes[0].instanced_ = false;
+  attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC2;
   attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
+  attributes[0].instanced_ = false;
 
   bkk::mesh::mesh_t mesh;
   bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &mesh);
+  return mesh;
+}
+
+mesh::mesh_t mesh::unitQuad(const bkk::render::context_t& context)
+{
+  struct Vertex
+  {
+    float position[3];
+    float normal[3];
+    float uv[2];
+  };
+
+  static const Vertex vertices[] = { { { -0.5f, -0.5f, 0.0f },{ 0.0f,  0.0f, 1.0f },{ 0.0f, 1.0f } },
+                                     { {  0.5f, -0.5f, 0.0f },{ 0.0f,  0.0f, 1.0f },{ 1.0f, 1.0f } },
+                                     { {  0.5f,  0.5f, 0.0f },{ 0.0f,  0.0f, 1.0f },{ 1.0f, 0.0f } },
+                                     { { -0.5f,  0.5f, 0.0f },{ 0.0f,  0.0f, 1.0f },{ 0.0f, 0.0f } }
+  };
+
+  static const uint32_t indices[] = { 0,1,2,0,2,3 };
+
+  static bkk::render::vertex_attribute_t attributes[3];
+  attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
+  attributes[0].offset_ = 0;
+  attributes[0].stride_ = sizeof(Vertex);
+  attributes[0].instanced_ = false;
+
+  attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC3;
+  attributes[1].offset_ = offsetof(Vertex, normal);
+  attributes[1].stride_ = sizeof(Vertex);
+  attributes[1].instanced_ = false;
+
+  attributes[2].format_ = bkk::render::vertex_attribute_t::format::VEC2;
+  attributes[2].offset_ = offsetof(Vertex, uv);
+  attributes[2].stride_ = sizeof(Vertex);
+  attributes[2].instanced_ = false;
+
+  bkk::mesh::mesh_t mesh;
+  bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 3, nullptr, &mesh);
   return mesh;
 }
 
@@ -675,9 +750,11 @@ mesh_t mesh::unitCube(const bkk::render::context_t& context)
   attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
+  attributes[0].instanced_ = false;
   attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC3;;
   attributes[1].offset_ = offsetof(Vertex, normal);
   attributes[1].stride_ = sizeof(Vertex);
+  attributes[1].instanced_ = false;
 
   bkk::mesh::mesh_t mesh;
   bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &mesh);

@@ -137,6 +137,7 @@ namespace bkk
     uint32_t loadMaterials(const char* file, uint32_t** materialIndices, material_t** materials);
 
     void draw(VkCommandBuffer commandBuffer, const mesh_t& mesh);
+    void drawInstanced(VkCommandBuffer commandBuffer, u32 instanceCount, render::gpu_buffer_t* instanceBuffer, u32 instancedAttributesCount, const mesh_t& mesh);
     void destroy(const render::context_t& context, mesh_t* mesh, render::gpu_memory_allocator_t* allocator = nullptr);
 
     //Animator
@@ -145,6 +146,7 @@ namespace bkk
     void animatorDestroy(const render::context_t& context, skeletal_animator_t* animator);
 
     mesh_t fullScreenQuad(const bkk::render::context_t& context);
+    mesh_t unitQuad(const bkk::render::context_t& context);
     mesh_t unitCube(const bkk::render::context_t& context);
 
   } //mesh namespace

@@ -451,8 +451,8 @@ struct pbr_renderer_t : public application_t
 
     //Create vertex format (position + normal)
     uint32_t vertexSize = 2 * sizeof(maths::vec3);
-    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize },
-                                                 { render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize } };
+    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize, false },
+                                                 { render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize, false } };
     render::vertexFormatCreate(attributes, 2u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes

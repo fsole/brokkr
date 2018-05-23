@@ -380,7 +380,7 @@ struct TXAA_sample_t : public application_t
 
     //Create vertex format (position + normal)
     uint32_t vertexSize = 2 * sizeof(maths::vec3);
-    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize },{ render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize } };
+    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize, false },{ render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize, false } };
     render::vertexFormatCreate(attributes, 2u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes
@@ -462,8 +462,8 @@ struct TXAA_sample_t : public application_t
     static const uint32_t indices[] = { 0,1,2,1,3,2 };
 
     static render::vertex_attribute_t attributes[2];
-    attributes[0] = { render::vertex_attribute_t::format::VEC3, 0, sizeof(Vertex) };
-    attributes[1] = { render::vertex_attribute_t::format::VEC3, offsetof(Vertex, normal), sizeof(Vertex) };
+    attributes[0] = { render::vertex_attribute_t::format::VEC3, 0, sizeof(Vertex), false };
+    attributes[1] = { render::vertex_attribute_t::format::VEC3, offsetof(Vertex, normal), sizeof(Vertex), false };
 
     mesh::mesh_t mesh;
     mesh::create(getRenderContext(), indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, &allocator_, &mesh);

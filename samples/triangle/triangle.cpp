@@ -73,9 +73,11 @@ bkk::mesh::mesh_t createTriangleGeometry(const bkk::render::context_t& context )
   attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
+  attributes[0].instanced_ = false;
   attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC2;;
   attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
+  attributes[1].instanced_ = false;
 
   bkk::mesh::mesh_t mesh;
   bkk::mesh::create( context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &mesh );

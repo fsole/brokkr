@@ -85,8 +85,8 @@ namespace bkk
     void textureCubemapCreateFromEquirectangularImage(const context_t& context, const image::image2D_t& image, uint32_t size, bool generateMipmaps, texture_cubemap_t* cubemap);
 
     //Buffers
-    void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, uint32_t memoryType, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
-    void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
+    void gpuBufferCreate(const context_t& context, uint32_t usage, uint32_t memoryType, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
+    void gpuBufferCreate(const context_t& context, uint32_t usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
     void gpuBufferDestroy(const context_t& context, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
     void gpuBufferUpdate(const context_t& context, void* data, size_t offset, size_t size, gpu_buffer_t* buffer);
     void* gpuBufferMap(const context_t& context, const gpu_buffer_t& buffer);
@@ -128,7 +128,7 @@ namespace bkk
     void graphicsPipelineDestroy(const context_t& context, graphics_pipeline_t* pipeline);
     void graphicsPipelineBind( VkCommandBuffer commandBuffer, const graphics_pipeline_t& pipeline);
 
-    void computePipelineCreate(const context_t& context, const pipeline_layout_t& pipelineLayout, compute_pipeline_t* pipeline);
+    void computePipelineCreate(const context_t& context, const pipeline_layout_t& pipelineLayout, const render::shader_t& computeShader, compute_pipeline_t* pipeline);
     void computePipelineDestroy(const context_t& context, compute_pipeline_t* pipeline);
     void computePipelineBind( VkCommandBuffer commandBuffer, const compute_pipeline_t& pipeline);
 
@@ -136,6 +136,8 @@ namespace bkk
 
     //Vertex formats
     void vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attributeCount, vertex_format_t* format);
+    void vertexFormatCopy(const vertex_format_t* formatSrc, vertex_format_t* formatDst);
+    void vertexFormatAddAttributes(vertex_attribute_t* attribute, uint32_t attributeCount, vertex_format_t* format);
     void vertexFormatDestroy(vertex_format_t* format);
 
     //Command buffers
