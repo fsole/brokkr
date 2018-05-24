@@ -221,10 +221,7 @@ static const char* gLightPassFragmentShaderSource = R"(
     float attenuation = 1.0 - clamp( lightDistance / light.radius, 0.0, 1.0);
     attenuation *= attenuation;
     float NdotL =  max( 0.0, dot( N, L ) );
-    vec3 color = (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL;
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
-    result = vec4(color,1.0);
+    result = vec4( (kD * albedo / PI + specular) * (light.color*attenuation) * NdotL, 1.0);
   }
 )";
 
@@ -306,6 +303,7 @@ static const char* gPresentationFragmentShaderSource = R"(
   void main(void)
   {
     color = texture(uTexture, uv);
+    color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
   }
 )";
 
@@ -394,13 +392,13 @@ struct TXAA_sample_t : public application_t
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
-    render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
+    render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, render::texture_sampler_t(), &finalImage_);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &finalImage_);
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
     
-    render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &historyBuffer_[0]);
+    render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, render::texture_sampler_t(), &historyBuffer_[0]);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &historyBuffer_[0]);
-    render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &historyBuffer_[1]);
+    render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, render::texture_sampler_t(), &historyBuffer_[1]);
     bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &historyBuffer_[1]);
     
     //Create globals uniform buffer    
@@ -581,7 +579,7 @@ struct TXAA_sample_t : public application_t
     }
 
     buildAndSubmitCommandBuffer();
-    render::presentFrame(&context, &copyComplete_, 1u);
+    render::presentFrame(&context, &txaaResolveComplete_, 1u);
 
     currentFrame_++;
   }
@@ -695,11 +693,8 @@ struct TXAA_sample_t : public application_t
     render::descriptorSetDestroy(context, &globalsDescriptorSet_);
     render::descriptorSetDestroy(context, &lightPassTexturesDescriptorSet_);
     render::descriptorSetDestroy(context, &presentationDescriptorSet_);
-    render::descriptorSetDestroy(context, &copyDescriptorSet_[0]);
-    render::descriptorSetDestroy(context, &copyDescriptorSet_[1]);
     render::descriptorSetDestroy(context, &txaaResolveDescriptorSet_);
-
-
+    
     render::descriptorSetLayoutDestroy(context, &globalsDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &materialDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context, &objectDescriptorSetLayout_);
@@ -727,20 +722,15 @@ struct TXAA_sample_t : public application_t
 
     render::semaphoreDestroy(context, renderComplete_);
     render::semaphoreDestroy(context, txaaResolveComplete_);
-    render::semaphoreDestroy(context, copyComplete_);
 
     render::textureDestroy(context, &historyBuffer_[0]);
     render::textureDestroy(context, &historyBuffer_[1]);
-    render::frameBufferDestroy(context, &copyFrameBuffer_);
     render::frameBufferDestroy(context, &txaaResolveFrameBuffer_);
-    render::renderPassDestroy(context, &copyRenderPass_);
     render::renderPassDestroy(context, &txaaResolveRenderPass_);
         
     render::pipelineLayoutDestroy(context, &txaaResolvePipelineLayout_);
     render::graphicsPipelineDestroy(context, &txaaResolvePipeline_);
-    render::graphicsPipelineDestroy(context, &copyPipeline_);
     render::commandBufferDestroy(context, &txaaResolveCommandBuffer_);
-    render::commandBufferDestroy(context, &copyCommandBuffer_);    
   }
 
 private:
@@ -750,7 +740,6 @@ private:
     //Semaphores
     renderComplete_ = render::semaphoreCreate(context);
     txaaResolveComplete_ = render::semaphoreCreate(context);
-    copyComplete_ = render::semaphoreCreate(context);
 
     //Create offscreen render pass (GBuffer + light subpasses)
     renderPass_ = {};
@@ -931,43 +920,6 @@ private:
       render::descriptor_t descriptors[4] = { render::getDescriptor(globalsUbo_), render::getDescriptor(finalImage_), render::getDescriptor(historyBuffer_[1]), render::getDescriptor(gBufferRT1_) };
       render::descriptorSetCreate(context, descriptorPool_, txaaResolveDescriptorSetLayout_, descriptors, &txaaResolveDescriptorSet_);
     }
-
-    //Copy render pass
-    {
-      copyRenderPass_ = {};
-      render::render_pass_t::attachment_t attachment;
-      attachment.format_ = historyBuffer_[0].format_;
-      attachment.initialLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-      attachment.finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-      attachment.storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
-      attachment.loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
-      attachment.samples_ = VK_SAMPLE_COUNT_1_BIT;
-
-      render::renderPassCreate(context, &attachment, 1u, nullptr, 0u, nullptr, 0u, &copyRenderPass_);
-
-      VkImageView fbAttachment = historyBuffer_[1].imageView_;
-      render::frameBufferCreate(context, size.x, size.y, copyRenderPass_, &fbAttachment, &copyFrameBuffer_);
-
-      render::graphics_pipeline_t::description_t pipelineDesc = {};
-      pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-      pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-      pipelineDesc.blendState_.resize(1);
-      pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-      pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-      pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-      pipelineDesc.depthTestEnabled_ = false;
-      pipelineDesc.depthWriteEnabled_ = false;
-      pipelineDesc.vertexShader_ = presentationVertexShader_;
-      pipelineDesc.fragmentShader_ = presentationFragmentShader_;
-      render::graphicsPipelineCreate(context, copyRenderPass_.handle_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &copyPipeline_);
-
-      render::descriptor_t descriptor = render::getDescriptor(historyBuffer_[0]);
-      render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &copyDescriptorSet_[0]);
-
-      descriptor = render::getDescriptor(finalImage_);
-      render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &copyDescriptorSet_[1]);
-    }
-
   }
 
   void buildAndSubmitCommandBuffer()
@@ -1043,27 +995,19 @@ private:
 
       render::commandBufferRenderPassEnd(txaaResolveCommandBuffer_);
     }
+
+    //Copy resolved image to historyBuffer[1] to use int the next frame as previous rendered image
+    render::texture_t* srcTexture = bTemporalAA_ ? &historyBuffer_[0] : &finalImage_;
+    render::textureChangeLayout(txaaResolveCommandBuffer_.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, srcTexture);
+    render::textureChangeLayout(txaaResolveCommandBuffer_.handle_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &historyBuffer_[1]);    
+
+    render::textureCopy(txaaResolveCommandBuffer_, srcTexture, &historyBuffer_[1], srcTexture->extent_.width, srcTexture->extent_.height);
+
+    render::textureChangeLayout(txaaResolveCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, srcTexture );
+    render::textureChangeLayout(txaaResolveCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &historyBuffer_[1]);
+
     render::commandBufferEnd(txaaResolveCommandBuffer_);
-    render::commandBufferSubmit(context, txaaResolveCommandBuffer_);
-    
-    if (copyCommandBuffer_.handle_ == VK_NULL_HANDLE)
-    {
-      VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &txaaResolveComplete_, &waitStage, 1u, &copyComplete_, 1u, render::command_buffer_t::GRAPHICS, &copyCommandBuffer_);
-    }
-
-    //Copy resolved image to presentation image
-    render::commandBufferBegin(context, copyCommandBuffer_);
-    {
-        render::commandBufferRenderPassBegin(context, &copyFrameBuffer_, clearValues, 1u, copyCommandBuffer_);
-        bkk::render::graphicsPipelineBind(copyCommandBuffer_.handle_, copyPipeline_);
-        bkk::render::descriptorSetBindForGraphics(copyCommandBuffer_.handle_, presentationPipelineLayout_, 0u, &copyDescriptorSet_[bTemporalAA_ ? 0 : 1], 1u);
-        mesh::draw(copyCommandBuffer_.handle_, fullScreenQuad_);
-        render::commandBufferRenderPassEnd(copyCommandBuffer_);
-    }
-    render::commandBufferEnd(copyCommandBuffer_);
-    render::commandBufferSubmit(context, copyCommandBuffer_);
-
+    render::commandBufferSubmit(context, txaaResolveCommandBuffer_);    
   }
 
   void buildPresentationCommandBuffers()
@@ -1137,21 +1081,15 @@ private:
   render::shader_t txaaResolveFragmentShader_;
 
   render::texture_t historyBuffer_[2];
-  render::frame_buffer_t copyFrameBuffer_;
   render::frame_buffer_t txaaResolveFrameBuffer_;
-  render::render_pass_t copyRenderPass_;
   render::render_pass_t txaaResolveRenderPass_;
 
   VkSemaphore txaaResolveComplete_;
-  VkSemaphore copyComplete_;
-
+  
   render::descriptor_set_layout_t txaaResolveDescriptorSetLayout_;
   render::pipeline_layout_t txaaResolvePipelineLayout_;
   render::graphics_pipeline_t txaaResolvePipeline_;
-  render::graphics_pipeline_t copyPipeline_;
   render::command_buffer_t txaaResolveCommandBuffer_;
-  render::command_buffer_t copyCommandBuffer_;
-  render::descriptor_set_t copyDescriptorSet_[2];
   render::descriptor_set_t txaaResolveDescriptorSet_;
 
   mesh::mesh_t sphereMesh_;

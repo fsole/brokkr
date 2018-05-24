@@ -126,20 +126,21 @@ static const char* gComputeShader = R"(
   };
   layout (std140, binding = 0) buffer SSBO
   {
-    particle_t particle[];  
-  }data;
+    particle_t data[];  
+  }particlesBuffer;
 
   layout(push_constant) uniform PushConstants
   {
-	  layout (offset = 0) uint particleCount;
-  }pushConstants;
+	  uint particleCount;
+    float deltaTime;
+  }globals;
 
   void main()
   {
     uint particleIndex = gl_GlobalInvocationID.x;
-    if( particleIndex < pushConstants.particleCount )
+    if( particleIndex < globals.particleCount )
     {
-      data.particle[particleIndex].angle += vec3(0.05,0.05,0.05);
+      particlesBuffer.data[particleIndex].angle +=  globals.deltaTime;
     }
   }
 )";
@@ -147,11 +148,21 @@ static const char* gComputeShader = R"(
 class particles_sample_t : public application_t
 {
 public:
+
+  struct particle_global_data_t
+  {
+    u32 maxParticleCount_;
+    f32 deltaTime_;
+    //float gravity_;
+  };
+
   particles_sample_t()
   :application_t("Particles", 1200u, 800u, 3u),
-   particleCount_( 1000 ),
    camera_(25.0f, vec2(0.0f, 0.0f), 0.01f)
   {
+    particleGlobalData_.maxParticleCount_ = 1000;
+    particleGlobalData_.deltaTime_ = 0.0f;
+
     render::context_t& context = getRenderContext();
 
     projectionTx_ = perspectiveProjectionMatrix(1.5f, getWindow().width_ / (float)getWindow().height_, 1.0f, 1000.0f);
@@ -177,8 +188,8 @@ public:
       float opacity;
     };
 
-    std::vector<particle> particles(particleCount_);
-    for (u32 i(0); i < particleCount_; ++i)
+    std::vector<particle> particles(particleGlobalData_.maxParticleCount_);
+    for (u32 i(0); i < particleGlobalData_.maxParticleCount_; ++i)
     {
       particles[i].position = vec3(maths::random(-10.0f, 10.0f), maths::random(-10.0f, 10.0f), maths::random(-10.0f, 10.0f));
       particles[i].scale = maths::random(0.25f, 1.0f);
@@ -189,7 +200,7 @@ public:
     u32 usage = render::gpu_buffer_t::usage::STORAGE_BUFFER;
     render::gpuBufferCreate(context, usage,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
-      (void*)particles.data(), sizeof(particle)*particleCount_,
+      (void*)particles.data(), sizeof(particle)*particleGlobalData_.maxParticleCount_,
       nullptr, &particleBuffer_);
 
     //Create pipeline and descriptor set layouts
@@ -231,7 +242,6 @@ public:
     buildCommandBuffers();
 
     createComputePipeline();
-    buildComputeCommandBuffer();
   }
 
   void onQuit()
@@ -270,9 +280,17 @@ public:
     matrices[1] = matrices[0] * projectionTx_;
     render::gpuBufferUpdate(context, (void*)&matrices, 0, sizeof(matrices), &globalUnifomBuffer_);
 
-    //Render frame
+    //Render frame    
     render::presentFrame(&context);
 
+    particleGlobalData_.deltaTime_ = getTimeDelta() / 1000.0f;
+
+    render::commandBufferBegin(context, computeCommandBuffer_);
+    bkk::render::computePipelineBind(computeCommandBuffer_.handle_, computePipeline_);
+    bkk::render::descriptorSetBindForCompute(computeCommandBuffer_.handle_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
+    bkk::render::pushConstants(computeCommandBuffer_.handle_, computePipelineLayout_, 0u, &particleGlobalData_);
+    vkCmdDispatch(computeCommandBuffer_.handle_, u32((particleGlobalData_.maxParticleCount_ / 64.0) + 0.99f), 1, 1);
+    render::commandBufferEnd(computeCommandBuffer_);
     render::commandBufferSubmit(context, computeCommandBuffer_);
     vkQueueWaitIdle(context.computeQueue_.handle_);
   }
@@ -331,7 +349,7 @@ public:
       render::beginPresentationCommandBuffer(context, i, clearValues);
       bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline_);
       bkk::render::descriptorSetBindForGraphics(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
-      mesh::drawInstanced(commandBuffers[i], particleCount_, nullptr, 0u, mesh_);
+      mesh::drawInstanced(commandBuffers[i], particleGlobalData_.maxParticleCount_, nullptr, 0u, mesh_);
       render::endPresentationCommandBuffer(context, i);
     }
   }
@@ -345,7 +363,7 @@ public:
     render::descriptorSetLayoutCreate(context, &binding, 1u, &computeDescriptorSetLayout_);
 
     //Create pipeline layout
-    render::push_constant_range_t pushConstantsRange = { VK_SHADER_STAGE_COMPUTE_BIT , sizeof(u32), 0u };
+    render::push_constant_range_t pushConstantsRange = { VK_SHADER_STAGE_COMPUTE_BIT , sizeof(particle_global_data_t), 0u };
     render::pipelineLayoutCreate(context, &computeDescriptorSetLayout_, 1u, &pushConstantsRange, 1u, &computePipelineLayout_);
 
     //Create descriptor set
@@ -355,25 +373,14 @@ public:
     //Create pipeline
     bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::COMPUTE_SHADER, gComputeShader, &computeShader_);
     render::computePipelineCreate(context, computePipelineLayout_, computeShader_, &computePipeline_);
-  }
-
-  void buildComputeCommandBuffer()
-  {
-    render::context_t& context = getRenderContext();
 
     //Build compute command buffer
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &computeCommandBuffer_);
-    render::commandBufferBegin(context, computeCommandBuffer_);
-    bkk::render::computePipelineBind(computeCommandBuffer_.handle_, computePipeline_);
-    bkk::render::descriptorSetBindForCompute(computeCommandBuffer_.handle_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
-    bkk::render::pushConstants(computeCommandBuffer_.handle_, computePipelineLayout_, 0u, &particleCount_ );
-    vkCmdDispatch(computeCommandBuffer_.handle_, u32( ( particleCount_ / 64.0 ) + 0.99f), 1, 1);
-    render::commandBufferEnd(computeCommandBuffer_);
   }
 
 private:
 
-  u32 particleCount_;
+  particle_global_data_t particleGlobalData_;
   render::gpu_buffer_t globalUnifomBuffer_;
 
   mesh::mesh_t mesh_;

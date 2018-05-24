@@ -37,8 +37,6 @@ using namespace bkk::maths;
 
 struct application_t::frame_counter_t
 {
-  typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point_t;
-
   void init(window::window_t* window, uint32_t displayInterval = 1000u)
   {
     window_ = window;
@@ -53,9 +51,9 @@ struct application_t::frame_counter_t
 
   void endFrame()
   {
-    time_point_t t = timer::getCurrent();
-    float timeFrame = timer::getDifference(timePrev_, t);
-    timePrev_ = t;
+    timer::time_point_t currentTime = timer::getCurrent();
+    float timeFrame = timer::getDifference(timePrev_, currentTime);
+    timePrev_ = currentTime;
     timeAccum_ += timeFrame;
     if (timeAccum_ >= displayInterval_)
     {
@@ -70,7 +68,7 @@ struct application_t::frame_counter_t
   window::window_t* window_;
   std::string windowTitle_;
 
-  time_point_t timePrev_;
+  timer::time_point_t timePrev_;
   uint32_t displayInterval_;
   float timeAccum_ = 0.0f;
 };
@@ -104,8 +102,8 @@ application_t::~application_t()
 
 void application_t::loop()
 {
-  auto timePrev = bkk::timer::getCurrent();
-  auto currentTime = timePrev;
+  timer::time_point_t timePrev = bkk::timer::getCurrent();
+  timer::time_point_t currentTime = timePrev;
 
   bool quit = false;
   while (!quit)

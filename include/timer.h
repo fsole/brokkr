@@ -31,14 +31,15 @@ namespace bkk
 {
   namespace timer
   {
-    static std::chrono::time_point<std::chrono::high_resolution_clock> getCurrent()
+    typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point_t;
+
+    static time_point_t getCurrent()
     {
       return std::chrono::high_resolution_clock::now();
     }
 
     //Difference in milliseconds
-    static float getDifference(const std::chrono::time_point<std::chrono::high_resolution_clock>& tStart,
-      const std::chrono::time_point<std::chrono::high_resolution_clock>& tEnd)
+    static float getDifference(const time_point_t& tStart, const time_point_t& tEnd)
     {
       return (float)std::chrono::duration<double, std::milli>(tEnd - tStart).count();
     }

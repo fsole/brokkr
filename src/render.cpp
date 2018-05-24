@@ -1238,6 +1238,7 @@ void render::texture2DCreate(const context_t& context,
   texture->mipLevels_ = 1;
   texture->aspectFlags_ = aspectFlags;
   texture->format_ = format;
+  texture->extent_ = extents;
 }
 
 void render::textureCubemapCreate(const context_t& context, VkFormat format, uint32_t width, uint32_t height, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture)
@@ -1458,7 +1459,33 @@ void render::textureDestroy(const context_t& context, texture_t* texture)
   gpuMemoryDeallocate(context, nullptr, texture->memory_);
 }
 
-void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture)
+void render::textureCopy(const command_buffer_t& commandBuffer, texture_t* srcTexture, texture_t* dstTexture,
+                         uint32_t width, uint32_t height, uint32_t dstMipmap, uint32_t dstLayer, uint32_t srcMipmap, uint32_t srcLayer)
+{  
+  VkImageCopy copyRegion = {};
+  copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  copyRegion.srcSubresource.baseArrayLayer = srcLayer;
+  copyRegion.srcSubresource.mipLevel = srcMipmap;
+  copyRegion.srcSubresource.layerCount = 1;
+  copyRegion.srcOffset = { 0, 0, 0 };
+
+  copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  copyRegion.dstSubresource.baseArrayLayer = dstLayer;
+  copyRegion.dstSubresource.mipLevel = dstMipmap;
+  copyRegion.dstSubresource.layerCount = 1;
+  copyRegion.dstOffset = { 0, 0, 0 };
+
+  copyRegion.extent.width = width;
+  copyRegion.extent.height = height;
+  copyRegion.extent.depth = 1;
+
+  vkCmdCopyImage(commandBuffer.handle_,
+    srcTexture->image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    dstTexture->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    1, &copyRegion);
+}
+
+void render::textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout newLayout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture)
 {
   VkImageMemoryBarrier imageMemoryBarrier = {};
   imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1578,18 +1605,18 @@ void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBu
   texture->descriptor_.imageLayout = newLayout;
 }
 
-void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
+void render::textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
 {
   VkImageSubresourceRange subresourceRange = {};
   subresourceRange.levelCount = 1u;
   subresourceRange.layerCount = 1u;
   subresourceRange.aspectMask = texture->aspectFlags_;
-  textureChangeLayout(context, cmdBuffer, layout, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, texture);
+  textureChangeLayout(cmdBuffer, layout, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, texture);
 }
 
-void render::textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture)
+void render::textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture)
 {
-  textureChangeLayout(context, cmdBuffer, layout, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, texture);
+  textureChangeLayout(cmdBuffer, layout, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, texture);
 }
 
 void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture)
@@ -1613,7 +1640,7 @@ void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layo
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
   vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-  textureChangeLayout(context, commandBuffer, layout, srcStageMask, dstStageMask, subResourceRange, texture);
+  textureChangeLayout(commandBuffer, layout, srcStageMask, dstStageMask, subResourceRange, texture);
 
   vkEndCommandBuffer(commandBuffer);
 
@@ -2771,31 +2798,9 @@ void render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
 
       //Copy render target to cubemap layer
       renderTargets[mipLevel].layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-      render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
-
-      VkImageCopy copyRegion = {};
-      copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      copyRegion.srcSubresource.baseArrayLayer = 0;
-      copyRegion.srcSubresource.mipLevel = 0;
-      copyRegion.srcSubresource.layerCount = 1;
-      copyRegion.srcOffset = { 0, 0, 0 };
-
-      copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      copyRegion.dstSubresource.baseArrayLayer = i;
-      copyRegion.dstSubresource.mipLevel = mipLevel;
-      copyRegion.dstSubresource.layerCount = 1;
-      copyRegion.dstOffset = { 0, 0, 0 };
-
-      copyRegion.extent.width = mipSize;
-      copyRegion.extent.height = mipSize;
-      copyRegion.extent.depth = 1;
-
-      vkCmdCopyImage(commandBuffer.handle_,
-        renderTargets[mipLevel].image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        cubemap->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1, &copyRegion);
-
-      render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+      render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
+      render::textureCopy(commandBuffer, &renderTargets[mipLevel], cubemap, mipSize, mipSize, mipLevel, i);
+      render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
       
       render::commandBufferEnd(commandBuffer);
       render::commandBufferSubmit(context, commandBuffer);
@@ -2973,31 +2978,9 @@ void render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
 
     //Copy render target to cubemap layer
     renderTarget.layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-    render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTarget);
-
-    VkImageCopy copyRegion = {};
-    copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    copyRegion.srcSubresource.baseArrayLayer = 0;
-    copyRegion.srcSubresource.mipLevel = 0;
-    copyRegion.srcSubresource.layerCount = 1;
-    copyRegion.srcOffset = { 0, 0, 0 };
-
-    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    copyRegion.dstSubresource.baseArrayLayer = i;
-    copyRegion.dstSubresource.mipLevel = 0;
-    copyRegion.dstSubresource.layerCount = 1;
-    copyRegion.dstOffset = { 0, 0, 0 };
-
-    copyRegion.extent.width = size;
-    copyRegion.extent.height = size;
-    copyRegion.extent.depth = 1;
-
-    vkCmdCopyImage(commandBuffer.handle_,
-      renderTarget.image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      irradiance->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      1, &copyRegion);
-
-    render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTarget);
+    render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTarget);
+    render::textureCopy(commandBuffer, &renderTarget, irradiance, size, size, 0, i);
+    render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTarget);
 
     
     render::commandBufferEnd(commandBuffer);
@@ -3252,31 +3235,9 @@ void render::specularConvolution(const context_t& context, texture_cubemap_t env
 
       //Copy render target to cubemap layer
       renderTargets[mipLevel].layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-      render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
-
-      VkImageCopy copyRegion = {};
-      copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      copyRegion.srcSubresource.baseArrayLayer = 0;
-      copyRegion.srcSubresource.mipLevel = 0;
-      copyRegion.srcSubresource.layerCount = 1;
-      copyRegion.srcOffset = { 0, 0, 0 };
-
-      copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      copyRegion.dstSubresource.baseArrayLayer = i;
-      copyRegion.dstSubresource.mipLevel = mipLevel;
-      copyRegion.dstSubresource.layerCount = 1;
-      copyRegion.dstOffset = { 0, 0, 0 };
-
-      copyRegion.extent.width = mipSize;
-      copyRegion.extent.height = mipSize;
-      copyRegion.extent.depth = 1;
-
-      vkCmdCopyImage(commandBuffer.handle_,
-        renderTargets[mipLevel].image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        specularMap->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1, &copyRegion);
-
-      render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+      render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
+      render::textureCopy(commandBuffer, &renderTargets[mipLevel], specularMap, mipSize, mipSize, mipLevel, i);      
+      render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
       
       render::commandBufferEnd(commandBuffer);
       render::commandBufferSubmit(context, commandBuffer);
@@ -3517,7 +3478,7 @@ void render::brdfConvolution(const context_t& context, uint32_t size, texture_t*
 
   //Change cubemap layout for shader access
   brdfConvolution->layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-  render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, brdfConvolution);
+  render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, brdfConvolution);
 
   render::commandBufferEnd(commandBuffer);
   render::commandBufferSubmit(context, commandBuffer);
@@ -3661,31 +3622,9 @@ void render::texture2DCreateAndGenerateMipmaps(const context_t& context, const i
 
     //Copy render target to mip level
     renderTargets[mipLevel].layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-    render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
-
-    VkImageCopy copyRegion = {};
-    copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    copyRegion.srcSubresource.baseArrayLayer = 0;
-    copyRegion.srcSubresource.mipLevel = 0;
-    copyRegion.srcSubresource.layerCount = 1;
-    copyRegion.srcOffset = { 0, 0, 0 };
-
-    copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    copyRegion.dstSubresource.baseArrayLayer = 0;
-    copyRegion.dstSubresource.mipLevel = mipLevel;
-    copyRegion.dstSubresource.layerCount = 1;
-    copyRegion.dstOffset = { 0, 0, 0 };
-
-    copyRegion.extent.width = mipSize;
-    copyRegion.extent.height = mipSize;
-    copyRegion.extent.depth = 1;
-
-    vkCmdCopyImage(commandBuffer.handle_,
-      renderTargets[mipLevel].image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-      texture->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      1, &copyRegion);
-
-    render::textureChangeLayout(context, commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+    render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
+    render::textureCopy(commandBuffer, &renderTargets[mipLevel], texture, mipSize, mipSize, mipLevel);
+    render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
 
     render::commandBufferEnd(commandBuffer);
     render::commandBufferSubmit(context, commandBuffer);

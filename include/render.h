@@ -70,12 +70,15 @@ namespace bkk
     void texture2DCreate(const context_t& context, const image::image2D_t* images, uint32_t mipLevels, texture_sampler_t sampler, texture_t* texture);
     void texture2DCreateAndGenerateMipmaps(const context_t& context, const image::image2D_t& image, texture_sampler_t sampler, texture_t* texture);
     void texture2DCreate(const context_t& context, uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageUsageFlags usageFlags, texture_sampler_t sampler, texture_t* texture);
-
+    
     void textureDestroy(const context_t& context, texture_t* texture);
     
-    void textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture);
-    void textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture);
-    void textureChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture);
+    void textureCopy(const command_buffer_t& commandBuffer, texture_t* srcTexture, texture_t* dstTexture, 
+                     uint32_t width, uint32_t height, uint32_t dstMipmap = 0, uint32_t dstLayer = 0, uint32_t srcMipmap = 0, uint32_t srcLayer = 0);
+
+    void textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture);
+    void textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture);
+    void textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture);
     
     void textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture);    
     void textureChangeLayoutNow(const context_t& context, VkImageLayout layout, texture_t* texture);
@@ -83,6 +86,7 @@ namespace bkk
     void textureCubemapCreate(const context_t& context, VkFormat format, uint32_t width, uint32_t height, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture);
     void textureCubemapCreate( const context_t& context, const image::image2D_t* images, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture);
     void textureCubemapCreateFromEquirectangularImage(const context_t& context, const image::image2D_t& image, uint32_t size, bool generateMipmaps, texture_cubemap_t* cubemap);
+    
 
     //Buffers
     void gpuBufferCreate(const context_t& context, uint32_t usage, uint32_t memoryType, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
