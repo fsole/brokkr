@@ -28,15 +28,17 @@ using namespace bkk;
 using namespace bkk::camera;
 
 orbiting_camera_t::orbiting_camera_t()
-:offset_(0.0f),
+:target_(0.0f,0.0f,0.0f),
+ offset_(0.0f),
  angle_(maths::vec2(0.0f, 0.0f)),
  rotationSensitivity_(0.01f)
 {
   Update();
 }
 
-orbiting_camera_t::orbiting_camera_t(const f32 offset, const maths::vec2& angle, f32 rotationSensitivity)
-:offset_(offset),
+orbiting_camera_t::orbiting_camera_t(const maths::vec3& target, const f32 offset, const maths::vec2& angle, f32 rotationSensitivity)
+:target_(target), 
+ offset_(offset),
  angle_(angle),
  rotationSensitivity_(rotationSensitivity)
 {
@@ -64,9 +66,10 @@ void orbiting_camera_t::Rotate(f32 angleY, f32 angleZ)
 void orbiting_camera_t::Update()
 {
   maths::quat orientation = maths::quaternionFromAxisAngle(maths::vec3(1.0f, 0.0f, 0.0f), angle_.y) *
-    maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), angle_.x);
+  maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), angle_.x);
 
-  maths::invertMatrix(maths::createTransform(maths::vec3(0.0f, 0.0f, offset_), maths::VEC3_ONE, maths::QUAT_UNIT) * maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, orientation), view_);
+  maths::mat4 tx = maths::createTransform(maths::vec3(0.0f, 0.0f, offset_), maths::VEC3_ONE, maths::QUAT_UNIT) * maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, orientation) * maths::createTransform(target_, maths::VEC3_ONE, maths::QUAT_UNIT);
+  maths::invertMatrix(tx, view_);
 }
 
 

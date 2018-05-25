@@ -103,7 +103,7 @@ class skinning_sample_t : public application_t
 public:
   skinning_sample_t()
   :application_t("Skinning", 1200u, 800u, 3u),
-   camera_(25.0f, vec2(0.8f, 0.0f), 0.01f)   
+   camera_(vec3(0.0f,0.0f,0.0f), 25.0f, vec2(0.8f, 0.0f), 0.01f)   
   {
     render::context_t& context = getRenderContext();
             

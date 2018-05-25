@@ -34,13 +34,14 @@ namespace bkk
     struct orbiting_camera_t
     {
       orbiting_camera_t();
-      orbiting_camera_t(const f32 offset, const maths::vec2& angle, f32 rotationSensitivity);
+      orbiting_camera_t(const maths::vec3& target, const f32 offset, const maths::vec2& angle, f32 rotationSensitivity);
 
       void Move(f32 amount);
       void Rotate(f32 angleY, f32 angleZ);
       void Update();
 
       maths::mat4 view_;
+      maths::vec3 target_;
       f32 offset_;
       maths::vec2 angle_;
       f32 rotationSensitivity_;
