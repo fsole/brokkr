@@ -89,12 +89,14 @@ static const char* gVertexShaderSource = R"(
   layout(location = 0) out vec4 color;
   layout(location = 1) out vec2 uv;
   void main(void)
-  {   
-    mat3 rotation = rotationFromEuler(particles.data[gl_InstanceIndex].angle);
-    vec3 localPosition = aPosition.xyz * rotation;
-    gl_Position = uniforms.modelViewProjection * vec4((localPosition * particles.data[gl_InstanceIndex].scale) + particles.data[gl_InstanceIndex].position, 1.0);
+  { 
     color = particles.data[gl_InstanceIndex].color;
-    uv = aTextCoord;
+    uv = aTextCoord;    
+      
+    mat3 rotation = rotationFromEuler(particles.data[gl_InstanceIndex].angle);
+    vec3 localPosition = aPosition.xyz * rotation * particles.data[gl_InstanceIndex].scale + particles.data[gl_InstanceIndex].position;
+    gl_Position = uniforms.modelViewProjection * vec4(localPosition, 1.0);
+    
   }
 )";
 
@@ -150,7 +152,10 @@ static const char* gComputeShader = R"(
     float particleMaxAge_;
     vec3 emissionVolume_;
     uint maxParticleCount_;
-    vec4 emissionDirection_;  
+    vec4 emissionDirection_;
+    vec2 scale_;
+    vec2 initialVelocity_;
+    vec3 angularVelocity_;
   }globals;
   
   //Pseudo-random number generation
@@ -175,13 +180,12 @@ static const char* gComputeShader = R"(
     
   vec3 RandomPointInSphere()
   {
-    vec3 point = vec3(0.0,0.0,0.0);
-    do
-    {
-      point = 2.0*vec3(rand(),rand(),rand()) - vec3(1.0,1.0,1.0);
-    }while( dot(point,point) <= 1.0f);
-
-    return point;
+    float z = rand() * 2.0f - 1.0f;
+    float a = rand() * 2.0f * 3.1415926f;
+    float r = sqrt(1.0f - z * z);
+    float x = r * cos(a);
+    float y = r * sin(a);
+    return vec3(x, y, z);
   }
 
   void main()
@@ -206,14 +210,15 @@ static const char* gComputeShader = R"(
       if( atomicAdd( globals.particlesToEmit_, -1 ) > 0 )
       {
         //Initialize particle
-        particles.data[particleIndex].scale = rand();
+        particles.data[particleIndex].scale = mix( globals.scale_.x, globals.scale_.y, rand() );
         vec3 randPos = globals.emissionVolume_ * vec3( 2.0*rand() - 1.0,2.0*rand() - 1.0,2.0*rand() - 1.0 );
         particles.data[particleIndex].position = randPos;
         particles.data[particleIndex].angle = vec3( 2.0*rand() - 1.0,2.0*rand() - 1.0,2.0*rand() - 1.0 );        
         particles.data[particleIndex].color = vec4( rand(), rand(), rand(), 1.0 );
 
         particlesState.data[particleIndex].age = 0;
-        particlesState.data[particleIndex].velocity.xyz = 30 * normalize(  globals.emissionDirection_.xyz + globals.emissionDirection_.w * RandomPointInSphere() );
+        particlesState.data[particleIndex].velocity.xyz = mix( globals.initialVelocity_.x, globals.initialVelocity_.y, rand() )  * normalize(  normalize( globals.emissionDirection_.xyz) + globals.emissionDirection_.w * RandomPointInSphere() );
+        
       }
     }
     else
@@ -221,6 +226,8 @@ static const char* gComputeShader = R"(
       //Update particle
       particlesState.data[particleIndex].age += globals.deltaTime_;
       particlesState.data[particleIndex].velocity.y -=  globals.gravity_ * globals.deltaTime_;
+
+      particles.data[particleIndex].angle += globals.angularVelocity_.xyz;
       particles.data[particleIndex].position +=  particlesState.data[particleIndex].velocity.xyz * globals.deltaTime_;
     }
   }
@@ -239,6 +246,10 @@ public:
     vec3 emissionVolume_;
     u32 maxParticleCount_;
     vec4 emissionDirection_;  //Direction (in local space) and cone angle
+    vec2 scale_;
+    vec2 initialVelocity_;
+    vec3 angularVelocity_;
+    f32 padding_;
   };
 
   struct particle_t
@@ -263,11 +274,15 @@ public:
    camera_(vec3(0.0f,20.0f,0.0f), 50.0f, vec2(0.0f, 0.0f), 0.01f),
    emissionRate_(10000)
   {
-    particleSystem_.maxParticleCount_ = 75000;
-    particleSystem_.particleMaxAge_ = 5.0f;
+    particleSystem_.maxParticleCount_ = 750000;
+    particleSystem_.particleMaxAge_ = 6.0f;
     particleSystem_.emissionVolume_ = vec3(0.0f, 0.0f, 0.0f);
     particleSystem_.gravity_ = 9.8f;
     particleSystem_.emissionDirection_ = vec4(0.0f,1.0f,0.0f,0.25f );
+    particleSystem_.scale_ = vec2(0.5, 1.0);
+    particleSystem_.initialVelocity_ = vec2(30.0f, 30.0f);
+    particleSystem_.angularVelocity_ = vec3(0.1f, 0.1f, 0.1f);
+    
 
     render::context_t& context = getRenderContext();
 

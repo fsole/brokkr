@@ -222,7 +222,7 @@ private:
 
                                            //Generate 5 materials
     material_t materials[5];
-    materials[0].albedo = vec3(0.8f, 0.8f, 0.8f);
+    materials[0].albedo = vec3(1.8f, 1.8f, 1.8f);
     materials[0].roughness = 1.0f;
     materials[0].metalness = 0.0f;
     materials[0].F0 = vec3(0.02f, 0.02f, 0.02f);
