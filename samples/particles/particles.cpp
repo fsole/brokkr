@@ -120,6 +120,7 @@ static const char* gComputeShader = R"(
   #extension GL_ARB_separate_shader_objects : enable
   #extension GL_ARB_shading_language_420pack : enable
   layout (local_size_x = 64, local_size_y = 1) in;
+
   struct particle_t
   {
     vec3 position;
@@ -138,7 +139,6 @@ static const char* gComputeShader = R"(
     vec4 angularSpeed;
     float age;
   };
-
   layout (std140, binding = 1) buffer SSBO1
   {
     particle_state_t data[];  
@@ -160,14 +160,15 @@ static const char* gComputeShader = R"(
   
   //Pseudo-random number generation
   uint rng_state = 0;
-  uint wang_hash(in uint seed)
+  void initRand()
   {
+    uint seed = gl_GlobalInvocationID.x + uint( 1000.0 * fract( globals.deltaTime_) );
     seed = (seed ^ 61) ^ (seed >> 16);
     seed *= 9;
     seed = seed ^ (seed >> 4);
     seed *= 0x27d4eb2d;
     seed = seed ^ (seed >> 15);
-    return seed;
+    rng_state = seed;
   }
 
   float rand()
@@ -181,17 +182,19 @@ static const char* gComputeShader = R"(
   vec3 RandomPointInSphere()
   {
     float z = rand() * 2.0f - 1.0f;
-    float a = rand() * 2.0f * 3.1415926f;
-    float r = sqrt(1.0f - z * z);
-    float x = r * cos(a);
-    float y = r * sin(a);
-    return vec3(x, y, z);
+    float t = rand() * 2.0f * 3.1415926f;
+    float r = sqrt(max(0.0, 1.0f - z*z));
+    float x = r * cos(t);
+    float y = r * sin(t);
+    vec3 res = vec3(x,y,z);
+    res *= pow(rand(), 1.0/3.0);
+    return res;
   }
 
   void main()
   {    
-    uint particleIndex = gl_GlobalInvocationID.x;
-    rng_state = wang_hash(particleIndex + uint( 1000.0 * fract( globals.deltaTime_) ) );
+    initRand();
+    uint particleIndex = gl_GlobalInvocationID.x;    
     if( particleIndex > globals.maxParticleCount_ )
     {
       return;      
@@ -217,7 +220,8 @@ static const char* gComputeShader = R"(
         particles.data[particleIndex].color = vec4( rand(), rand(), rand(), 1.0 );
 
         particlesState.data[particleIndex].age = 0;
-        particlesState.data[particleIndex].velocity.xyz = mix( globals.initialVelocity_.x, globals.initialVelocity_.y, rand() )  * normalize(  normalize( globals.emissionDirection_.xyz) + globals.emissionDirection_.w * RandomPointInSphere() );
+        vec3 emissionDirection = normalize(  normalize( globals.emissionDirection_.xyz) + globals.emissionDirection_.w * RandomPointInSphere() );
+        particlesState.data[particleIndex].velocity.xyz = mix( globals.initialVelocity_.x, globals.initialVelocity_.y, rand() )  * emissionDirection;
         
       }
     }
@@ -511,7 +515,8 @@ public:
     render::commandBufferBegin(context, computeCommandBuffer_);
     bkk::render::computePipelineBind(computeCommandBuffer_.handle_, computePipeline_);
     bkk::render::descriptorSetBindForCompute(computeCommandBuffer_.handle_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
-    vkCmdDispatch(computeCommandBuffer_.handle_, u32((particleSystem_.maxParticleCount_ / 64.0) + 0.99f), 1, 1);
+    u32 groupSizeX = (particleSystem_.maxParticleCount_ + 63) / 64;
+    vkCmdDispatch(computeCommandBuffer_.handle_, groupSizeX, 1, 1);
     render::commandBufferEnd(computeCommandBuffer_);
   }
 

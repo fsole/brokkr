@@ -220,36 +220,37 @@ private:
   {
     scene->sphereCount = sphereCount + 1;  //Sphere count + ground
 
-                                           //Generate 5 materials
-    material_t materials[5];
+    //Generate 5 materials
+    material_t materials[6];
     materials[0].albedo = vec3(1.8f, 1.8f, 1.8f);
     materials[0].roughness = 1.0f;
     materials[0].metalness = 0.0f;
-    materials[0].F0 = vec3(0.02f, 0.02f, 0.02f);
+    materials[0].F0 = vec3(0.2f, 0.2f, 0.2f);
 
-    //Copper
-    materials[1].albedo = vec3(0.0f, 0.0f, 0.0f);
-    materials[1].roughness = 0.01f;
-    materials[1].metalness = 1.0f;
-    materials[1].F0 = vec3(0.95f, 0.3f, 0.3f);
+    materials[1].albedo = vec3(1.8f, 0.5f, 0.5f);
+    materials[1].roughness = 1.0f;
+    materials[1].metalness = 0.0f;
+    materials[1].F0 = vec3(0.2f, 0.2f, 0.2f);
 
-    //Plastic
     materials[2].albedo = vec3(0.05f, 0.85f, 0.05f);
     materials[2].roughness = 0.1f;
     materials[2].metalness = 0.5f;
     materials[2].F0 = vec3(0.4f, 0.4f, 0.4f);
 
-    //Gold
     materials[3].albedo = vec3(0.0f, 0.0f, 0.0f);
     materials[3].roughness = 0.05f;
     materials[3].metalness = 1.0f;
-    materials[3].F0 = vec3(1.00f, 0.71f, 0.29f);
+    materials[3].F0 = vec3(1.022f, 0.782f, 0.344f);
 
-    //Iron
     materials[4].albedo = vec3(0.0f, 0.0f, 0.0f);
     materials[4].roughness = 0.1f;
     materials[4].metalness = 1.0f;
-    materials[4].F0 = vec3(0.56f, 0.57f, 0.58f);
+    materials[4].F0 = vec3(0.56f, 0.56f, 0.57f);
+
+    materials[5].albedo = vec3(0.2f, 0.2f, 1.8f);
+    materials[5].roughness = 1.0f;
+    materials[5].metalness = 0.0f;
+    materials[5].F0 = vec3(0.2f, 0.2f, 0.2f);
 
     //Ground
     scene->sphere[0].origin = maths::vec3(0.0f, -100000.0f, 0.0f);
@@ -279,7 +280,7 @@ private:
 
       scene->sphere[i].radius = radius;
       scene->sphere[i].origin = center;
-      scene->sphere[i].material = materials[u32(maths::random(0.0f, 1.0f) * 5.0f)];
+      scene->sphere[i].material = materials[u32(maths::random(0.0f, 1.0f) * 6.0f)];
     }
   }
 
@@ -402,7 +403,10 @@ private:
     render::commandBufferBegin(context, computeCommandBuffer_);
     bkk::render::computePipelineBind(computeCommandBuffer_.handle_, computePipeline_);
     bkk::render::descriptorSetBindForCompute(computeCommandBuffer_.handle_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
-    vkCmdDispatch(computeCommandBuffer_.handle_, imageSize_.x / 16, imageSize_.y / 16, 1);
+
+    u32 groupSizeX = (imageSize_.x + 15) / 16;
+    u32 groupSizeY = (imageSize_.y + 15) / 16;
+    vkCmdDispatch(computeCommandBuffer_.handle_, groupSizeX, groupSizeY, 1);
     render::commandBufferEnd(computeCommandBuffer_);
   }
 
