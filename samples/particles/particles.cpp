@@ -422,7 +422,7 @@ public:
     particlesToEmit += emissionRate_ * particleSystem_.deltaTime_;
     if (particlesToEmit > 1.0f)
     {
-      particleSystem_.particlesToEmit_ = particlesToEmit;
+      particleSystem_.particlesToEmit_ = (s32)particlesToEmit;
       particlesToEmit = 0.0f;
     }
 

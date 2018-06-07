@@ -216,21 +216,21 @@ namespace bkk
 
   private:
 
-    std::vector<handle_t> freeList_;    ///< FreeList of IDs (vector with holes)
-    uint16_t headFreeList_;         ///< Head of the freelist_
+    std::vector<handle_t> freeList_;  ///< Free list of IDs (vector with holes)
+    uint16_t headFreeList_;           ///< Head of the free list (fist free element in freeList_)
 
-    std::vector<T> data_;           ///< Packed data
-    std::vector<handle_t> id_;          ///< Id of each packed element (Needed to go from index to ID)
-    uint16_t elementCount_;         ///< Number of packed elements
+    std::vector<T> data_;             ///< Packed data
+    std::vector<handle_t> id_;        ///< Id of each packed element (Needed to go from index to ID)
+    uint16_t elementCount_;           ///< Number of packed elements
   };
 
   template <typename T>
   struct packed_freelist_iterator_t
   {
-   
+
     bool operator==(const packed_freelist_iterator_t<T>& it)
     {
-      return ( packedFreelist_ == it.packedFreelist_ &&  index_ == it.index_ );
+      return (packedFreelist_ == it.packedFreelist_ &&  index_ == it.index_);
     }
 
     bool operator!=(const packed_freelist_iterator_t<T>& it)

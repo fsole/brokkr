@@ -484,7 +484,7 @@ struct pbr_renderer_t : public application_t
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
 
     //Load environment map
-    bkk::image::image2D_t image = {};
+    bkk::image::image2D_t image;
     bkk::image::load("../resources/Tropical_Beach_3k.hdr", true, &image);
 
     //Create cubemaps and brdf lut
