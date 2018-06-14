@@ -446,7 +446,6 @@ public:
     particleSystem_.boundaries[5] = vec4( 0.0f,  0.0f, -1.0f,  15.0f);
 
     render::context_t& context = getRenderContext();
-
     projectionTx_ = perspectiveProjectionMatrix(1.5f, getWindow().width_ / (float)getWindow().height_, 1.0f, 1000.0f);
     modelTx_ = createTransform(vec3(0.0, 0.0, 0.0), VEC3_ONE, QUAT_UNIT);
 
