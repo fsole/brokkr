@@ -12,5 +12,6 @@ Remember to set the working directory to "../../../samples/bin/" in order to run
 ![Alt text](samples/screenshots/scene.png?raw=true "Scene rendering")
 ![Alt text](samples/screenshots/skinning.png?raw=true "Skinning animation")
 ![Alt text](samples/screenshots/particles.png?raw=true "Compute-based Particle system")
+![Alt text](samples/screenshots/fluid-simulation.gif?raw=true "SPH Fluid simulation")
 ![Alt text](samples/screenshots/global-illumination.png?raw=true "Reflective shadow maps")
 ![Alt text](samples/screenshots/txaa.png?raw=true "Temporal anti-aliasing")

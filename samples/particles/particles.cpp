@@ -302,7 +302,7 @@ public:
       (void*)&matrices, sizeof(matrices),
       nullptr, &globalUnifomBuffer_);
 
-    //Create mesh particle and texture
+    //Create particle mesh and texture
     mesh_ = mesh::unitQuad(context);
     image::image2D_t image = {};
     image::load("../resources/particle.png", false, &image );

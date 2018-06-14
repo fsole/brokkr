@@ -60,6 +60,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "particles", "particles\part
 		{6BA0929B-B1C4-4B12-B68D-73EBDC59C424} = {6BA0929B-B1C4-4B12-B68D-73EBDC59C424}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fluid-simulation", "fluid-simulation\fluid-simulation.vcxproj", "{BCED89C4-1971-493F-8C34-F8FC10B6FBF4}"
+	ProjectSection(ProjectDependencies) = postProject
+		{6BA0929B-B1C4-4B12-B68D-73EBDC59C424} = {6BA0929B-B1C4-4B12-B68D-73EBDC59C424}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -139,6 +144,12 @@ Global
 		{3DF2DB4E-9227-401C-B7BA-A6DB78FB7C25}.DebugWithValidation|x64.Build.0 = Debug|x64
 		{3DF2DB4E-9227-401C-B7BA-A6DB78FB7C25}.Release|x64.ActiveCfg = Release|x64
 		{3DF2DB4E-9227-401C-B7BA-A6DB78FB7C25}.Release|x64.Build.0 = Release|x64
+		{BCED89C4-1971-493F-8C34-F8FC10B6FBF4}.Debug|x64.ActiveCfg = Debug|x64
+		{BCED89C4-1971-493F-8C34-F8FC10B6FBF4}.Debug|x64.Build.0 = Debug|x64
+		{BCED89C4-1971-493F-8C34-F8FC10B6FBF4}.DebugWithValidation|x64.ActiveCfg = Debug|x64
+		{BCED89C4-1971-493F-8C34-F8FC10B6FBF4}.DebugWithValidation|x64.Build.0 = Debug|x64
+		{BCED89C4-1971-493F-8C34-F8FC10B6FBF4}.Release|x64.ActiveCfg = Release|x64
+		{BCED89C4-1971-493F-8C34-F8FC10B6FBF4}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

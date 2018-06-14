@@ -637,7 +637,7 @@ struct pbr_renderer_t : public application_t
     render::presentFrame(&context, &renderComplete_, 1u);
   }
 
-  virtual void onKeyEvent(window::key_e key, bool pressed)
+  void onKeyEvent(window::key_e key, bool pressed)
   {
     if (pressed)
     {
