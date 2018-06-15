@@ -224,6 +224,10 @@ static const char* gComputeShader = R"(
         particlesState.data[particleIndex].velocity.xyz = mix( globals.initialVelocity_.x, globals.initialVelocity_.y, rand() )  * emissionDirection;
         
       }
+      else
+      {
+        particles.data[particleIndex].scale = 0;
+      }
     }
     else
     {
@@ -278,7 +282,7 @@ public:
    camera_(vec3(0.0f,20.0f,0.0f), 50.0f, vec2(0.0f, 0.0f), 0.01f),
    emissionRate_(10000)
   {
-    particleSystem_.maxParticleCount_ = 750000;
+    particleSystem_.maxParticleCount_ = 75000;
     particleSystem_.particleMaxAge_ = 6.0f;
     particleSystem_.emissionVolume_ = vec3(0.0f, 0.0f, 0.0f);
     particleSystem_.gravity_ = 9.8f;
@@ -416,7 +420,7 @@ public:
     render::gpuBufferUpdate(context, (void*)&matrices, 0, sizeof(matrices), &globalUnifomBuffer_);
     render::presentFrame(&context);
 
-    particleSystem_.deltaTime_ = getTimeDelta() / 1000.0f;
+    particleSystem_.deltaTime_ = min(0.033f, getTimeDelta() / 1000.0f);
     static float particlesToEmit = 0.0f;
     particleSystem_.particlesToEmit_ = 0;
     particlesToEmit += emissionRate_ * particleSystem_.deltaTime_;
@@ -456,6 +460,18 @@ public:
         break;
       }
 
+      case 'r':
+      {
+        render::context_t& context = getRenderContext();
+        render::contextFlush(context);
+        std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
+        for (u32 i(0); i < particleSystem_.maxParticleCount_; ++i)
+        {
+          particlesState[i].age = -1.0f;
+        }
+        render::gpuBufferUpdate(context, particlesState.data(), 0u, sizeof(particle_state_t)* particleSystem_.maxParticleCount_, &particleStateBuffer_);
+        break;
+      }
       default:
         break;
       }
