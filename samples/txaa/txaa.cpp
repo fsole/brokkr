@@ -31,6 +31,7 @@
 #include "timer.h"
 #include "transform-manager.h"
 #include "packed-freelist.h"
+#include "gui.h"
 
 using namespace bkk;
 using namespace maths;
@@ -365,6 +366,8 @@ struct TXAA_sample_t : public application_t
     render::context_t& context = getRenderContext();
     uvec2 size = getWindowSize();
 
+    gui::init(context);
+
     //Create allocator for uniform buffers and meshes
     render::gpuAllocatorCreate(context, 100 * 1024 * 1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_);
 
@@ -440,7 +443,6 @@ struct TXAA_sample_t : public application_t
     bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
     
     initializeOffscreenPass(context, size);
-    buildPresentationCommandBuffers();
   }
 
   bkk::handle_t addQuadMesh()
@@ -578,7 +580,10 @@ struct TXAA_sample_t : public application_t
       render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
     }
 
+    createGuiFrame(context);
+
     buildAndSubmitCommandBuffer();
+    buildPresentationCommandBuffers();
     render::presentFrame(&context, &txaaResolveComplete_, 1u);
 
     currentFrame_++;
@@ -625,11 +630,21 @@ struct TXAA_sample_t : public application_t
     }
   }
 
-  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos, bool buttonPressed)
+  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos)
   {
-    if (buttonPressed)
+    gui::updateMousePosition(mousePos.x, mousePos.y);
+    if (getMousePressedButton() == window::MOUSE_RIGHT)
     {
       camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
+    }
+  }
+
+  void onMouseButton(u32 button, bool pressed, const maths::vec2& mousePos, const maths::vec2& mousePrevPos)
+  {
+    gui::updateMousePosition(mousePos.x, mousePos.y);
+    if (button == window::MOUSE_LEFT)
+    {
+      gui::updateMouseButton(button, pressed);
     }
   }
 
@@ -637,6 +652,7 @@ struct TXAA_sample_t : public application_t
   {
 
     render::context_t& context = getRenderContext();
+    render::contextFlush(context);
 
     //Destroy meshes
     packed_freelist_iterator_t<mesh::mesh_t> meshIter = mesh_.begin();
@@ -731,6 +747,8 @@ struct TXAA_sample_t : public application_t
     render::pipelineLayoutDestroy(context, &txaaResolvePipelineLayout_);
     render::graphicsPipelineDestroy(context, &txaaResolvePipeline_);
     render::commandBufferDestroy(context, &txaaResolveCommandBuffer_);
+
+    gui::destroy(context);
   }
 
 private:
@@ -1022,8 +1040,22 @@ private:
       bkk::render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
       bkk::render::descriptorSetBindForGraphics(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_, 1u);
       bkk::mesh::draw(commandBuffers[i], fullScreenQuad_);
+
+      gui::draw(context, commandBuffers[i]);
+
       bkk::render::endPresentationCommandBuffer(context, i);
     }
+  }
+
+  void createGuiFrame(const bkk::render::context_t& context)
+  {
+    gui::beginFrame(context);
+
+    ImGui::Begin("Controls");
+    ImGui::Checkbox("TXAA Enabled", &bTemporalAA_);
+    ImGui::End();
+
+    gui::endFrame();
   }
 
 private:

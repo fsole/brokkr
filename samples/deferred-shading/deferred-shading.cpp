@@ -31,6 +31,7 @@
 #include "transform-manager.h"
 #include "packed-freelist.h"
 #include "camera.h"
+#include "gui.h"
 
 using namespace bkk;
 using namespace maths;
@@ -312,6 +313,8 @@ struct deferred_shading_sample_t : public application_t
     render::context_t& context = getRenderContext();
     uvec2 size = getWindowSize();
 
+    gui::init(context);
+
     //Create allocator for uniform buffers and meshes
     render::gpuAllocatorCreate(context, 100 * 1024 * 1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_);
 
@@ -387,8 +390,7 @@ struct deferred_shading_sample_t : public application_t
     pipelineDesc.fragmentShader_ = presentationFragmentShader_;
     bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
 
-    initializeOffscreenPass(context, size);
-    buildPresentationCommandBuffers();
+    initializeOffscreenPass(context, size);    
   }
 
   bkk::handle_t addQuadMesh()
@@ -511,6 +513,9 @@ struct deferred_shading_sample_t : public application_t
       render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
     }
     
+    createGuiFrame(context);
+
+    buildPresentationCommandBuffers();
     buildAndSubmitCommandBuffer();        
     render::presentFrame( &context, &renderComplete_, 1u);
   }
@@ -566,18 +571,28 @@ struct deferred_shading_sample_t : public application_t
     }
   }
 
-  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos, bool buttonPressed)
+  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos)
   {
-    if (buttonPressed)
+    gui::updateMousePosition(mousePos.x, mousePos.y);
+    if (getMousePressedButton() == window::MOUSE_RIGHT)
     {
       camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
     }
   }
 
-  void onQuit()
+  void onMouseButton(u32 button, bool pressed, const maths::vec2& mousePos, const maths::vec2& mousePrevPos)
   {
-   
+    gui::updateMousePosition(mousePos.x, mousePos.y);
+    if (button == window::MOUSE_LEFT)
+    {
+      gui::updateMouseButton(button, pressed);
+    }
+  }
+
+  void onQuit()
+  {   
     render::context_t& context = getRenderContext();
+    render::contextFlush(context);
 
     //Destroy meshes
     packed_freelist_iterator_t<mesh::mesh_t> meshIter = mesh_.begin();
@@ -660,6 +675,8 @@ struct deferred_shading_sample_t : public application_t
     render::gpuAllocatorDestroy(context, &allocator_);
     render::descriptorPoolDestroy(context, &descriptorPool_);
     render::semaphoreDestroy( context, renderComplete_);
+
+    gui::destroy(context);
   }
   
 private:
@@ -877,6 +894,9 @@ private:
       bkk::render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
       bkk::render::descriptorSetBindForGraphics(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
       bkk::mesh::draw(commandBuffers[i], fullScreenQuad_);
+
+      bkk::gui::draw(context, commandBuffers[i]);
+
       bkk::render::endPresentationCommandBuffer(context, i);
     }
   }
@@ -911,6 +931,17 @@ private:
 
       lights[i].uniforms_.position_ = vec4(maths::cubicInterpolation(p0, p1, p2, p3, f), 1.0);
     }
+  }
+
+  void createGuiFrame(const bkk::render::context_t& context)
+  {
+    gui::beginFrame(context);
+
+    ImGui::Begin("Controls");
+    ImGui::Checkbox("Animate Lights", &bAnimateLights_);
+    ImGui::End();
+
+    gui::endFrame();
   }
 
 private:

@@ -667,6 +667,8 @@ VkCommandBuffer render::beginPresentationCommandBuffer(const context_t& context,
   }
   renderPassBeginInfo.clearValueCount = 2;
 
+  vkWaitForFences(context.device_, 1, &context.swapChain_.frameFence_[index], VK_TRUE, UINT64_MAX);
+
   //Begin command buffer
   vkBeginCommandBuffer(context.swapChain_.commandBuffer_[index], &beginInfo);
 
@@ -705,7 +707,7 @@ void render::presentFrame(context_t* context, VkSemaphore* waitSemaphore, uint32
 
   uint32_t currentImage = context->swapChain_.currentImage_;
 
-  //Submit current command buffer
+  //Submit current command buffer  
   std::vector<VkSemaphore> waitSemaphoreList(1 + waitSemaphoreCount);
   std::vector<VkPipelineStageFlags> waitStageList(1 + waitSemaphoreCount);
   waitSemaphoreList[0] = context->swapChain_.imageAcquired_;
@@ -715,8 +717,8 @@ void render::presentFrame(context_t* context, VkSemaphore* waitSemaphore, uint32
     waitSemaphoreList[i+1] = waitSemaphore[i];
     waitStageList[i+1] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
   }
-  VkSubmitInfo submitInfo = {};
   
+  VkSubmitInfo submitInfo = {};  
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.waitSemaphoreCount = (uint32_t)waitSemaphoreList.size();
   submitInfo.pWaitSemaphores = waitSemaphoreList.data();	      //Wait until image is aquired
@@ -726,7 +728,7 @@ void render::presentFrame(context_t* context, VkSemaphore* waitSemaphore, uint32
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &context->swapChain_.commandBuffer_[currentImage];
   vkQueueSubmit(context->graphicsQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
-
+  
   //Present the image
   VkPresentInfoKHR presentInfo = {};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -2131,13 +2133,15 @@ void render::setScissor(const command_buffer_t& commandBuffer, int32_t x, int32_
 static const VkFormat AttributeFormatLUT[] = { VK_FORMAT_R32_SINT, VK_FORMAT_R32_UINT, VK_FORMAT_R32_SFLOAT,
                                                VK_FORMAT_R32G32_SINT, VK_FORMAT_R32G32_UINT, VK_FORMAT_R32G32_SFLOAT,
                                                VK_FORMAT_R32G32B32_SINT, VK_FORMAT_R32G32B32_UINT, VK_FORMAT_R32G32B32_SFLOAT,
-                                               VK_FORMAT_R32G32B32A32_SINT, VK_FORMAT_R32G32B32A32_UINT, VK_FORMAT_R32G32B32A32_SFLOAT 
+                                               VK_FORMAT_R32G32B32A32_SINT, VK_FORMAT_R32G32B32A32_UINT, VK_FORMAT_R32G32B32A32_SFLOAT,
+                                               VK_FORMAT_R8G8B8A8_UNORM
                                              };
 
 static const uint32_t AttributeFormatSizeLUT[] = { 4u, 4u, 4u, 
                                                    8u, 8u, 8u, 
                                                    12u, 12u, 12u, 
-                                                   16u, 16u, 16u
+                                                   16u, 16u, 16u,
+                                                   4u
                                                  };
 
 void render::vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attributeCount, vertex_format_t* format)

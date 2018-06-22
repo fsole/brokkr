@@ -77,7 +77,7 @@ application_t::application_t(const char* title, u32 width, u32 height, u32 image
 :timeDelta_(0),
  mouseCurrentPos_(0.0f,0.0f),
  mousePrevPos_(0.0f,0.0f),
- mouseButtonPressed_(false)
+ mouseButtonPressed_(-1)
 {
   window_ = new window::window_t();
   context_ = new render::context_t();
@@ -138,10 +138,10 @@ void application_t::loop()
       {
         window::event_mouse_button_t* buttonEvent = (window::event_mouse_button_t*)event;
 
-        mouseButtonPressed_ = buttonEvent->pressed_;
+        mouseButtonPressed_ = buttonEvent->pressed_ ? buttonEvent->button_ : -1;
         vec2 prevPos = mouseCurrentPos_;
         mouseCurrentPos_ = vec2((float)buttonEvent->x_, (float)buttonEvent->y_);
-        onMouseButton(buttonEvent->pressed_, mouseCurrentPos_, mousePrevPos_);
+        onMouseButton(buttonEvent->button_, buttonEvent->pressed_, mouseCurrentPos_, mousePrevPos_);
         mousePrevPos_ = prevPos;
         break;
       }
@@ -150,7 +150,7 @@ void application_t::loop()
         window::event_mouse_move_t* moveEvent = (window::event_mouse_move_t*)event;
         vec2 prevPos = mouseCurrentPos_;
         mouseCurrentPos_ = vec2((float)moveEvent->x_, (float)moveEvent->y_);
-        onMouseMove(mouseCurrentPos_, mouseCurrentPos_ - mousePrevPos_, mouseButtonPressed_);
+        onMouseMove(mouseCurrentPos_, mouseCurrentPos_ - mousePrevPos_ );
         mousePrevPos_ = prevPos;
         break;
       }

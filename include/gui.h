@@ -22,29 +22,28 @@
 * SOFTWARE.
 */
 
-#ifndef IMAGE_H
-#define IMAGE_H
+#ifndef GUI_H
+#define GUI_H
 
-#include <cstdint>
-#include <cstddef>
+#include "render.h"
+#include "../external/imgui/imgui.h"
 
 namespace bkk
 {
-  namespace image
+  namespace gui
   {
-    struct image2D_t
-    {
-      uint32_t width_;
-      uint32_t height_;
-      uint32_t componentCount_;
-      uint32_t componentSize_;
-      uint32_t dataSize_;
-      uint8_t* data_;
-    };
+    void init(const bkk::render::context_t& context);
+    void destroy(const bkk::render::context_t& context);
 
-    bool load(const char* path, bool flipVertical, image2D_t* image);
-    void unload(image2D_t* image);
-  } //namespace image
-}//namespace bkk
+    void beginFrame(const bkk::render::context_t& context);
+    void endFrame();
+    void draw(const bkk::render::context_t& context, VkCommandBuffer commandBuffer);
 
-#endif /* IMAGE_H */
+    void updateMousePosition(float x, float y);
+    void updateMouseButton(uint32_t button, bool pressed);
+  }
+}
+
+
+#endif
+

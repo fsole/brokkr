@@ -243,9 +243,9 @@ public:
     }
   }
 
-  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos, bool buttonPressed)
+  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos)
   {
-    if (buttonPressed)
+    if(getMousePressedButton() > -1 )
     {
       camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
     }

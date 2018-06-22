@@ -30,6 +30,7 @@
 #include "maths.h"
 #include "timer.h"
 #include "camera.h"
+#include "gui.h"
 
 using namespace bkk;
 using namespace maths;
@@ -39,7 +40,6 @@ static const char* gVertexShaderSource = R"(
 
   layout(location = 0) in vec3 aPosition;
   layout(location = 1) in vec3 aNormal;
-  layout(location = 2) in vec2 aTextCoord;
 
   struct particle_t
   {
@@ -87,12 +87,9 @@ static const char* gVertexShaderSource = R"(
   }
 
   layout(location = 0) out vec4 color;
-  layout(location = 1) out vec2 uv;
   void main(void)
   { 
-    color = particles.data[gl_InstanceIndex].color;
-    uv = aTextCoord;    
-      
+    color = particles.data[gl_InstanceIndex].color;      
     mat3 rotation = rotationFromEuler(particles.data[gl_InstanceIndex].angle);
     vec3 localPosition = aPosition.xyz * rotation * particles.data[gl_InstanceIndex].scale + particles.data[gl_InstanceIndex].position;
     gl_Position = uniforms.modelViewProjection * vec4(localPosition, 1.0);
@@ -102,9 +99,7 @@ static const char* gVertexShaderSource = R"(
 
 static const char* gFragmentShaderSource = R"(
   #version 440 core
-
   layout(location = 0) in vec4 color;
-  layout(location = 1) in vec2 uv;
   layout(location = 0) out vec4 result;
   void main(void)
   {
@@ -449,6 +444,8 @@ public:
     projectionTx_ = perspectiveProjectionMatrix(1.5f, getWindow().width_ / (float)getWindow().height_, 1.0f, 1000.0f);
     modelTx_ = createTransform(vec3(0.0, 0.0, 0.0), VEC3_ONE, QUAT_UNIT);
 
+    gui::init(context);
+
     //Create particle mesh
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_ALL, nullptr, 0u, &mesh_);
 
@@ -522,13 +519,13 @@ public:
     pipelineDesc.fragmentShader_ = fragmentShader_;
     render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
 
-    buildCommandBuffers();
     initializeCompute();
   }
 
   void onQuit()
   {
     render::context_t& context = getRenderContext();
+    render::contextFlush(context);
 
     mesh::destroy(context, &mesh_);
 
@@ -558,6 +555,8 @@ public:
     render::commandBufferDestroy(context, &computeDensityCommandBuffer_);
 
     render::descriptorPoolDestroy(context, &descriptorPool_);
+
+    gui::destroy(context);
   }
 
   void render()
@@ -569,6 +568,8 @@ public:
     matrices[0] = modelTx_ * camera_.view_;
     matrices[1] = matrices[0] * projectionTx_;
     render::gpuBufferUpdate(context, (void*)&matrices, 0, sizeof(matrices), &globalUnifomBuffer_);
+    createGuiFrame(context);
+    buildCommandBuffers();
     render::presentFrame(&context);
 
     particleSystem_.deltaTime = min( 0.033f, getTimeDelta() / 1000.0f );
@@ -592,6 +593,20 @@ public:
     projectionTx_ = perspectiveProjectionMatrix(1.5f, width / (float)height, 1.0f, 1000.0f);
   }
 
+  void restartSimulation()
+  {
+    render::context_t& context = getRenderContext();
+    render::contextFlush(context);
+    std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount);
+    for (u32 i(0); i < particleSystem_.maxParticleCount; ++i)
+    {
+      particlesState[i].age = -1.0f;
+      particlesState[i].density = 0.0f;
+    }
+    render::gpuBufferUpdate(context, particlesState.data(), 0u, sizeof(particle_state_t)* particleSystem_.maxParticleCount, &particleStateBuffer_);
+    render::gpuBufferUpdate(context, (void*)&particleSystem_, 0u, sizeof(particle_system_t), &particleGlobalsBuffer_);
+  }
+
   void onKeyEvent(window::key_e key, bool pressed)
   {
     if (pressed)
@@ -613,15 +628,7 @@ public:
       
       case 'r':
       {
-        render::context_t& context = getRenderContext();
-        render::contextFlush(context);
-        std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount);
-        for (u32 i(0); i < particleSystem_.maxParticleCount; ++i)
-        {
-          particlesState[i].age = -1.0f;
-          particlesState[i].density = 0.0f;
-        }
-        render::gpuBufferUpdate(context, particlesState.data(), 0u, sizeof(particle_state_t)* particleSystem_.maxParticleCount, &particleStateBuffer_);
+        restartSimulation();
         break;
       }
       default:
@@ -630,11 +637,21 @@ public:
     }
   }
 
-  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos, bool buttonPressed)
+  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos)
   {
-    if (buttonPressed)
+    gui::updateMousePosition(mousePos.x, mousePos.y);
+    if (getMousePressedButton() == window::MOUSE_RIGHT)
     {
       camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
+    }
+  }
+
+  void onMouseButton(u32 button, bool pressed, const maths::vec2& mousePos, const maths::vec2& mousePrevPos)
+  {
+    gui::updateMousePosition(mousePos.x, mousePos.y);
+    if (button == window::MOUSE_LEFT)
+    {
+      gui::updateMouseButton(button, pressed);
     }
   }
 
@@ -654,6 +671,8 @@ public:
       bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline_);
       bkk::render::descriptorSetBindForGraphics(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
       mesh::drawInstanced(commandBuffers[i], particleSystem_.maxParticleCount, nullptr, 0u, mesh_);
+
+      gui::draw(context, commandBuffers[i]);
       render::endPresentationCommandBuffer(context, i);
     }
   }
@@ -699,15 +718,27 @@ public:
     bkk::render::descriptorSetBindForCompute(updateParticlesCommandBuffer_.handle_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);    
     vkCmdDispatch(updateParticlesCommandBuffer_.handle_, groupSizeX, 1, 1);
     render::commandBufferEnd(updateParticlesCommandBuffer_);
+  }
 
+  void createGuiFrame(const bkk::render::context_t& context)
+  {
+    gui::beginFrame(context);
+
+    ImGui::Begin("Controls");
+    ImGui::SliderFloat("viscosity", &particleSystem_.viscosityCoefficient, 0.0f, 10.0f);
+    ImGui::SliderFloat("pressure", &particleSystem_.pressureCoefficient, 0.0f, 500.0f);
+    ImGui::SliderFloat("referenceDensity", &particleSystem_.referenceDensity, 0.0f, 10.0f);
+    if (ImGui::Button("Reset")){ restartSimulation(); }
+
+    ImGui::End();
+
+    gui::endFrame();
   }
 
 private:
 
   particle_system_t particleSystem_;
-
   render::descriptor_pool_t descriptorPool_;
-
   render::descriptor_set_t descriptorSet_;
   render::graphics_pipeline_t pipeline_;
   render::shader_t vertexShader_;

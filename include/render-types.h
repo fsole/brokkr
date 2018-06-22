@@ -187,7 +187,7 @@ namespace bkk
       };
 
       VkBuffer handle_;
-      gpu_memory_t memory_;
+      gpu_memory_t memory_ = {};
       uint32_t usage_;
       VkDescriptorBufferInfo descriptor_;
     };
@@ -332,6 +332,7 @@ namespace bkk
         SVEC4 = 9,
         UVEC4 = 10,
         VEC4 = 11,
+        COLOR = 12,
         ATTRIBUTE_FORMAT_COUNT
       };
 

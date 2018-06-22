@@ -48,10 +48,7 @@ orbiting_camera_t::orbiting_camera_t(const maths::vec3& target, const f32 offset
 void orbiting_camera_t::Move(f32 amount)
 {
   offset_ += amount;
-  if (offset_ < 0.0f)
-  {
-    offset_ = 0.0f;
-  }
+  offset_ = maths::clamp(0.0f, offset_, offset_);
 
   Update();
 }

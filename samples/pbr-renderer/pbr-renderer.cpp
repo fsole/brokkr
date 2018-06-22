@@ -32,7 +32,6 @@
 #include "packed-freelist.h"
 #include "camera.h"
 
-
 using namespace bkk;
 using namespace maths;
 
@@ -484,7 +483,7 @@ struct pbr_renderer_t : public application_t
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
 
     //Load environment map
-    bkk::image::image2D_t image;
+    bkk::image::image2D_t image = {};
     bkk::image::load("../resources/Tropical_Beach_3k.hdr", true, &image);
 
     //Create cubemaps and brdf lut
@@ -673,9 +672,9 @@ struct pbr_renderer_t : public application_t
     }
   }
 
-  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos, bool buttonPressed)
-  {
-    if (buttonPressed)
+  void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos)
+  { 
+    if (getMousePressedButton() > -1 )
     {
       camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
     }
@@ -684,6 +683,7 @@ struct pbr_renderer_t : public application_t
   void onQuit()
   {
     render::context_t& context = getRenderContext();
+    render::contextFlush(context);
 
     //Destroy meshes
     packed_freelist_iterator_t<mesh::mesh_t> meshIter = mesh_.begin();
@@ -719,7 +719,6 @@ struct pbr_renderer_t : public application_t
       render::descriptorSetDestroy(context, &lightIter.get().descriptorSet_);
       ++lightIter;
     }
-
 
     render::shaderDestroy(context, &gBufferVertexShader_);
     render::shaderDestroy(context, &gBufferFragmentShader_);

@@ -25,7 +25,7 @@
 #include "image.h"
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_STATIC
-#include "stb-image.h"
+#include "stb_image.h"
 #include <iostream>
 
 using namespace bkk;

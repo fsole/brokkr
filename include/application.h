@@ -52,12 +52,15 @@ namespace bkk
 
       f32 getTimeDelta();
 
+      maths::vec2 getMousePosition() { return mouseCurrentPos_; }
+      s32 getMousePressedButton() { return mouseButtonPressed_; }
+
       //Callbacks
       virtual void onQuit() {}
       virtual void onResize(u32 width, u32 height) {}
       virtual void onKeyEvent(window::key_e key, bool pressed) {}
-      virtual void onMouseButton(bool pressed, const maths::vec2& mousePos, const maths::vec2& mousePrevPos) {}
-      virtual void onMouseMove(const maths::vec2& mousePos, const maths::vec2& mouseDeltaPos, bool buttonPressed) {}
+      virtual void onMouseButton(u32 button, bool pressed, const maths::vec2& mousePos, const maths::vec2& mousePrevPos) {}
+      virtual void onMouseMove(const maths::vec2& mousePos, const maths::vec2& mouseDeltaPos ) {}
       virtual void render() {}
 
     private:
@@ -67,10 +70,12 @@ namespace bkk
       float timeDelta_;
       maths::vec2 mouseCurrentPos_;
       maths::vec2 mousePrevPos_;
-      bool mouseButtonPressed_;
+      s32 mouseButtonPressed_;
 
       struct frame_counter_t;
       frame_counter_t* frameCounter_;
+
+      application_t();
   };
 }
 

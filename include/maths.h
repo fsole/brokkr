@@ -82,13 +82,13 @@ namespace bkk
     template <typename T>
     inline T saturate(const T& value)
     {
-      return min(max(value, T(0.0)), T(1.0));
+      return minValue(maxValue(value, T(0.0)), T(1.0));
     }
 
     template <typename T>
-    inline T clamp(const T& minValue, const T& maxValue, const T& value)
+    inline T clamp(const T& a, const T& b, const T& value)
     {
-      return min(max(value, minValue), maxValue);
+      return minValue(maxValue(value, a), b);
     }
 
     template <typename T>
