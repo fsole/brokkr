@@ -500,9 +500,9 @@ void mesh::destroy(const render::context_t& context, mesh_t* mesh, render::gpu_m
   vertexFormatDestroy(&mesh->vertexFormat_);
 }
 
-void mesh::draw(VkCommandBuffer commandBuffer, const mesh_t& mesh)
+void mesh::draw(render::command_buffer_t commandBuffer, const mesh_t& mesh)
 {
-  vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
+  vkCmdBindIndexBuffer(commandBuffer.handle_, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
 
   uint32_t attributeCount = mesh.vertexFormat_.attributeCount_;
   std::vector<VkBuffer> buffers(attributeCount);
@@ -513,13 +513,13 @@ void mesh::draw(VkCommandBuffer commandBuffer, const mesh_t& mesh)
     offsets[i] = 0u;
   }
 
-  vkCmdBindVertexBuffers(commandBuffer, 0, attributeCount, &buffers[0], &offsets[0]);
-  vkCmdDrawIndexed(commandBuffer, mesh.indexCount_, 1, 0, 0, 0);
+  vkCmdBindVertexBuffers(commandBuffer.handle_, 0, attributeCount, &buffers[0], &offsets[0]);
+  vkCmdDrawIndexed(commandBuffer.handle_, mesh.indexCount_, 1, 0, 0, 0);
 }
 
-void mesh::drawInstanced(VkCommandBuffer commandBuffer, u32 instanceCount, render::gpu_buffer_t* instanceBuffer, u32 instancedAttributesCount, const mesh_t& mesh)
+void mesh::drawInstanced(bkk::render::command_buffer_t commandBuffer, u32 instanceCount, render::gpu_buffer_t* instanceBuffer, u32 instancedAttributesCount, const mesh_t& mesh)
 {
-  vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
+  vkCmdBindIndexBuffer(commandBuffer.handle_, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
 
   uint32_t attributeCount = mesh.vertexFormat_.attributeCount_;
   std::vector<VkBuffer> buffers(attributeCount);
@@ -529,7 +529,7 @@ void mesh::drawInstanced(VkCommandBuffer commandBuffer, u32 instanceCount, rende
     buffers[i] = mesh.vertexBuffer_.handle_;
     offsets[i] = 0u;
   }
-  vkCmdBindVertexBuffers(commandBuffer, 0, attributeCount, &buffers[0], &offsets[0]);
+  vkCmdBindVertexBuffers(commandBuffer.handle_, 0, attributeCount, &buffers[0], &offsets[0]);
 
   if (instancedAttributesCount > 0 && instanceBuffer)
   {
@@ -540,11 +540,11 @@ void mesh::drawInstanced(VkCommandBuffer commandBuffer, u32 instanceCount, rende
       instancedBuffers[i] = instanceBuffer->handle_;
       instancedOffsets[i] = 0u;
     }
-    vkCmdBindVertexBuffers(commandBuffer, attributeCount, instancedAttributesCount, &instancedBuffers[0], &instancedOffsets[0]);
+    vkCmdBindVertexBuffers(commandBuffer.handle_, attributeCount, instancedAttributesCount, &instancedBuffers[0], &instancedOffsets[0]);
   }
 
   //Draw command
-  vkCmdDrawIndexed(commandBuffer, mesh.indexCount_, instanceCount, 0, 0, 0);
+  vkCmdDrawIndexed(commandBuffer.handle_, mesh.indexCount_, instanceCount, 0, 0, 0);
 };
 
 

@@ -607,7 +607,7 @@ public:
     render::gpuBufferUpdate(context, (void*)&particleSystem_, 0u, sizeof(particle_system_t), &particleGlobalsBuffer_);
   }
 
-  void onKeyEvent(window::key_e key, bool pressed)
+  void onKeyEvent(u32 key, bool pressed)
   {
     if (pressed)
     {
@@ -663,7 +663,7 @@ public:
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
 
     clearValues[1].depthStencil = { 1.0f,0 };
-    const VkCommandBuffer* commandBuffers;
+    const render::command_buffer_t* commandBuffers;
     uint32_t count = render::getPresentationCommandBuffers(context, &commandBuffers);
     for (uint32_t i(0); i<count; ++i)
     {
@@ -702,9 +702,9 @@ public:
     //Build computeDensity command buffer
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &computeDensityCommandBuffer_);
     render::commandBufferBegin(context, computeDensityCommandBuffer_);
-    bkk::render::computePipelineBind(computeDensityCommandBuffer_.handle_, computeDensityPipeline_);
-    bkk::render::descriptorSetBindForCompute(computeDensityCommandBuffer_.handle_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
-    vkCmdDispatch(computeDensityCommandBuffer_.handle_, groupSizeX, 1, 1);
+    bkk::render::computePipelineBind(computeDensityCommandBuffer_, computeDensityPipeline_);
+    bkk::render::descriptorSetBindForCompute(computeDensityCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
+    bkk::render::computeDispatch(computeDensityCommandBuffer_, groupSizeX, 1u, 1u);
     render::commandBufferEnd(computeDensityCommandBuffer_);
 
     //Create updateParticle pipeline
@@ -714,9 +714,9 @@ public:
     //Build updateParticle command buffer
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &updateParticlesCommandBuffer_);
     render::commandBufferBegin(context, updateParticlesCommandBuffer_);
-    bkk::render::computePipelineBind(updateParticlesCommandBuffer_.handle_, updateParticlesComputePipeline_);
-    bkk::render::descriptorSetBindForCompute(updateParticlesCommandBuffer_.handle_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);    
-    vkCmdDispatch(updateParticlesCommandBuffer_.handle_, groupSizeX, 1, 1);
+    bkk::render::computePipelineBind(updateParticlesCommandBuffer_, updateParticlesComputePipeline_);
+    bkk::render::descriptorSetBindForCompute(updateParticlesCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);    
+    bkk::render::computeDispatch(updateParticlesCommandBuffer_, groupSizeX, 1u, 1u);
     render::commandBufferEnd(updateParticlesCommandBuffer_);
   }
 

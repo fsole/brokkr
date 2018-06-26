@@ -165,7 +165,7 @@ public:
     buildPresentationCommandBuffers();
   }
 
-  void onKeyEvent(window::key_e key, bool pressed)
+  void onKeyEvent(u32 key, bool pressed)
   {
     if (pressed)
     {
@@ -382,7 +382,7 @@ private:
   void buildPresentationCommandBuffers()
   {
     render::context_t& context = getRenderContext();
-    const VkCommandBuffer* commandBuffers;
+    const bkk::render::command_buffer_t* commandBuffers;
     uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
     for (uint32_t i(0); i<count; ++i)
     {
@@ -399,14 +399,12 @@ private:
     render::context_t& context = getRenderContext();
 
     //Build compute command buffer
+
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &computeCommandBuffer_);
     render::commandBufferBegin(context, computeCommandBuffer_);
-    bkk::render::computePipelineBind(computeCommandBuffer_.handle_, computePipeline_);
-    bkk::render::descriptorSetBindForCompute(computeCommandBuffer_.handle_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
-
-    u32 groupSizeX = (imageSize_.x + 15) / 16;
-    u32 groupSizeY = (imageSize_.y + 15) / 16;
-    vkCmdDispatch(computeCommandBuffer_.handle_, groupSizeX, groupSizeY, 1);
+    bkk::render::computePipelineBind(computeCommandBuffer_, computePipeline_);
+    bkk::render::descriptorSetBindForCompute(computeCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
+    bkk::render::computeDispatch(computeCommandBuffer_, (imageSize_.x + 15) / 16, (imageSize_.y + 15) / 16, 1);
     render::commandBufferEnd(computeCommandBuffer_);
   }
 

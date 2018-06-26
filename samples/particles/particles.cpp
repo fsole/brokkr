@@ -441,7 +441,7 @@ public:
     projectionTx_ = perspectiveProjectionMatrix(1.5f, width / (float)height, 1.0f, 1000.0f);
   }
 
-  void onKeyEvent(window::key_e key, bool pressed)
+  void onKeyEvent(u32 key, bool pressed)
   {
     if (pressed)
     {
@@ -494,7 +494,7 @@ public:
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
 
     clearValues[1].depthStencil = { 1.0f,0 };
-    const VkCommandBuffer* commandBuffers;
+    const bkk::render::command_buffer_t* commandBuffers;
     uint32_t count = render::getPresentationCommandBuffers(context, &commandBuffers);
     for (uint32_t i(0); i<count; ++i)
     {
@@ -529,10 +529,10 @@ public:
     //Build compute command buffer
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &computeCommandBuffer_);
     render::commandBufferBegin(context, computeCommandBuffer_);
-    bkk::render::computePipelineBind(computeCommandBuffer_.handle_, computePipeline_);
-    bkk::render::descriptorSetBindForCompute(computeCommandBuffer_.handle_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
+    bkk::render::computePipelineBind(computeCommandBuffer_, computePipeline_);
+    bkk::render::descriptorSetBindForCompute(computeCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
     u32 groupSizeX = (particleSystem_.maxParticleCount_ + 63) / 64;
-    vkCmdDispatch(computeCommandBuffer_.handle_, groupSizeX, 1, 1);
+    bkk::render::computeDispatch(computeCommandBuffer_, groupSizeX, 1, 1);
     render::commandBufferEnd(computeCommandBuffer_);
   }
 

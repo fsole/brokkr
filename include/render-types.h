@@ -79,6 +79,7 @@ namespace bkk
       VkSurfaceTransformFlagBitsKHR preTransform_;
     };
 
+    struct command_buffer_t;
     struct swapchain_t
     {
       VkSwapchainKHR handle_;
@@ -93,9 +94,9 @@ namespace bkk
       depth_stencil_buffer_t depthStencil_;
 
       std::vector<VkFramebuffer> frameBuffer_;
-      std::vector<VkCommandBuffer> commandBuffer_;
-      std::vector<VkFence> frameFence_;
-
+      //std::vector<VkCommandBuffer> commandBuffer_;
+      std::vector<command_buffer_t> commandBuffer_;
+      
       VkRenderPass renderPass_;
 
       VkSemaphore imageAcquired_;

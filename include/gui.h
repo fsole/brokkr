@@ -37,7 +37,7 @@ namespace bkk
 
     void beginFrame(const bkk::render::context_t& context);
     void endFrame();
-    void draw(const bkk::render::context_t& context, VkCommandBuffer commandBuffer);
+    void draw(const bkk::render::context_t& context, bkk::render::command_buffer_t commandBuffer);
 
     void updateMousePosition(float x, float y);
     void updateMouseButton(uint32_t button, bool pressed);

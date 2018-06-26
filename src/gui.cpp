@@ -202,7 +202,7 @@ void bkk::gui::endFrame()
 }
 
 
-void bkk::gui::draw(const bkk::render::context_t& context, VkCommandBuffer commandBuffer)
+void bkk::gui::draw(const bkk::render::context_t& context, bkk::render::command_buffer_t commandBuffer)
 {
   ImDrawData* draw_data = ImGui::GetDrawData();
   size_t vertex_size = draw_data->TotalVtxCount * sizeof(ImDrawVert);
@@ -254,8 +254,8 @@ void bkk::gui::draw(const bkk::render::context_t& context, VkCommandBuffer comma
   
   VkBuffer vertex_buffers[3] = { gGuiContext.vertexBuffer_.handle_,gGuiContext.vertexBuffer_.handle_,gGuiContext.vertexBuffer_.handle_ };
   VkDeviceSize vertex_offsets[3] = {};
-  vkCmdBindVertexBuffers(commandBuffer, 0, 3, vertex_buffers, vertex_offsets);
-  vkCmdBindIndexBuffer(commandBuffer, gGuiContext.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT16);
+  vkCmdBindVertexBuffers(commandBuffer.handle_, 0, 3, vertex_buffers, vertex_offsets);
+  vkCmdBindIndexBuffer(commandBuffer.handle_, gGuiContext.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT16);
 
   gGuiContext.scaleAndOffset_.x = 2.0f / draw_data->DisplaySize.x;
   gGuiContext.scaleAndOffset_.y = 2.0f / draw_data->DisplaySize.y;
@@ -288,10 +288,10 @@ void bkk::gui::draw(const bkk::render::context_t& context, VkCommandBuffer comma
         scissor.offset.y = (int32_t)(pcmd->ClipRect.y - display_pos.y) > 0 ? (int32_t)(pcmd->ClipRect.y - display_pos.y) : 0;
         scissor.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
         scissor.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y + 1); // FIXME: Why +1 here?
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+        vkCmdSetScissor(commandBuffer.handle_, 0, 1, &scissor);
 
         // Draw
-        vkCmdDrawIndexed(commandBuffer, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
+        vkCmdDrawIndexed(commandBuffer.handle_, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
       }
       indexOffset += pcmd->ElemCount;
     }

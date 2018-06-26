@@ -46,8 +46,8 @@ namespace bkk
     void contextDestroy(context_t* context);
     void contextFlush(const context_t& context);
     void swapchainResize(context_t* context, uint32_t width, uint32_t height);
-    VkCommandBuffer beginPresentationCommandBuffer(const context_t& context, uint32_t index, VkClearValue* clearValues);
-    uint32_t getPresentationCommandBuffers( const context_t& context, const VkCommandBuffer** commandBuffers);
+    void beginPresentationCommandBuffer(const context_t& context, uint32_t index, VkClearValue* clearValues);
+    uint32_t getPresentationCommandBuffers( const context_t& context, const command_buffer_t** commandBuffers);
     void endPresentationCommandBuffer(const context_t& context, uint32_t index);
     void presentFrame(context_t* context, VkSemaphore* waitSemaphore = nullptr, uint32_t waitSemaphoreCount = 0u);
 
@@ -76,9 +76,9 @@ namespace bkk
     void textureCopy(const command_buffer_t& commandBuffer, texture_t* srcTexture, texture_t* dstTexture, 
                      uint32_t width, uint32_t height, uint32_t dstMipmap = 0, uint32_t dstLayer = 0, uint32_t srcMipmap = 0, uint32_t srcLayer = 0);
 
-    void textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture);
-    void textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture);
-    void textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture);
+    void textureChangeLayout(command_buffer_t cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture);
+    void textureChangeLayout(command_buffer_t cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture);
+    void textureChangeLayout(command_buffer_t cmdBuffer, VkImageLayout layout, texture_t* texture);
     
     void textureChangeLayoutNow(const context_t& context, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture);    
     void textureChangeLayoutNow(const context_t& context, VkImageLayout layout, texture_t* texture);
@@ -111,8 +111,8 @@ namespace bkk
     void descriptorSetCreate(const context_t& context, const descriptor_pool_t& descriptorPool, const descriptor_set_layout_t& descriptorSetLayout, descriptor_t* descriptors, descriptor_set_t* descriptorSet);
     void descriptorSetDestroy(const context_t& context, descriptor_set_t* descriptorSet);
     void descriptorSetUpdate(const context_t& context, const descriptor_set_layout_t& descriptorSetLayout, descriptor_set_t* descriptorSet);
-    void descriptorSetBindForGraphics(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount);
-    void descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount);
+    void descriptorSetBindForGraphics(command_buffer_t commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount);
+    void descriptorSetBindForCompute(command_buffer_t commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount);
     void descriptorSetLayoutCreate(const context_t& context, descriptor_binding_t* bindings, uint32_t bindingCount, descriptor_set_layout_t* desriptorSetLayout);
     void descriptorSetLayoutDestroy(const context_t& context, descriptor_set_layout_t* desriptorSetLayout);
     
@@ -130,13 +130,14 @@ namespace bkk
                                 graphics_pipeline_t* pipeline);
 
     void graphicsPipelineDestroy(const context_t& context, graphics_pipeline_t* pipeline);
-    void graphicsPipelineBind( VkCommandBuffer commandBuffer, const graphics_pipeline_t& pipeline);
+    void graphicsPipelineBind(command_buffer_t commandBuffer, const graphics_pipeline_t& pipeline);
 
     void computePipelineCreate(const context_t& context, const pipeline_layout_t& pipelineLayout, const render::shader_t& computeShader, compute_pipeline_t* pipeline);
     void computePipelineDestroy(const context_t& context, compute_pipeline_t* pipeline);
-    void computePipelineBind( VkCommandBuffer commandBuffer, const compute_pipeline_t& pipeline);
+    void computePipelineBind(command_buffer_t commandBuffer, const compute_pipeline_t& pipeline);
+    void computeDispatch(command_buffer_t commandBuffer, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ);
 
-    void pushConstants(VkCommandBuffer commandBuffer, pipeline_layout_t pipelineLayout, uint32_t offset, const void* constant);
+    void pushConstants(command_buffer_t commandBuffer, pipeline_layout_t pipelineLayout, uint32_t offset, const void* constant);
 
     //Vertex formats
     void vertexFormatCreate(vertex_attribute_t* attribute, uint32_t attributeCount, vertex_format_t* format);
@@ -180,8 +181,7 @@ namespace bkk
     void frameBufferDestroy(const context_t& context, frame_buffer_t* frameBuffer);
     void depthStencilBufferCreate(const context_t& context, uint32_t width, uint32_t height, depth_stencil_buffer_t* depthStencilBuffer);
     void depthStencilBufferDestroy(const context_t& context, depth_stencil_buffer_t* depthStencilBuffer);   
-    void depthStencilBufferChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, depth_stencil_buffer_t* depthStencilBuffer);
-
+    
     //Utility functions    
     void diffuseConvolution(const context_t& context,texture_cubemap_t environmentMap, uint32_t size, texture_cubemap_t* irradiance);
     void specularConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, uint32_t maxMipmapLevels, texture_cubemap_t* specularMap);

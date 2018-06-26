@@ -426,7 +426,7 @@ void createPipelines()
 
 void buildCommandBuffers()
 {
-  const VkCommandBuffer* commandBuffers;
+  const bkk::render::command_buffer_t* commandBuffers;
   uint32_t count = bkk::render::getPresentationCommandBuffers(gContext, &commandBuffers);
   for (unsigned i(0); i<count; ++i)
   {
@@ -444,9 +444,9 @@ void buildComputeCommandBuffer()
   render::commandBufferCreate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer);
 
   render::commandBufferBegin(gContext, gComputeCommandBuffer);
-  bkk::render::computePipelineBind(gComputeCommandBuffer.handle_, gComputePipeline);
-  bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer.handle_, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
-  vkCmdDispatch(gComputeCommandBuffer.handle_, gImageSize.x / 16, gImageSize.y / 16, 1);
+  bkk::render::computePipelineBind(gComputeCommandBuffer, gComputePipeline);
+  bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
+  bkk::render::computeDispatch(gComputeCommandBuffer, gImageSize.x / 16, gImageSize.y / 16, 1);
   render::commandBufferEnd(gComputeCommandBuffer);
 }
 
@@ -502,7 +502,7 @@ void updateCameraTransform()
   gSampleCount = 0;
 }
 
-void onKeyEvent(window::key_e key, bool pressed)
+void onKeyEvent(u32 key, bool pressed)
 {
   if (pressed)
   {

@@ -326,11 +326,11 @@ static void CreateDepthStencilBuffer(const context_t* context, uint32_t width, u
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &commandBuffer;
-  vkResetFences(context->device_, 1u, &context->swapChain_.frameFence_[0]);
-  vkQueueSubmit(context->graphicsQueue_.handle_, 1, &submitInfo, context->swapChain_.frameFence_[0]);
+  vkResetFences(context->device_, 1u, &context->swapChain_.commandBuffer_[0].fence_);
+  vkQueueSubmit(context->graphicsQueue_.handle_, 1, &submitInfo, context->swapChain_.commandBuffer_[0].fence_);
 
   //Destroy command buffer
-  vkWaitForFences(context->device_, 1u, &context->swapChain_.frameFence_[0], VK_TRUE, UINT64_MAX);
+  vkWaitForFences(context->device_, 1u, &context->swapChain_.commandBuffer_[0].fence_, VK_TRUE, UINT64_MAX);
   vkFreeCommandBuffers(context->device_, context->commandPool_, 1, &commandBuffer);
 
   //Create imageview
@@ -406,6 +406,11 @@ static void CreateSwapChain(context_t* context,
   uint32_t width, uint32_t height,
   uint32_t imageCount)
 {
+  //Create semaphores
+  VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+  semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+  vkCreateSemaphore(context->device_, &semaphoreCreateInfo, nullptr, &context->swapChain_.imageAcquired_);
+  vkCreateSemaphore(context->device_, &semaphoreCreateInfo, nullptr, &context->swapChain_.renderingComplete_);
 
   VkExtent2D swapChainSize = { width, height };
   context->swapChain_.imageWidth_ = width;
@@ -441,8 +446,9 @@ static void CreateSwapChain(context_t* context,
   context->swapChain_.image_.resize(imageCount);
   context->vkGetSwapchainImagesKHR(context->device_, context->swapChain_.handle_, &maxImageCount, context->swapChain_.image_.data());
 
-  //Create an imageview for each image
+  //Create an imageview and one command buffer for each image
   context->swapChain_.imageView_.resize(imageCount);
+  context->swapChain_.commandBuffer_.resize(imageCount);
   for (uint32_t i = 0; i < imageCount; ++i)
   {
     VkImageViewCreateInfo imageViewCreateInfo = {};
@@ -455,27 +461,12 @@ static void CreateSwapChain(context_t* context,
     imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
     vkCreateImageView(context->device_, &imageViewCreateInfo, nullptr, &context->swapChain_.imageView_[i]);
+
+    commandBufferCreate(*context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u,
+      &context->swapChain_.renderingComplete_, 1u, command_buffer_t::GRAPHICS,
+      &context->swapChain_.commandBuffer_[i]);
+
   }
-
-  //Create presentation command buffers
-  context->swapChain_.commandBuffer_.resize(imageCount);
-  VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
-  commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  commandBufferAllocateInfo.commandBufferCount = imageCount;
-  commandBufferAllocateInfo.commandPool = context->commandPool_;
-  commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  vkAllocateCommandBuffers(context->device_, &commandBufferAllocateInfo, context->swapChain_.commandBuffer_.data());
-
-  //Create fences
-  context->swapChain_.frameFence_.resize(imageCount);
-  for (uint32_t i = 0; i < imageCount; ++i)
-  {
-    VkFenceCreateInfo fenceCreateInfo = {};
-    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    vkCreateFence(context->device_, &fenceCreateInfo, nullptr, &context->swapChain_.frameFence_[i]);
-  }
-
 
   //Create depth stencil buffer (shared by all the framebuffers)
   VkFormat depthStencilFormat = VK_FORMAT_UNDEFINED;
@@ -503,15 +494,6 @@ static void CreateSwapChain(context_t* context,
 
     vkCreateFramebuffer(context->device_, &framebufferCreateInfo, nullptr, &context->swapChain_.frameBuffer_[i]);
   }
-}
-
-static void CreateSemaphores(VkDevice device, swapchain_t* swapChain)
-{
-  //Create semaphores
-  VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-  semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-  vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &swapChain->imageAcquired_);
-  vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &swapChain->renderingComplete_);
 }
 
 static VkCommandPool CreateCommandPool(VkDevice device, uint32_t queueIndex)
@@ -575,7 +557,7 @@ void render::contextCreate(const char* applicationName,
 
   CreateSwapChain(context, window.width_, window.height_, swapChainImageCount);
 
-  CreateSemaphores(context->device_, &context->swapChain_);
+  
 }
 
 void render::contextDestroy(context_t* context)
@@ -587,7 +569,7 @@ void render::contextDestroy(context_t* context)
   {
     vkDestroyFramebuffer(context->device_, context->swapChain_.frameBuffer_[i], nullptr);
     vkDestroyImageView(context->device_, context->swapChain_.imageView_[i], nullptr);
-    vkDestroyFence(context->device_, context->swapChain_.frameFence_[i], nullptr);
+    commandBufferDestroy(*context, &context->swapChain_.commandBuffer_[i]);
   }
 
   //Destroy depthstencil buffer
@@ -614,16 +596,14 @@ void render::swapchainResize(context_t* context, uint32_t width, uint32_t height
   //TODO: Handle width and height equal 0!
   contextFlush(*context);
 
-  //Destroy framebuffers
+  //Destroy framebuffers and command buffers
   for (uint32_t i = 0; i < context->swapChain_.imageCount_; ++i)
   {
     vkDestroyFramebuffer(context->device_, context->swapChain_.frameBuffer_[i], nullptr);
     vkDestroyImageView(context->device_, context->swapChain_.imageView_[i], nullptr);
-    vkDestroyFence(context->device_, context->swapChain_.frameFence_[i], nullptr);
+    commandBufferDestroy(*context, &context->swapChain_.commandBuffer_[i]);
   }
-
-  vkFreeCommandBuffers(context->device_, context->commandPool_, context->swapChain_.imageCount_, context->swapChain_.commandBuffer_.data());
-
+  
   //Destroy depthstencil buffer
   vkDestroyImageView(context->device_, context->swapChain_.depthStencil_.imageView_, nullptr);
   vkDestroyImage(context->device_, context->swapChain_.depthStencil_.image_, nullptr);
@@ -638,12 +618,15 @@ void render::swapchainResize(context_t* context, uint32_t width, uint32_t height
 
 void render::contextFlush(const context_t& context)
 {
-  vkWaitForFences(context.device_, context.swapChain_.imageCount_, context.swapChain_.frameFence_.data(), VK_TRUE, UINT64_MAX);
+  for (u32 i = 0; i < context.swapChain_.imageCount_; ++i)
+  {
+    vkWaitForFences(context.device_, 1u, &context.swapChain_.commandBuffer_[i].fence_, VK_TRUE, UINT64_MAX);
+  }
   vkQueueWaitIdle(context.graphicsQueue_.handle_);
   vkQueueWaitIdle(context.computeQueue_.handle_);
 }
 
-VkCommandBuffer render::beginPresentationCommandBuffer(const context_t& context, uint32_t index, VkClearValue* clearValues)
+void render::beginPresentationCommandBuffer(const context_t& context, uint32_t index, VkClearValue* clearValues)
 {
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -667,25 +650,23 @@ VkCommandBuffer render::beginPresentationCommandBuffer(const context_t& context,
   }
   renderPassBeginInfo.clearValueCount = 2;
 
-  vkWaitForFences(context.device_, 1, &context.swapChain_.frameFence_[index], VK_TRUE, UINT64_MAX);
+  vkWaitForFences(context.device_, 1, &context.swapChain_.commandBuffer_[index].fence_, VK_TRUE, UINT64_MAX);
 
   //Begin command buffer
-  vkBeginCommandBuffer(context.swapChain_.commandBuffer_[index], &beginInfo);
+  vkBeginCommandBuffer(context.swapChain_.commandBuffer_[index].handle_, &beginInfo);
 
   //Begin render pass
   renderPassBeginInfo.framebuffer = context.swapChain_.frameBuffer_[index];
-  vkCmdBeginRenderPass(context.swapChain_.commandBuffer_[index], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBeginRenderPass(context.swapChain_.commandBuffer_[index].handle_, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
   //Set viewport and scissor rectangle
   VkViewport viewPort = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
   VkRect2D scissorRect = { {0,0},{context.swapChain_.imageWidth_,context.swapChain_.imageHeight_} };
-  vkCmdSetViewport(context.swapChain_.commandBuffer_[index], 0, 1, &viewPort);
-  vkCmdSetScissor(context.swapChain_.commandBuffer_[index], 0, 1, &scissorRect);
-
-  return context.swapChain_.commandBuffer_[index];
+  vkCmdSetViewport(context.swapChain_.commandBuffer_[index].handle_, 0, 1, &viewPort);
+  vkCmdSetScissor(context.swapChain_.commandBuffer_[index].handle_, 0, 1, &scissorRect);
 }
 
-uint32_t render::getPresentationCommandBuffers(const context_t& context, const VkCommandBuffer** commandBuffers)
+uint32_t render::getPresentationCommandBuffers(const context_t& context, const command_buffer_t** commandBuffers)
 {
   *commandBuffers = context.swapChain_.commandBuffer_.data();
   return (uint32_t)context.swapChain_.commandBuffer_.size();
@@ -693,8 +674,8 @@ uint32_t render::getPresentationCommandBuffers(const context_t& context, const V
 
 void render::endPresentationCommandBuffer(const context_t& context, uint32_t index)
 {
-  vkCmdEndRenderPass(context.swapChain_.commandBuffer_[index]);
-  vkEndCommandBuffer(context.swapChain_.commandBuffer_[index]);
+  vkCmdEndRenderPass(context.swapChain_.commandBuffer_[index].handle_);
+  vkEndCommandBuffer(context.swapChain_.commandBuffer_[index].handle_);
 }
 
 void render::presentFrame(context_t* context, VkSemaphore* waitSemaphore, uint32_t waitSemaphoreCount)
@@ -726,7 +707,7 @@ void render::presentFrame(context_t* context, VkSemaphore* waitSemaphore, uint32
   submitInfo.pSignalSemaphores = &context->swapChain_.renderingComplete_;	//When command buffer has finished will signal renderingCompleteSemaphore
   submitInfo.pWaitDstStageMask = waitStageList.data();
   submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &context->swapChain_.commandBuffer_[currentImage];
+  submitInfo.pCommandBuffers = &context->swapChain_.commandBuffer_[currentImage].handle_;
   vkQueueSubmit(context->graphicsQueue_.handle_, 1, &submitInfo, VK_NULL_HANDLE);
   
   //Present the image
@@ -740,9 +721,9 @@ void render::presentFrame(context_t* context, VkSemaphore* waitSemaphore, uint32
   context->vkQueuePresentKHR(context->graphicsQueue_.handle_, &presentInfo);
 
   //Submit presentation
-  vkResetFences(context->device_, 1, &context->swapChain_.frameFence_[currentImage]);
-  vkQueueSubmit(context->graphicsQueue_.handle_, 0, nullptr, context->swapChain_.frameFence_[currentImage]);
-  vkWaitForFences(context->device_, 1, &context->swapChain_.frameFence_[currentImage], VK_TRUE, UINT64_MAX);
+  vkResetFences(context->device_, 1, &context->swapChain_.commandBuffer_[currentImage].fence_);
+  vkQueueSubmit(context->graphicsQueue_.handle_, 0, nullptr, context->swapChain_.commandBuffer_[currentImage].fence_);
+  vkWaitForFences(context->device_, 1, &context->swapChain_.commandBuffer_[currentImage].fence_, VK_TRUE, UINT64_MAX);
 }
 
 bool render::shaderCreateFromSPIRV(const context_t& context, shader_t::type type, const char* file, shader_t* shader)
@@ -1487,7 +1468,7 @@ void render::textureCopy(const command_buffer_t& commandBuffer, texture_t* srcTe
     1, &copyRegion);
 }
 
-void render::textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout newLayout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture)
+void render::textureChangeLayout(command_buffer_t cmdBuffer, VkImageLayout newLayout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkImageSubresourceRange subResourceRange, texture_t* texture)
 {
   VkImageMemoryBarrier imageMemoryBarrier = {};
   imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1594,7 +1575,7 @@ void render::textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout newLay
 
   // Put barrier inside setup command buffer
   vkCmdPipelineBarrier(
-    cmdBuffer,
+    cmdBuffer.handle_,
     srcStageMask,
     dstStageMask,
     0,
@@ -1607,7 +1588,7 @@ void render::textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout newLay
   texture->descriptor_.imageLayout = newLayout;
 }
 
-void render::textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
+void render::textureChangeLayout(command_buffer_t cmdBuffer, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, texture_t* texture)
 {
   VkImageSubresourceRange subresourceRange = {};
   subresourceRange.levelCount = 1u;
@@ -1616,7 +1597,7 @@ void render::textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout
   textureChangeLayout(cmdBuffer, layout, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, subresourceRange, texture);
 }
 
-void render::textureChangeLayout(VkCommandBuffer cmdBuffer, VkImageLayout layout, texture_t* texture)
+void render::textureChangeLayout(command_buffer_t cmdBuffer, VkImageLayout layout, texture_t* texture)
 {
   textureChangeLayout(cmdBuffer, layout, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, texture);
 }
@@ -1629,41 +1610,28 @@ void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layo
   }
 
   //Create command buffer
-  VkCommandBuffer commandBuffer;
-  VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
-  commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  commandBufferAllocateInfo.commandBufferCount = 1;
-  commandBufferAllocateInfo.commandPool = context.commandPool_;
-  commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  vkAllocateCommandBuffers(context.device_, &commandBufferAllocateInfo, &commandBuffer);
-
-  //Begin command buffer
+  command_buffer_t commandBuffer;
+  commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, 
+    nullptr, 0u, command_buffer_t::GRAPHICS, &commandBuffer);
+    
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
+  vkBeginCommandBuffer(commandBuffer.handle_, &beginInfo);
   textureChangeLayout(commandBuffer, layout, srcStageMask, dstStageMask, subResourceRange, texture);
-
-  vkEndCommandBuffer(commandBuffer);
+  vkEndCommandBuffer(commandBuffer.handle_);
 
   ////Queue commandBuffer for execution
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &commandBuffer;
-  VkFenceCreateInfo fenceCreateInfo = {};
-  fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-  VkFence fence;
-  vkCreateFence(context.device_, &fenceCreateInfo, nullptr, &fence);
-  vkResetFences(context.device_, 1u, &fence);
-  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, fence);
-
+  submitInfo.pCommandBuffers = &commandBuffer.handle_;
+  
+  vkResetFences(context.device_, 1u, &commandBuffer.fence_);
+  vkQueueSubmit(context.graphicsQueue_.handle_, 1, &submitInfo, commandBuffer.fence_);
 
   //Destroy command buffer
-  vkWaitForFences(context.device_, 1u, &fence, VK_TRUE, UINT64_MAX);
-  vkFreeCommandBuffers(context.device_, context.commandPool_, 1, &commandBuffer);
-  vkDestroyFence(context.device_, fence, nullptr);
+  vkWaitForFences(context.device_, 1u, &commandBuffer.fence_, VK_TRUE, UINT64_MAX);
+  render::commandBufferDestroy(context, &commandBuffer);
 }
 
 void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layout, texture_t* texture)
@@ -1966,7 +1934,7 @@ void render::descriptorSetUpdate(const context_t& context, const descriptor_set_
   vkUpdateDescriptorSets(context.device_, (uint32_t)writeDescriptorSets.size(), &writeDescriptorSets[0], 0, nullptr);
 }
 
-void render::descriptorSetBindForGraphics(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount)
+void render::descriptorSetBindForGraphics(command_buffer_t commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount)
 {
   std::vector<VkDescriptorSet> descriptorSetHandles(descriptorSetCount);
   for (u32 i(0); i < descriptorSetCount; ++i)
@@ -1974,10 +1942,10 @@ void render::descriptorSetBindForGraphics(VkCommandBuffer commandBuffer, const p
     descriptorSetHandles[i] = descriptorSets[i].handle_;
   }
   
-  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.handle_, firstSet, descriptorSetCount, descriptorSetHandles.data(), 0, 0);
+  vkCmdBindDescriptorSets(commandBuffer.handle_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.handle_, firstSet, descriptorSetCount, descriptorSetHandles.data(), 0, 0);
 }
 
-void render::descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount)
+void render::descriptorSetBindForCompute(command_buffer_t commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount)
 {
   std::vector<VkDescriptorSet> descriptorSetHandles(descriptorSetCount);
   for (u32 i(0); i < descriptorSetCount; ++i)
@@ -1985,7 +1953,7 @@ void render::descriptorSetBindForCompute(VkCommandBuffer commandBuffer, const pi
     descriptorSetHandles[i] = descriptorSets[i].handle_;
   }
 
-  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.handle_, firstSet, descriptorSetCount, descriptorSetHandles.data(), 0, 0);
+  vkCmdBindDescriptorSets(commandBuffer.handle_, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.handle_, firstSet, descriptorSetCount, descriptorSetHandles.data(), 0, 0);
 }
 
 void render::graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, uint32_t subpass, const render::vertex_format_t& vertexFormat, 
@@ -2072,9 +2040,9 @@ void render::graphicsPipelineDestroy(const context_t& context, graphics_pipeline
   vkDestroyPipeline(context.device_, pipeline->handle_, nullptr);
 }
 
-void render::graphicsPipelineBind(VkCommandBuffer commandBuffer, const graphics_pipeline_t& pipeline)
+void render::graphicsPipelineBind(command_buffer_t commandBuffer, const graphics_pipeline_t& pipeline)
 {
-  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle_);
+  vkCmdBindPipeline(commandBuffer.handle_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle_);
 }
 
 
@@ -2102,18 +2070,23 @@ void render::computePipelineDestroy(const context_t& context, compute_pipeline_t
   vkDestroyPipeline(context.device_, pipeline->handle_, nullptr);
 }
 
-void render::computePipelineBind( VkCommandBuffer commandBuffer, const compute_pipeline_t& pipeline)
+void render::computePipelineBind(command_buffer_t commandBuffer, const compute_pipeline_t& pipeline)
 {
-  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.handle_);
+  vkCmdBindPipeline(commandBuffer.handle_, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.handle_);
 }
 
-void render::pushConstants(VkCommandBuffer commandBuffer, pipeline_layout_t pipelineLayout, uint32_t offset, const void* constant)
+void render::computeDispatch(command_buffer_t commandBuffer, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
+{
+  vkCmdDispatch(commandBuffer.handle_, groupSizeX, groupSizeY, groupSizeZ);
+}
+
+void render::pushConstants(command_buffer_t commandBuffer, pipeline_layout_t pipelineLayout, uint32_t offset, const void* constant)
 {
   for (uint32_t i(0); i < pipelineLayout.pushConstantRangeCount_; ++i)
   {
     if (pipelineLayout.pushConstantRange_[i].offset_ == offset)
     {
-      vkCmdPushConstants(commandBuffer, pipelineLayout.handle_, pipelineLayout.pushConstantRange_[i].stageFlags_, offset, pipelineLayout.pushConstantRange_[i].size_, constant);
+      vkCmdPushConstants(commandBuffer.handle_, pipelineLayout.handle_, pipelineLayout.pushConstantRange_[i].stageFlags_, offset, pipelineLayout.pushConstantRange_[i].size_, constant);
       break;
     }
   }
@@ -2290,82 +2263,6 @@ void render::depthStencilBufferDestroy(const context_t& context, depth_stencil_b
   vkDestroySampler(context.device_, depthStencilBuffer->descriptor_.sampler, nullptr);
   gpuMemoryDeallocate(context, nullptr, depthStencilBuffer->memory_);
 }
-
-
-void render::depthStencilBufferChangeLayout(const context_t& context, VkCommandBuffer cmdBuffer, VkImageLayout newLayout, depth_stencil_buffer_t* depthStencilBuffer)
-{
-  VkImageMemoryBarrier imageBarrier = {};
-  imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-  imageBarrier.pNext = nullptr;
-  imageBarrier.oldLayout = depthStencilBuffer->layout_;
-  imageBarrier.newLayout = newLayout;
-  imageBarrier.image = depthStencilBuffer->image_;
-  imageBarrier.subresourceRange.aspectMask = depthStencilBuffer->aspectFlags_;
-
-  imageBarrier.subresourceRange.baseMipLevel = 0;
-  imageBarrier.subresourceRange.levelCount = 0;
-  imageBarrier.subresourceRange.baseArrayLayer = 0;
-  imageBarrier.subresourceRange.layerCount = 1;
-  imageBarrier.subresourceRange.layerCount = 1;
-  imageBarrier.subresourceRange.levelCount = 1;
-
-  switch (imageBarrier.oldLayout)
-  {
-  case VK_IMAGE_LAYOUT_PREINITIALIZED:
-    imageBarrier.srcAccessMask =
-      VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-    break;
-  case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-    imageBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    break;
-  case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-    imageBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    break;
-  case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-    imageBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    break;
-  case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-    imageBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    break;
-  }
-
-  switch (imageBarrier.newLayout)
-  {
-  case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-    imageBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    break;
-  case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-    imageBarrier.srcAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
-    imageBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    break;
-  case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-    imageBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    imageBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    break;
-  case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-    imageBarrier.dstAccessMask |=
-      VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    break;
-  case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-    imageBarrier.srcAccessMask =
-      VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-    imageBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    break;
-  }
-
-
-
-  vkCmdPipelineBarrier(cmdBuffer,
-    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-    0, 0, nullptr, 0, nullptr,
-    1, &imageBarrier);
-
-
-  depthStencilBuffer->layout_ = newLayout;
-  depthStencilBuffer->descriptor_.imageLayout = newLayout;
-}
-
 
 void render::renderPassCreate(const context_t& context,
   render_pass_t::attachment_t* attachments, uint32_t attachmentCount,
@@ -2793,18 +2690,18 @@ void render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
       render::commandBufferBegin(context, commandBuffer);
       render::commandBufferRenderPassBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
 
-      render::pushConstants(commandBuffer.handle_, pipelineLayout, 0u, &viewProjection);
-      render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
-      bkk::render::descriptorSetBindForGraphics(commandBuffer.handle_, pipelineLayout, 0, &descriptorSet, 1u);
-      mesh::draw(commandBuffer.handle_, cube);
+      render::pushConstants(commandBuffer, pipelineLayout, 0u, &viewProjection);
+      render::graphicsPipelineBind(commandBuffer, pipeline);
+      bkk::render::descriptorSetBindForGraphics(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
+      mesh::draw(commandBuffer, cube);
 
       render::commandBufferRenderPassEnd(commandBuffer);
 
       //Copy render target to cubemap layer
       renderTargets[mipLevel].layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-      render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
+      render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
       render::textureCopy(commandBuffer, &renderTargets[mipLevel], cubemap, mipSize, mipSize, mipLevel, i);
-      render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+      render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
       
       render::commandBufferEnd(commandBuffer);
       render::commandBufferSubmit(context, commandBuffer);
@@ -2974,17 +2871,17 @@ void render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
     render::commandBufferBegin(context, commandBuffer);
     render::commandBufferRenderPassBegin(context, &frameBuffer, &clearValue, 1u, commandBuffer);
 
-    render::pushConstants(commandBuffer.handle_, pipelineLayout, 0u, &viewProjection);
-    render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
-    bkk::render::descriptorSetBindForGraphics(commandBuffer.handle_, pipelineLayout, 0, &descriptorSet, 1u);
-    mesh::draw(commandBuffer.handle_, cube);
+    render::pushConstants(commandBuffer, pipelineLayout, 0u, &viewProjection);
+    render::graphicsPipelineBind(commandBuffer, pipeline);
+    bkk::render::descriptorSetBindForGraphics(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
+    mesh::draw(commandBuffer, cube);
     render::commandBufferRenderPassEnd(commandBuffer);
 
     //Copy render target to cubemap layer
     renderTarget.layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-    render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTarget);
+    render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTarget);
     render::textureCopy(commandBuffer, &renderTarget, irradiance, size, size, 0, i);
-    render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTarget);
+    render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTarget);
 
     
     render::commandBufferEnd(commandBuffer);
@@ -3231,17 +3128,17 @@ void render::specularConvolution(const context_t& context, texture_cubemap_t env
 
       render::commandBufferBegin(context, commandBuffer);
       render::commandBufferRenderPassBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
-      render::pushConstants(commandBuffer.handle_, pipelineLayout, 0u, &pushConstants);
-      render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
-      bkk::render::descriptorSetBindForGraphics(commandBuffer.handle_, pipelineLayout, 0, &descriptorSet, 1u);
-      mesh::draw(commandBuffer.handle_, cube);
+      render::pushConstants(commandBuffer, pipelineLayout, 0u, &pushConstants);
+      render::graphicsPipelineBind(commandBuffer, pipeline);
+      bkk::render::descriptorSetBindForGraphics(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
+      mesh::draw(commandBuffer, cube);
       render::commandBufferRenderPassEnd(commandBuffer);
 
       //Copy render target to cubemap layer
       renderTargets[mipLevel].layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-      render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
+      render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
       render::textureCopy(commandBuffer, &renderTargets[mipLevel], specularMap, mipSize, mipSize, mipLevel, i);      
-      render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+      render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
       
       render::commandBufferEnd(commandBuffer);
       render::commandBufferSubmit(context, commandBuffer);
@@ -3475,14 +3372,14 @@ void render::brdfConvolution(const context_t& context, uint32_t size, texture_t*
 
   render::commandBufferBegin(context, commandBuffer);
   render::commandBufferRenderPassBegin(context, &frameBuffer, &clearValue, 1u, commandBuffer);
-  render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
-  mesh::draw(commandBuffer.handle_, quad);
+  render::graphicsPipelineBind(commandBuffer, pipeline);
+  mesh::draw(commandBuffer, quad);
 
   render::commandBufferRenderPassEnd(commandBuffer);
 
   //Change cubemap layout for shader access
   brdfConvolution->layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-  render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, brdfConvolution);
+  render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, brdfConvolution);
 
   render::commandBufferEnd(commandBuffer);
   render::commandBufferSubmit(context, commandBuffer);
@@ -3619,16 +3516,16 @@ void render::texture2DCreateAndGenerateMipmaps(const context_t& context, const i
 
     render::commandBufferBegin(context, commandBuffer);
     render::commandBufferRenderPassBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
-    render::graphicsPipelineBind(commandBuffer.handle_, pipeline);
-    bkk::render::descriptorSetBindForGraphics(commandBuffer.handle_, pipelineLayout, 0, &descriptorSet, 1u);
-    mesh::draw(commandBuffer.handle_, quad);
+    render::graphicsPipelineBind(commandBuffer, pipeline);
+    bkk::render::descriptorSetBindForGraphics(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
+    mesh::draw(commandBuffer, quad);
     render::commandBufferRenderPassEnd(commandBuffer);
 
     //Copy render target to mip level
     renderTargets[mipLevel].layout_ = VK_IMAGE_LAYOUT_UNDEFINED;
-    render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
+    render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
     render::textureCopy(commandBuffer, &renderTargets[mipLevel], texture, mipSize, mipSize, mipLevel);
-    render::textureChangeLayout(commandBuffer.handle_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+    render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
 
     render::commandBufferEnd(commandBuffer);
     render::commandBufferSubmit(context, commandBuffer);

@@ -636,7 +636,7 @@ struct pbr_renderer_t : public application_t
     render::presentFrame(&context, &renderComplete_, 1u);
   }
 
-  void onKeyEvent(window::key_e key, bool pressed)
+  void onKeyEvent(u32 key, bool pressed)
   {
     if (pressed)
     {
@@ -979,7 +979,7 @@ private:
       render::commandBufferRenderPassBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
 
       //GBuffer pass
-      bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
+      bkk::render::graphicsPipelineBind(commandBuffer_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
       descriptorSets[0] = globalsDescriptorSet_;
       packed_freelist_iterator_t<object_t> objectIter = object_.begin();
@@ -987,31 +987,31 @@ private:
       {
         descriptorSets[1] = objectIter.get().descriptorSet_;
         descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
+        bkk::render::descriptorSetBindForGraphics(commandBuffer_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
         mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
-        mesh::draw(commandBuffer_.handle_, *mesh);
+        mesh::draw(commandBuffer_, *mesh);
         ++objectIter;
       }
 
       bkk::render::commandBufferNextSubpass(commandBuffer_);
 
       //Light pass      
-      bkk::render::graphicsPipelineBind(commandBuffer_.handle_, lightPipeline_);
+      bkk::render::graphicsPipelineBind(commandBuffer_, lightPipeline_);
       descriptorSets[1] = lightPassTexturesDescriptorSet_;
       packed_freelist_iterator_t<light_t> lightIter = light_.begin();
       while (lightIter != light_.end())
       {
         descriptorSets[2] = lightIter.get().descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 0u, descriptorSets, 3u);
-        mesh::draw(commandBuffer_.handle_, sphereMesh_);
+        bkk::render::descriptorSetBindForGraphics(commandBuffer_, lightPipelineLayout_, 0u, descriptorSets, 3u);
+        mesh::draw(commandBuffer_, sphereMesh_);
         ++lightIter;
       }
 
       //Ambient light pass
-      bkk::render::graphicsPipelineBind(commandBuffer_.handle_, ambientLightPipeline_);
+      bkk::render::graphicsPipelineBind(commandBuffer_, ambientLightPipeline_);
       descriptorSets[1] = ambientLightPassTexturesDescriptorSet_;
-      bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, ambientLightPipelineLayout_, 0u, descriptorSets, 2u);
-      mesh::draw(commandBuffer_.handle_, fullScreenQuad_);
+      bkk::render::descriptorSetBindForGraphics(commandBuffer_, ambientLightPipelineLayout_, 0u, descriptorSets, 2u);
+      mesh::draw(commandBuffer_, fullScreenQuad_);
 
       render::commandBufferRenderPassEnd(commandBuffer_);
     }
@@ -1024,7 +1024,7 @@ private:
   {
     render::context_t& context = getRenderContext();
 
-    const VkCommandBuffer* commandBuffers;
+    const bkk::render::command_buffer_t* commandBuffers;
     uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
     for (uint32_t i(0); i<count; ++i)
     {

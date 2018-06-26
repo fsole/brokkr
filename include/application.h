@@ -34,7 +34,6 @@ namespace bkk
   namespace render { struct context_t; }
   namespace window {
     struct window_t;
-    enum key_e;
   }
 
   class application_t
@@ -58,7 +57,7 @@ namespace bkk
       //Callbacks
       virtual void onQuit() {}
       virtual void onResize(u32 width, u32 height) {}
-      virtual void onKeyEvent(window::key_e key, bool pressed) {}
+      virtual void onKeyEvent(u32 key, bool pressed) {}
       virtual void onMouseButton(u32 button, bool pressed, const maths::vec2& mousePos, const maths::vec2& mousePrevPos) {}
       virtual void onMouseMove(const maths::vec2& mousePos, const maths::vec2& mouseDeltaPos ) {}
       virtual void render() {}

@@ -80,7 +80,7 @@ void buildCommandBuffers(const bkk::render::context_t& context,const bkk::mesh::
                          bkk::render::descriptor_set_t* descriptorSet,
                          bkk::render::pipeline_layout_t* layout, bkk::render::graphics_pipeline_t* pipeline)
 {
-  const VkCommandBuffer* commandBuffers;
+  const bkk::render::command_buffer_t* commandBuffers;
   uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
   for (uint32_t i(0); i<count; ++i)
   {

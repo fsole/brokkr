@@ -589,7 +589,7 @@ struct TXAA_sample_t : public application_t
     currentFrame_++;
   }
 
-  virtual void onKeyEvent(window::key_e key, bool pressed)
+  void onKeyEvent(u32 key, bool pressed)
   {
     if (pressed)
     {
@@ -960,7 +960,7 @@ private:
     {
       render::commandBufferRenderPassBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
       //GBuffer pass
-      bkk::render::graphicsPipelineBind(commandBuffer_.handle_, gBufferPipeline_);
+      bkk::render::graphicsPipelineBind(commandBuffer_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
       descriptorSets[0] = globalsDescriptorSet_;
       packed_freelist_iterator_t<object_t> objectIter = object_.begin();
@@ -968,23 +968,23 @@ private:
       {
         descriptorSets[1] = objectIter.get().descriptorSet_;
         descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
+        bkk::render::descriptorSetBindForGraphics(commandBuffer_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
         mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
-        mesh::draw(commandBuffer_.handle_, *mesh);
+        mesh::draw(commandBuffer_, *mesh);
         ++objectIter;
       }
 
       bkk::render::commandBufferNextSubpass(commandBuffer_);
 
       //Light pass      
-      bkk::render::graphicsPipelineBind(commandBuffer_.handle_, lightPipeline_);
+      bkk::render::graphicsPipelineBind(commandBuffer_, lightPipeline_);
       descriptorSets[1] = lightPassTexturesDescriptorSet_;
       packed_freelist_iterator_t<light_t> lightIter = light_.begin();
       while (lightIter != light_.end())
       {
         descriptorSets[2] = lightIter.get().descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(commandBuffer_.handle_, lightPipelineLayout_, 0u, descriptorSets, 3u);
-        mesh::draw(commandBuffer_.handle_, sphereMesh_);
+        bkk::render::descriptorSetBindForGraphics(commandBuffer_, lightPipelineLayout_, 0u, descriptorSets, 3u);
+        mesh::draw(commandBuffer_, sphereMesh_);
         ++lightIter;
       }
 
@@ -1006,9 +1006,9 @@ private:
       render::commandBufferRenderPassBegin(context, &txaaResolveFrameBuffer_, clearValues, 1u, txaaResolveCommandBuffer_);
       if (bTemporalAA_)
       {
-        bkk::render::graphicsPipelineBind(txaaResolveCommandBuffer_.handle_, txaaResolvePipeline_);
-        bkk::render::descriptorSetBindForGraphics(txaaResolveCommandBuffer_.handle_, txaaResolvePipelineLayout_, 0u, &txaaResolveDescriptorSet_, 1u);
-        mesh::draw(txaaResolveCommandBuffer_.handle_, fullScreenQuad_);
+        bkk::render::graphicsPipelineBind(txaaResolveCommandBuffer_, txaaResolvePipeline_);
+        bkk::render::descriptorSetBindForGraphics(txaaResolveCommandBuffer_, txaaResolvePipelineLayout_, 0u, &txaaResolveDescriptorSet_, 1u);
+        mesh::draw(txaaResolveCommandBuffer_, fullScreenQuad_);
       }
 
       render::commandBufferRenderPassEnd(txaaResolveCommandBuffer_);
@@ -1016,13 +1016,13 @@ private:
 
     //Copy resolved image to historyBuffer[1] to use int the next frame as previous rendered image
     render::texture_t* srcTexture = bTemporalAA_ ? &historyBuffer_[0] : &finalImage_;
-    render::textureChangeLayout(txaaResolveCommandBuffer_.handle_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, srcTexture);
-    render::textureChangeLayout(txaaResolveCommandBuffer_.handle_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &historyBuffer_[1]);    
+    render::textureChangeLayout(txaaResolveCommandBuffer_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, srcTexture);
+    render::textureChangeLayout(txaaResolveCommandBuffer_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &historyBuffer_[1]);    
 
     render::textureCopy(txaaResolveCommandBuffer_, srcTexture, &historyBuffer_[1], srcTexture->extent_.width, srcTexture->extent_.height);
 
-    render::textureChangeLayout(txaaResolveCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, srcTexture );
-    render::textureChangeLayout(txaaResolveCommandBuffer_.handle_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &historyBuffer_[1]);
+    render::textureChangeLayout(txaaResolveCommandBuffer_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, srcTexture );
+    render::textureChangeLayout(txaaResolveCommandBuffer_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &historyBuffer_[1]);
 
     render::commandBufferEnd(txaaResolveCommandBuffer_);
     render::commandBufferSubmit(context, txaaResolveCommandBuffer_);    
@@ -1032,7 +1032,7 @@ private:
   {
     render::context_t& context = getRenderContext();
 
-    const VkCommandBuffer* commandBuffers;
+    const bkk::render::command_buffer_t* commandBuffers;
     uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
     for (uint32_t i(0); i < count; ++i)
     {
