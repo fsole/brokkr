@@ -444,8 +444,6 @@ public:
     projectionTx_ = perspectiveProjectionMatrix(1.5f, getWindow().width_ / (float)getWindow().height_, 1.0f, 1000.0f);
     modelTx_ = createTransform(vec3(0.0, 0.0, 0.0), VEC3_ONE, QUAT_UNIT);
 
-    gui::init(context);
-
     //Create particle mesh
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_ALL, nullptr, 0u, &mesh_);
 
@@ -555,8 +553,6 @@ public:
     render::commandBufferDestroy(context, &computeDensityCommandBuffer_);
 
     render::descriptorPoolDestroy(context, &descriptorPool_);
-
-    gui::destroy(context);
   }
 
   void render()
@@ -568,7 +564,6 @@ public:
     matrices[0] = modelTx_ * camera_.view_;
     matrices[1] = matrices[0] * projectionTx_;
     render::gpuBufferUpdate(context, (void*)&matrices, 0, sizeof(matrices), &globalUnifomBuffer_);
-    createGuiFrame(context);
     buildCommandBuffers();
     render::presentFrame(&context);
 
@@ -639,19 +634,9 @@ public:
 
   void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos)
   {
-    gui::updateMousePosition(mousePos.x, mousePos.y);
     if (getMousePressedButton() == window::MOUSE_RIGHT)
     {
       camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
-    }
-  }
-
-  void onMouseButton(u32 button, bool pressed, const maths::vec2& mousePos, const maths::vec2& mousePrevPos)
-  {
-    gui::updateMousePosition(mousePos.x, mousePos.y);
-    if (button == window::MOUSE_LEFT)
-    {
-      gui::updateMouseButton(button, pressed);
     }
   }
 
@@ -669,7 +654,7 @@ public:
     {
       render::beginPresentationCommandBuffer(context, i, clearValues);
       bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline_);
-      bkk::render::descriptorSetBindForGraphics(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
+      bkk::render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
       mesh::drawInstanced(commandBuffers[i], particleSystem_.maxParticleCount, nullptr, 0u, mesh_);
 
       gui::draw(context, commandBuffers[i]);
@@ -703,7 +688,7 @@ public:
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &computeDensityCommandBuffer_);
     render::commandBufferBegin(context, computeDensityCommandBuffer_);
     bkk::render::computePipelineBind(computeDensityCommandBuffer_, computeDensityPipeline_);
-    bkk::render::descriptorSetBindForCompute(computeDensityCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
+    bkk::render::descriptorSetBind(computeDensityCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
     bkk::render::computeDispatch(computeDensityCommandBuffer_, groupSizeX, 1u, 1u);
     render::commandBufferEnd(computeDensityCommandBuffer_);
 
@@ -715,24 +700,19 @@ public:
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &updateParticlesCommandBuffer_);
     render::commandBufferBegin(context, updateParticlesCommandBuffer_);
     bkk::render::computePipelineBind(updateParticlesCommandBuffer_, updateParticlesComputePipeline_);
-    bkk::render::descriptorSetBindForCompute(updateParticlesCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);    
+    bkk::render::descriptorSetBind(updateParticlesCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);    
     bkk::render::computeDispatch(updateParticlesCommandBuffer_, groupSizeX, 1u, 1u);
     render::commandBufferEnd(updateParticlesCommandBuffer_);
   }
 
-  void createGuiFrame(const bkk::render::context_t& context)
+  void buildGuiFrame()
   {
-    gui::beginFrame(context);
-
     ImGui::Begin("Controls");
     ImGui::SliderFloat("viscosity", &particleSystem_.viscosityCoefficient, 0.0f, 10.0f);
     ImGui::SliderFloat("pressure", &particleSystem_.pressureCoefficient, 0.0f, 500.0f);
     ImGui::SliderFloat("referenceDensity", &particleSystem_.referenceDensity, 0.0f, 10.0f);
     if (ImGui::Button("Reset")){ restartSimulation(); }
-
     ImGui::End();
-
-    gui::endFrame();
   }
 
 private:

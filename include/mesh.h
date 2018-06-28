@@ -44,9 +44,9 @@ namespace bkk
       transform_manager_t txManager_;
       
       handle_t* bones_;
-      maths::mat4* offsets_;
+      maths::mat4* bindPose_;
       
-      maths::mat4 globalInverseTransform_;
+      maths::mat4 rootBoneInverseTransform_;
       
       u32 boneCount_;
       u32 nodeCount_;

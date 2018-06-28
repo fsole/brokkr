@@ -263,7 +263,7 @@ void bkk::gui::draw(const bkk::render::context_t& context, bkk::render::command_
   gGuiContext.scaleAndOffset_.w = -1.0f - draw_data->DisplayPos.y * gGuiContext.scaleAndOffset_.y;
 
   bkk::render::graphicsPipelineBind(commandBuffer, gGuiContext.pipeline_);
-  bkk::render::descriptorSetBindForGraphics(commandBuffer, gGuiContext.pipelineLayout_, 0, &gGuiContext.descriptorSet_, 1u);
+  bkk::render::descriptorSetBind(commandBuffer, gGuiContext.pipelineLayout_, 0, &gGuiContext.descriptorSet_, 1u);
   bkk::render::pushConstants(commandBuffer, gGuiContext.pipelineLayout_, 0u, &gGuiContext.scaleAndOffset_);
 
   int vertexOffset = 0;

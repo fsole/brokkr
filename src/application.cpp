@@ -27,6 +27,7 @@
 #include "window.h"
 #include "render.h"
 #include "timer.h"
+#include "gui.h"
 #include <string>
 #include <sstream>
 #include <iomanip>
@@ -88,6 +89,8 @@ application_t::application_t(const char* title, u32 width, u32 height, u32 image
   frameCounter_ = new frame_counter_t();
   frameCounter_->init(window_);
   timeDelta_ = 0.0f;
+
+  gui::init(*context_);
 }
 
 application_t::~application_t()
@@ -142,6 +145,10 @@ void application_t::loop()
         vec2 prevPos = mouseCurrentPos_;
         mouseCurrentPos_ = vec2((float)buttonEvent->x_, (float)buttonEvent->y_);
         onMouseButton(buttonEvent->button_, buttonEvent->pressed_, mouseCurrentPos_, mousePrevPos_);
+
+        gui::updateMouseButton(buttonEvent->button_, buttonEvent->pressed_);
+        gui::updateMousePosition(mouseCurrentPos_.x, mouseCurrentPos_.y);
+
         mousePrevPos_ = prevPos;
         break;
       }
@@ -151,6 +158,9 @@ void application_t::loop()
         vec2 prevPos = mouseCurrentPos_;
         mouseCurrentPos_ = vec2((float)moveEvent->x_, (float)moveEvent->y_);
         onMouseMove(mouseCurrentPos_, mouseCurrentPos_ - mousePrevPos_ );
+
+        gui::updateMousePosition(mouseCurrentPos_.x, mouseCurrentPos_.y);
+
         mousePrevPos_ = prevPos;
         break;
       }
@@ -159,13 +169,20 @@ void application_t::loop()
       }
     }
 
+    gui::beginFrame(*context_);
+    buildGuiFrame();
+    gui::endFrame();
+
     render();
+
     frameCounter_->endFrame();
     timePrev = currentTime;
   }
 
   render::contextFlush(*context_);
+  gui::destroy(*context_);
   onQuit();
+  
 }
 
 render::context_t& application_t::getRenderContext() { return *context_; }

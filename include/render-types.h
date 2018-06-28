@@ -32,8 +32,7 @@ namespace bkk
 {
   namespace render
   {
-    enum gpu_memory_type_e
-    {
+    enum gpu_memory_type_e{
       HOST_VISIBLE = 1,
       DEVICE_LOCAL = 2,
       HOST_COHERENT = 4,
@@ -79,7 +78,25 @@ namespace bkk
       VkSurfaceTransformFlagBitsKHR preTransform_;
     };
 
-    struct command_buffer_t;
+    struct command_buffer_t
+    {
+      enum type{
+        GRAPHICS = 0,
+        COMPUTE = 1
+      };
+
+      VkCommandBuffer handle_ = VK_NULL_HANDLE;
+      type type_;
+
+      uint32_t waitSemaphoreCount_;
+      VkSemaphore* waitSemaphore_;
+      VkPipelineStageFlags* waitStages_;
+
+      uint32_t signalSemaphoreCount_;
+      VkSemaphore* signalSemaphore_;
+      VkFence fence_;
+    };
+
     struct swapchain_t
     {
       VkSwapchainKHR handle_;
@@ -94,7 +111,6 @@ namespace bkk
       depth_stencil_buffer_t depthStencil_;
 
       std::vector<VkFramebuffer> frameBuffer_;
-      //std::vector<VkCommandBuffer> commandBuffer_;
       std::vector<command_buffer_t> commandBuffer_;
       
       VkRenderPass renderPass_;
@@ -143,20 +159,15 @@ namespace bkk
       VkExtent3D extent_;
       VkDescriptorImageInfo descriptor_;
     };
-
-    struct texture_cubemap_t : public texture_t {};
-
-
+    
     struct texture_sampler_t
     {
-      enum struct filter_mode
-      {
+      enum struct filter_mode{
         NEAREST = 0,
         LINEAR = 1
       };
 
-      enum struct wrap_mode
-      {
+      enum struct wrap_mode{
         REPEAT = 0,
         MIRRORED_REPEAT = 1,
         CLAMP_TO_EDGE = 2,
@@ -164,9 +175,9 @@ namespace bkk
         MIRROR_CLAMP_TO_EDGE = 4
       };
 
-      filter_mode minification_ = filter_mode::LINEAR;   //Minification filter (NEAREST,LINEAR)
-      filter_mode magnification_ = filter_mode::LINEAR;  //Magnification filter(NEAREST,LINEAR)
-      filter_mode mipmap_ = filter_mode::LINEAR;         //For trilinear interpolation (NEAREST,LINEAR)
+      filter_mode minification_ = filter_mode::LINEAR;
+      filter_mode magnification_ = filter_mode::LINEAR;
+      filter_mode mipmap_ = filter_mode::LINEAR;
       wrap_mode wrapU_ = wrap_mode::MIRRORED_REPEAT;
       wrap_mode wrapV_ = wrap_mode::MIRRORED_REPEAT;
       wrap_mode wrapW_ = wrap_mode::MIRRORED_REPEAT;
@@ -174,8 +185,7 @@ namespace bkk
 
     struct gpu_buffer_t
     {
-      enum usage
-      {
+      enum usage{
         TRANSFER_SRC = 0x00000001,
         TRANSFER_DST = 0x00000002,
         UNIFORM_TEXEL_BUFFER = 0x00000004,
@@ -275,8 +285,7 @@ namespace bkk
 
     struct shader_t
     {
-      enum type
-      {
+      enum type{
         VERTEX_SHADER,
         FRAGMENT_SHADER,
         TESSELLATION_SHADER,
@@ -319,8 +328,7 @@ namespace bkk
 
     struct vertex_attribute_t
     {
-      enum format
-      {
+      enum format{
         INT = 0,
         UINT = 1,
         FLOAT = 2,
@@ -354,25 +362,6 @@ namespace bkk
       uint32_t vertexSize_;
     };
 
-    struct command_buffer_t
-    {
-      enum type
-      {
-        GRAPHICS = 0,
-        COMPUTE = 1
-      };
-
-      VkCommandBuffer handle_ = VK_NULL_HANDLE;
-      type type_;
-      uint32_t waitSemaphoreCount_;
-      VkSemaphore* waitSemaphore_;
-      VkPipelineStageFlags* waitStages_;
-
-      uint32_t signalSemaphoreCount_;
-      VkSemaphore* signalSemaphore_;
-      VkFence fence_;
-    };
-
     struct render_pass_t
     {
       struct attachment_t
@@ -402,14 +391,11 @@ namespace bkk
         std::vector< uint32_t > inputAttachmentIndex_;
         int32_t depthStencilAttachmentIndex_ = -1;
       };
-
-
-
+      
       VkRenderPass handle_;
 
       uint32_t attachmentCount_;
       attachment_t* attachment_;
-      //int32_t depthStencilAttachment_;
     };
 
     struct frame_buffer_t

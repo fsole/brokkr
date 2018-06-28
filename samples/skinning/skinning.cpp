@@ -265,7 +265,7 @@ public:
     {
       render::beginPresentationCommandBuffer(context, i, clearValues);
       bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline_);
-      bkk::render::descriptorSetBindForGraphics(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
+      bkk::render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
       mesh::draw(commandBuffers[i], mesh_);
       render::endPresentationCommandBuffer(context, i);
     }

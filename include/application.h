@@ -60,6 +60,7 @@ namespace bkk
       virtual void onKeyEvent(u32 key, bool pressed) {}
       virtual void onMouseButton(u32 button, bool pressed, const maths::vec2& mousePos, const maths::vec2& mousePrevPos) {}
       virtual void onMouseMove(const maths::vec2& mousePos, const maths::vec2& mouseDeltaPos ) {}
+      virtual void buildGuiFrame() {}
       virtual void render() {}
 
     private:

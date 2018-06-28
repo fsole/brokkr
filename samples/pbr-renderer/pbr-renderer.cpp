@@ -987,7 +987,7 @@ private:
       {
         descriptorSets[1] = objectIter.get().descriptorSet_;
         descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(commandBuffer_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
+        bkk::render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
         mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
         mesh::draw(commandBuffer_, *mesh);
         ++objectIter;
@@ -1002,7 +1002,7 @@ private:
       while (lightIter != light_.end())
       {
         descriptorSets[2] = lightIter.get().descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(commandBuffer_, lightPipelineLayout_, 0u, descriptorSets, 3u);
+        bkk::render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 0u, descriptorSets, 3u);
         mesh::draw(commandBuffer_, sphereMesh_);
         ++lightIter;
       }
@@ -1010,7 +1010,7 @@ private:
       //Ambient light pass
       bkk::render::graphicsPipelineBind(commandBuffer_, ambientLightPipeline_);
       descriptorSets[1] = ambientLightPassTexturesDescriptorSet_;
-      bkk::render::descriptorSetBindForGraphics(commandBuffer_, ambientLightPipelineLayout_, 0u, descriptorSets, 2u);
+      bkk::render::descriptorSetBind(commandBuffer_, ambientLightPipelineLayout_, 0u, descriptorSets, 2u);
       mesh::draw(commandBuffer_, fullScreenQuad_);
 
       render::commandBufferRenderPassEnd(commandBuffer_);
@@ -1030,7 +1030,7 @@ private:
     {
       bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
       bkk::render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
-      bkk::render::descriptorSetBindForGraphics(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_, 1u);
+      bkk::render::descriptorSetBind(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_, 1u);
       bkk::mesh::draw(commandBuffers[i], fullScreenQuad_);
       bkk::render::endPresentationCommandBuffer(context, i);
     }
@@ -1085,9 +1085,9 @@ private:
   render::texture_t gBufferRT2_;  //F0 + metallic
   render::texture_t finalImage_;
   render::depth_stencil_buffer_t depthStencilBuffer_;
-  render::texture_cubemap_t cubemap_;
-  render::texture_cubemap_t irradianceMap_;
-  render::texture_cubemap_t specularMap_;
+  render::texture_t cubemap_;
+  render::texture_t irradianceMap_;
+  render::texture_t specularMap_;
   render::texture_t brdfLut_;
 
   render::shader_t gBufferVertexShader_;

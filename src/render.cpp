@@ -1224,7 +1224,7 @@ void render::texture2DCreate(const context_t& context,
   texture->extent_ = extents;
 }
 
-void render::textureCubemapCreate(const context_t& context, VkFormat format, uint32_t width, uint32_t height, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture)
+void render::textureCubemapCreate(const context_t& context, VkFormat format, uint32_t width, uint32_t height, uint32_t mipLevels, texture_sampler_t sampler, texture_t* texture)
 {
   //Get base level image width and height
   VkExtent3D extents = { width, height, 1u };
@@ -1293,7 +1293,7 @@ void render::textureCubemapCreate(const context_t& context, VkFormat format, uin
   texture->format_ = format;
 }
 
-void render::textureCubemapCreate(const context_t& context, const image::image2D_t* images, uint32_t mipLevels, texture_sampler_t sampler, texture_cubemap_t* texture)
+void render::textureCubemapCreate(const context_t& context, const image::image2D_t* images, uint32_t mipLevels, texture_sampler_t sampler, texture_t* texture)
 {
   VkExtent3D extents = { images[0].width_, images[0].height_, 1u };
   VkFormat format = getImageFormat(images[0]);
@@ -1726,14 +1726,6 @@ descriptor_t render::getDescriptor(const texture_t& texture)
   return descriptor;
 }
 
-descriptor_t render::getDescriptor(const depth_stencil_buffer_t& depthStencilBuffer)
-{
-  descriptor_t descriptor;
-  descriptor.imageDescriptor_ = depthStencilBuffer.descriptor_;
-  return descriptor;
-}
-
-
 void render::descriptorSetLayoutCreate(const context_t& context, descriptor_binding_t* bindings, uint32_t bindingCount, descriptor_set_layout_t* descriptorSetLayout)
 {
   descriptorSetLayout->bindingCount_ = bindingCount;
@@ -1934,26 +1926,18 @@ void render::descriptorSetUpdate(const context_t& context, const descriptor_set_
   vkUpdateDescriptorSets(context.device_, (uint32_t)writeDescriptorSets.size(), &writeDescriptorSets[0], 0, nullptr);
 }
 
-void render::descriptorSetBindForGraphics(command_buffer_t commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount)
+void render::descriptorSetBind(command_buffer_t commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount)
 {
+  VkPipelineBindPoint bindPoint = commandBuffer.type_ == command_buffer_t::GRAPHICS ? VK_PIPELINE_BIND_POINT_GRAPHICS :
+                                                                                      VK_PIPELINE_BIND_POINT_COMPUTE;
+  
   std::vector<VkDescriptorSet> descriptorSetHandles(descriptorSetCount);
   for (u32 i(0); i < descriptorSetCount; ++i)
   {
     descriptorSetHandles[i] = descriptorSets[i].handle_;
   }
   
-  vkCmdBindDescriptorSets(commandBuffer.handle_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.handle_, firstSet, descriptorSetCount, descriptorSetHandles.data(), 0, 0);
-}
-
-void render::descriptorSetBindForCompute(command_buffer_t commandBuffer, const pipeline_layout_t& pipelineLayout, uint32_t firstSet, descriptor_set_t* descriptorSets, uint32_t descriptorSetCount)
-{
-  std::vector<VkDescriptorSet> descriptorSetHandles(descriptorSetCount);
-  for (u32 i(0); i < descriptorSetCount; ++i)
-  {
-    descriptorSetHandles[i] = descriptorSets[i].handle_;
-  }
-
-  vkCmdBindDescriptorSets(commandBuffer.handle_, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.handle_, firstSet, descriptorSetCount, descriptorSetHandles.data(), 0, 0);
+  vkCmdBindDescriptorSets(commandBuffer.handle_, bindPoint, pipelineLayout.handle_, firstSet, descriptorSetCount, descriptorSetHandles.data(), 0, 0);
 }
 
 void render::graphicsPipelineCreate(const context_t& context, VkRenderPass renderPass, uint32_t subpass, const render::vertex_format_t& vertexFormat, 
@@ -2565,7 +2549,7 @@ void render::semaphoreDestroy(const context_t& context, VkSemaphore semaphore)
 }
 
 
-void render::textureCubemapCreateFromEquirectangularImage(const context_t& context, const image::image2D_t& image, uint32_t size, bool generateMipmaps, texture_cubemap_t* cubemap)
+void render::textureCubemapCreateFromEquirectangularImage(const context_t& context, const image::image2D_t& image, uint32_t size, bool generateMipmaps, texture_t* cubemap)
 {
   u32 mipLevels = generateMipmaps ? u32(1 + floor(log2(size))) : 1u;
 
@@ -2692,7 +2676,7 @@ void render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
 
       render::pushConstants(commandBuffer, pipelineLayout, 0u, &viewProjection);
       render::graphicsPipelineBind(commandBuffer, pipeline);
-      bkk::render::descriptorSetBindForGraphics(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
+      bkk::render::descriptorSetBind(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
       mesh::draw(commandBuffer, cube);
 
       render::commandBufferRenderPassEnd(commandBuffer);
@@ -2733,7 +2717,7 @@ void render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
   mesh::destroy(context, &cube);
 }
 
-void render::diffuseConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, texture_cubemap_t* irradiance)
+void render::diffuseConvolution(const context_t& context, texture_t environmentMap, uint32_t size, texture_t* irradiance)
 {
   mesh::mesh_t cube = mesh::unitCube(context);
 
@@ -2873,7 +2857,7 @@ void render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
 
     render::pushConstants(commandBuffer, pipelineLayout, 0u, &viewProjection);
     render::graphicsPipelineBind(commandBuffer, pipeline);
-    bkk::render::descriptorSetBindForGraphics(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
+    bkk::render::descriptorSetBind(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
     mesh::draw(commandBuffer, cube);
     render::commandBufferRenderPassEnd(commandBuffer);
 
@@ -2906,7 +2890,7 @@ void render::diffuseConvolution(const context_t& context, texture_cubemap_t envi
   mesh::destroy(context, &cube);
 }
 
-void render::specularConvolution(const context_t& context, texture_cubemap_t environmentMap, uint32_t size, uint32_t maxMipmapLevels, texture_cubemap_t* specularMap)
+void render::specularConvolution(const context_t& context, texture_t environmentMap, uint32_t size, uint32_t maxMipmapLevels, texture_t* specularMap)
 {
   mesh::mesh_t cube = mesh::unitCube(context);
 
@@ -3130,7 +3114,7 @@ void render::specularConvolution(const context_t& context, texture_cubemap_t env
       render::commandBufferRenderPassBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
       render::pushConstants(commandBuffer, pipelineLayout, 0u, &pushConstants);
       render::graphicsPipelineBind(commandBuffer, pipeline);
-      bkk::render::descriptorSetBindForGraphics(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
+      bkk::render::descriptorSetBind(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
       mesh::draw(commandBuffer, cube);
       render::commandBufferRenderPassEnd(commandBuffer);
 
@@ -3169,7 +3153,7 @@ void render::specularConvolution(const context_t& context, texture_cubemap_t env
   mesh::destroy(context, &cube);
 }
 
-void render::waitForCommandBufferToFinish(const context_t& context)
+void render::waitForAllCommandBuffersToFinish(const context_t& context)
 {
   //Create command buffer
   VkCommandBuffer commandBuffer;
@@ -3384,7 +3368,7 @@ void render::brdfConvolution(const context_t& context, uint32_t size, texture_t*
   render::commandBufferEnd(commandBuffer);
   render::commandBufferSubmit(context, commandBuffer);
 
-  waitForCommandBufferToFinish(context);
+  waitForAllCommandBuffersToFinish(context);
 
   //Clean-up
   render::frameBufferDestroy(context, &frameBuffer);
@@ -3517,7 +3501,7 @@ void render::texture2DCreateAndGenerateMipmaps(const context_t& context, const i
     render::commandBufferBegin(context, commandBuffer);
     render::commandBufferRenderPassBegin(context, &frameBuffers[mipLevel], &clearValue, 1u, commandBuffer);
     render::graphicsPipelineBind(commandBuffer, pipeline);
-    bkk::render::descriptorSetBindForGraphics(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
+    bkk::render::descriptorSetBind(commandBuffer, pipelineLayout, 0, &descriptorSet, 1u);
     mesh::draw(commandBuffer, quad);
     render::commandBufferRenderPassEnd(commandBuffer);
 

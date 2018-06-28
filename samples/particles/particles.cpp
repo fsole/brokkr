@@ -500,7 +500,7 @@ public:
     {
       render::beginPresentationCommandBuffer(context, i, clearValues);
       bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline_);
-      bkk::render::descriptorSetBindForGraphics(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
+      bkk::render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
       mesh::drawInstanced(commandBuffers[i], particleSystem_.maxParticleCount_, nullptr, 0u, mesh_);
       render::endPresentationCommandBuffer(context, i);
     }
@@ -530,7 +530,7 @@ public:
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &computeCommandBuffer_);
     render::commandBufferBegin(context, computeCommandBuffer_);
     bkk::render::computePipelineBind(computeCommandBuffer_, computePipeline_);
-    bkk::render::descriptorSetBindForCompute(computeCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
+    bkk::render::descriptorSetBind(computeCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
     u32 groupSizeX = (particleSystem_.maxParticleCount_ + 63) / 64;
     bkk::render::computeDispatch(computeCommandBuffer_, groupSizeX, 1, 1);
     render::commandBufferEnd(computeCommandBuffer_);

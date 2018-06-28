@@ -86,7 +86,7 @@ void buildCommandBuffers(const bkk::render::context_t& context,const bkk::mesh::
   {
     bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
     bkk::render::graphicsPipelineBind(commandBuffers[i], *pipeline);
-    bkk::render::descriptorSetBindForGraphics(commandBuffers[i], *layout, 0, descriptorSet, 1u);
+    bkk::render::descriptorSetBind(commandBuffers[i], *layout, 0, descriptorSet, 1u);
     bkk::mesh::draw(commandBuffers[i], mesh);
     bkk::render::endPresentationCommandBuffer(context, i);
   }

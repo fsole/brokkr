@@ -432,7 +432,7 @@ void buildCommandBuffers()
   {
     bkk::render::beginPresentationCommandBuffer(gContext, i, nullptr);
     bkk::render::graphicsPipelineBind(commandBuffers[i], gPipeline);
-    bkk::render::descriptorSetBindForGraphics(commandBuffers[i], gPipelineLayout, 0, &gDescriptorSet, 1u);
+    bkk::render::descriptorSetBind(commandBuffers[i], gPipelineLayout, 0, &gDescriptorSet, 1u);
     mesh::draw(commandBuffers[i], gFSQuad);
     render::endPresentationCommandBuffer(gContext, i);
   }
@@ -445,7 +445,7 @@ void buildComputeCommandBuffer()
 
   render::commandBufferBegin(gContext, gComputeCommandBuffer);
   bkk::render::computePipelineBind(gComputeCommandBuffer, gComputePipeline);
-  bkk::render::descriptorSetBindForCompute(gComputeCommandBuffer, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
+  bkk::render::descriptorSetBind(gComputeCommandBuffer, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
   bkk::render::computeDispatch(gComputeCommandBuffer, gImageSize.x / 16, gImageSize.y / 16, 1);
   render::commandBufferEnd(gComputeCommandBuffer);
 }

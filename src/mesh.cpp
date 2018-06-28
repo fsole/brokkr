@@ -72,7 +72,7 @@ static void TraverseScene(const aiNode* pNode, std::map<std::string, bkk::handle
     if (boneName == nodeName)
     {
       skeleton->bones_[boneIndex] = nodeHandle;
-      skeleton->offsets_[boneIndex] = (f32*)&mesh->mBones[i]->mOffsetMatrix.Transpose().a1;
+      skeleton->bindPose_[boneIndex] = (f32*)&mesh->mBones[i]->mOffsetMatrix.Transpose().a1;
       boneIndex++;
       break;
     }
@@ -93,11 +93,11 @@ static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std:
   CountNodes(scene->mRootNode, nodeCount);
 
   skeleton->bones_ = new bkk::handle_t[mesh->mNumBones];
-  skeleton->offsets_ = new maths::mat4[mesh->mNumBones];
+  skeleton->bindPose_ = new maths::mat4[mesh->mNumBones];
   
   aiMatrix4x4 globalInverse = scene->mRootNode->mTransformation;
   globalInverse.Inverse();
-  skeleton->globalInverseTransform_ = (f32*)&globalInverse.Transpose().a1;
+  skeleton->rootBoneInverseTransform_ = (f32*)&globalInverse.Transpose().a1;
   skeleton->boneCount_ = mesh->mNumBones;
   skeleton->nodeCount_ = nodeCount;
 
@@ -482,7 +482,7 @@ void mesh::destroy(const render::context_t& context, mesh_t* mesh, render::gpu_m
 
   if (mesh->skeleton_)
   {
-    delete[] mesh->skeleton_->offsets_;
+    delete[] mesh->skeleton_->bindPose_;
     delete[] mesh->skeleton_->bones_;
     delete mesh->skeleton_;
   }
@@ -614,7 +614,7 @@ void mesh::animatorUpdate(const render::context_t& context, f32 deltaTime, skele
   for (u32 i = 0; i < animator->skeleton_->boneCount_; ++i)
   {
     maths::mat4* boneGlobalTx = animator->skeleton_->txManager_.getWorldMatrix(animator->skeleton_->bones_[i]);
-    animator->boneTransform_[i] = animator->skeleton_->offsets_[i] * (*boneGlobalTx) * animator->skeleton_->globalInverseTransform_;
+    animator->boneTransform_[i] = animator->skeleton_->bindPose_[i] * (*boneGlobalTx) * animator->skeleton_->rootBoneInverseTransform_;
   }
 
   //Upload bone transforms to the uniform buffer

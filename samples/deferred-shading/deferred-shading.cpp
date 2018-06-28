@@ -313,8 +313,6 @@ struct deferred_shading_sample_t : public application_t
     render::context_t& context = getRenderContext();
     uvec2 size = getWindowSize();
 
-    gui::init(context);
-
     //Create allocator for uniform buffers and meshes
     render::gpuAllocatorCreate(context, 100 * 1024 * 1024, 0xFFFF, render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, &allocator_);
 
@@ -513,8 +511,6 @@ struct deferred_shading_sample_t : public application_t
       render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
     }
     
-    createGuiFrame(context);
-
     buildPresentationCommandBuffers();
     buildAndSubmitCommandBuffer();        
     render::presentFrame( &context, &renderComplete_, 1u);
@@ -573,19 +569,9 @@ struct deferred_shading_sample_t : public application_t
 
   void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos)
   {
-    gui::updateMousePosition(mousePos.x, mousePos.y);
     if (getMousePressedButton() == window::MOUSE_RIGHT)
     {
       camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
-    }
-  }
-
-  void onMouseButton(u32 button, bool pressed, const maths::vec2& mousePos, const maths::vec2& mousePrevPos)
-  {
-    gui::updateMousePosition(mousePos.x, mousePos.y);
-    if (button == window::MOUSE_LEFT)
-    {
-      gui::updateMouseButton(button, pressed);
     }
   }
 
@@ -675,8 +661,6 @@ struct deferred_shading_sample_t : public application_t
     render::gpuAllocatorDestroy(context, &allocator_);
     render::descriptorPoolDestroy(context, &descriptorPool_);
     render::semaphoreDestroy( context, renderComplete_);
-
-    gui::destroy(context);
   }
   
 private:
@@ -855,7 +839,7 @@ private:
       {
         descriptorSets[1] = objectIter.get().descriptorSet_;
         descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(commandBuffer_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
+        bkk::render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
         mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
         mesh::draw(commandBuffer_, *mesh);
         ++objectIter;
@@ -870,7 +854,7 @@ private:
       while (lightIter != light_.end())
       {
         descriptorSets[2] = lightIter.get().descriptorSet_;
-        bkk::render::descriptorSetBindForGraphics(commandBuffer_, lightPipelineLayout_, 0u, descriptorSets, 3u);
+        bkk::render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 0u, descriptorSets, 3u);
         mesh::draw(commandBuffer_, sphereMesh_);
         ++lightIter;
       }
@@ -892,7 +876,7 @@ private:
     {
       bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
       bkk::render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
-      bkk::render::descriptorSetBindForGraphics(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
+      bkk::render::descriptorSetBind(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
       bkk::mesh::draw(commandBuffers[i], fullScreenQuad_);
 
       bkk::gui::draw(context, commandBuffers[i]);
@@ -933,15 +917,11 @@ private:
     }
   }
 
-  void createGuiFrame(const bkk::render::context_t& context)
+  void buildGuiFrame()
   {
-    gui::beginFrame(context);
-
     ImGui::Begin("Controls");
     ImGui::Checkbox("Animate Lights", &bAnimateLights_);
     ImGui::End();
-
-    gui::endFrame();
   }
 
 private:
