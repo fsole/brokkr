@@ -765,7 +765,9 @@ namespace bkk
 
       void operator=(const T* coefficients)
       {
-        memcpy(data, coefficients, 16 * sizeof(T));
+        coefficients ?
+          memcpy(data, coefficients, 16 * sizeof(T)) :
+          memset(data, 0, 16 * sizeof(T));
       }
 
       T& operator[](u32 index)

@@ -25,7 +25,7 @@
 #ifndef PACKED_FREELIST_H
 #define PACKED_FREELIST_H
 
-#include <vector>
+#include "dynamic-array.h"
 #include <cassert>
 
 namespace bkk
@@ -193,7 +193,7 @@ namespace bkk
      * @brief Get the packed data vector
      * @return A reference to the data vector
      */
-    std::vector<T>& getData()
+    bkk::dynamic_array_t<T>& getData()
     {
       return data_;
     }
@@ -216,11 +216,11 @@ namespace bkk
 
   private:
 
-    std::vector<handle_t> freeList_;  ///< Free list of IDs (vector with holes)
+    bkk::dynamic_array_t<handle_t> freeList_;  ///< Free list of IDs (vector with holes)
     uint16_t headFreeList_;           ///< Head of the free list (fist free element in freeList_)
 
-    std::vector<T> data_;             ///< Packed data
-    std::vector<handle_t> id_;        ///< Id of each packed element (Needed to go from index to ID)
+    bkk::dynamic_array_t<T> data_;             ///< Packed data
+    bkk::dynamic_array_t<handle_t> id_;        ///< Id of each packed element (Needed to go from index to ID)
     uint16_t elementCount_;           ///< Number of packed elements
   };
 

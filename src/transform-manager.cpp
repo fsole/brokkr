@@ -23,7 +23,6 @@
 */
 
 #include "transform-manager.h"
-#include <algorithm>    // std::sort
 
 using namespace bkk;
 
@@ -33,7 +32,7 @@ bkk::handle_t transform_manager_t::createTransform( const maths::mat4& transform
   if( id.index_ >= parent_.size() )
   {
     //Resize vectors
-    size_t newSize = parent_.size() + 1;
+    u32 newSize = parent_.size() + 1;
     parent_.resize( newSize );
     world_.resize( newSize );
   }
@@ -52,8 +51,8 @@ bool transform_manager_t::destroyTransform( bkk::handle_t id )
   u32 lastTransform( transform_.getElementCount()-1 );
   if( transform_.getIndexFromId( id, &index ) && index < lastTransform )
   {
-    std::swap( parent_[index], parent_[lastTransform] );
-    std::swap(world_[index], world_[lastTransform]);
+    parent_.swap(index, lastTransform);
+    world_.swap(index, lastTransform);
   }
 
   return transform_.remove( id );
@@ -125,7 +124,7 @@ void transform_manager_t::sortTransforms()
   };
 
   u32 count( transform_.getElementCount() );
-  std::vector<transform_handle_t> orderedTransform(count);
+  bkk::dynamic_array_t<transform_handle_t> orderedTransform(count);
   for( u32 i(0); i<count; ++i )
   {
     bkk::handle_t parentId = parent_[i];
@@ -138,7 +137,8 @@ void transform_manager_t::sortTransforms()
       parentId = parent_[parentIndex];
     }
   }
-  std::sort( orderedTransform.begin(), orderedTransform.end() );
+
+  orderedTransform.sort();
 
   //2. Reorder transforms using the ordered helper vector
   for( u32 i(0); i<count; ++i )
@@ -159,7 +159,7 @@ void transform_manager_t::update()
 
   //Update world transforms
   u32 parentIndex;
-  std::vector<maths::mat4>& transform( transform_.getData() );
+  bkk::dynamic_array_t<maths::mat4>& transform( transform_.getData() );
   for( u32 i(0); i<transform_.getElementCount(); ++i )
   {
     world_[i] = transform[i];

@@ -26,7 +26,7 @@
 #define RENDER_TYPES_H
 
 #include <vulkan/vulkan.h>
-#include <vector>
+#include "dynamic-array.h"
 
 namespace bkk
 {
@@ -106,12 +106,12 @@ namespace bkk
       uint32_t imageWidth_;
       uint32_t imageHeight_;
 
-      std::vector<VkImage> image_;
-      std::vector<VkImageView> imageView_;
+      dynamic_array_t<VkImage> image_;
+      dynamic_array_t<VkImageView> imageView_;
       depth_stencil_buffer_t depthStencil_;
 
-      std::vector<VkFramebuffer> frameBuffer_;
-      std::vector<command_buffer_t> commandBuffer_;
+      dynamic_array_t<VkFramebuffer> frameBuffer_;
+      dynamic_array_t<command_buffer_t> commandBuffer_;
       
       VkRenderPass renderPass_;
 
@@ -305,7 +305,7 @@ namespace bkk
       {
         VkViewport viewPort_;
         VkRect2D scissorRect_;
-        std::vector<VkPipelineColorBlendAttachmentState> blendState_;
+        dynamic_array_t<VkPipelineColorBlendAttachmentState> blendState_;
         VkCullModeFlags cullMode_;
         bool depthTestEnabled_;
         bool depthWriteEnabled_;
@@ -387,8 +387,8 @@ namespace bkk
 
       struct subpass_t
       {
-        std::vector< uint32_t > colorAttachmentIndex_;
-        std::vector< uint32_t > inputAttachmentIndex_;
+        dynamic_array_t<uint32_t> colorAttachmentIndex_;
+        dynamic_array_t<uint32_t> inputAttachmentIndex_;
         int32_t depthStencilAttachmentIndex_ = -1;
       };
       

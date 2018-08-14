@@ -48,6 +48,7 @@ namespace bkk
 
       window::window_t& getWindow();
       maths::uvec2 getWindowSize();
+      f32 getAspectRatio();
 
       f32 getTimeDelta();
 

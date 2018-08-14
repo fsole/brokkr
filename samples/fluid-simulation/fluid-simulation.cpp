@@ -441,7 +441,7 @@ public:
     particleSystem_.boundaries[5] = vec4( 0.0f,  0.0f, -1.0f,  15.0f);
 
     render::context_t& context = getRenderContext();
-    projectionTx_ = perspectiveProjectionMatrix(1.5f, getWindow().width_ / (float)getWindow().height_, 1.0f, 1000.0f);
+    projectionTx_ = perspectiveProjectionMatrix(1.5f, getAspectRatio(), 1.0f, 1000.0f);
     modelTx_ = createTransform(vec3(0.0, 0.0, 0.0), VEC3_ONE, QUAT_UNIT);
 
     //Create particle mesh
@@ -457,8 +457,8 @@ public:
       nullptr, &globalUnifomBuffer_);
 
     //Create particle buffers
-    std::vector<particle_t> particles(particleSystem_.maxParticleCount);
-    std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount);
+    bkk::dynamic_array_t<particle_t> particles(particleSystem_.maxParticleCount);
+    bkk::dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount);
     for (u32 i(0); i < particleSystem_.maxParticleCount; ++i)
     {
       particles[i].scale = 0.0f;
@@ -564,6 +564,7 @@ public:
     matrices[0] = modelTx_ * camera_.view_;
     matrices[1] = matrices[0] * projectionTx_;
     render::gpuBufferUpdate(context, (void*)&matrices, 0, sizeof(matrices), &globalUnifomBuffer_);
+
     buildCommandBuffers();
     render::presentFrame(&context);
 
@@ -592,7 +593,7 @@ public:
   {
     render::context_t& context = getRenderContext();
     render::contextFlush(context);
-    std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount);
+    bkk::dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount);
     for (u32 i(0); i < particleSystem_.maxParticleCount; ++i)
     {
       particlesState[i].age = -1.0f;
@@ -646,8 +647,8 @@ public:
 
     VkClearValue clearValues[2];
     clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 1.0f } };
-
     clearValues[1].depthStencil = { 1.0f,0 };
+
     const render::command_buffer_t* commandBuffers;
     uint32_t count = render::getPresentationCommandBuffers(context, &commandBuffers);
     for (uint32_t i(0); i<count; ++i)
@@ -711,6 +712,7 @@ public:
     ImGui::SliderFloat("viscosity", &particleSystem_.viscosityCoefficient, 0.0f, 10.0f);
     ImGui::SliderFloat("pressure", &particleSystem_.pressureCoefficient, 0.0f, 500.0f);
     ImGui::SliderFloat("referenceDensity", &particleSystem_.referenceDensity, 0.0f, 10.0f);
+    ImGui::SliderFloat("emissionRate", &emissionRate_, 0.0f, 1000.0f);
     if (ImGui::Button("Reset")){ restartSimulation(); }
     ImGui::End();
   }

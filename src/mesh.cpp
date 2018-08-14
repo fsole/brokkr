@@ -206,7 +206,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   }
 
   //Attributes description
-  std::vector<render::vertex_attribute_t> attributes(attributeCount);
+  dynamic_array_t<render::vertex_attribute_t> attributes(attributeCount);
 
   //First attribute is position
   attributes[0].format_ = render::vertex_attribute_t::format::VEC3;
@@ -505,8 +505,8 @@ void mesh::draw(render::command_buffer_t commandBuffer, const mesh_t& mesh)
   vkCmdBindIndexBuffer(commandBuffer.handle_, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
 
   uint32_t attributeCount = mesh.vertexFormat_.attributeCount_;
-  std::vector<VkBuffer> buffers(attributeCount);
-  std::vector<VkDeviceSize> offsets(attributeCount);
+  dynamic_array_t<VkBuffer> buffers(attributeCount);
+  dynamic_array_t<VkDeviceSize> offsets(attributeCount);
   for (uint32_t i(0); i<attributeCount; ++i)
   {
     buffers[i] = mesh.vertexBuffer_.handle_;
@@ -522,8 +522,8 @@ void mesh::drawInstanced(bkk::render::command_buffer_t commandBuffer, u32 instan
   vkCmdBindIndexBuffer(commandBuffer.handle_, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
 
   uint32_t attributeCount = mesh.vertexFormat_.attributeCount_;
-  std::vector<VkBuffer> buffers(attributeCount);
-  std::vector<VkDeviceSize> offsets(attributeCount);
+  dynamic_array_t<VkBuffer> buffers(attributeCount);
+  dynamic_array_t<VkDeviceSize> offsets(attributeCount);
   for (uint32_t i(0); i<attributeCount; ++i)
   {
     buffers[i] = mesh.vertexBuffer_.handle_;
@@ -533,8 +533,8 @@ void mesh::drawInstanced(bkk::render::command_buffer_t commandBuffer, u32 instan
 
   if (instancedAttributesCount > 0 && instanceBuffer)
   {
-    std::vector<VkBuffer> instancedBuffers(instancedAttributesCount);
-    std::vector<VkDeviceSize> instancedOffsets(instancedAttributesCount);
+    dynamic_array_t<VkBuffer> instancedBuffers(instancedAttributesCount);
+    dynamic_array_t<VkDeviceSize> instancedOffsets(instancedAttributesCount);
     for (uint32_t i(0); i < instancedAttributesCount; ++i)
     {
       instancedBuffers[i] = instanceBuffer->handle_;

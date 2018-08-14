@@ -51,9 +51,9 @@ namespace bkk
     //Sorts transform by hierarchy level
     void sortTransforms();
 
-    packed_freelist_t<maths::mat4> transform_;  ///< Local transforms
-    std::vector<bkk::handle_t> parent_;         ///< Parent of each transform
-    std::vector<maths::mat4> world_;            ///< World transforms
+    packed_freelist_t<maths::mat4> transform_;    ///< Local transforms
+    bkk::dynamic_array_t<bkk::handle_t> parent_;  ///< Parent of each transform
+    bkk::dynamic_array_t<maths::mat4> world_;     ///< World transforms
 
     bool hierarchy_changed_;                    ///< Flag to indicates that the hierarchy has changed since the last update
   };

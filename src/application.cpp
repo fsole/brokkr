@@ -189,6 +189,7 @@ render::context_t& application_t::getRenderContext() { return *context_; }
 window::window_t& application_t::getWindow() { return *window_; }
 f32 application_t::getTimeDelta() { return timeDelta_; }
 maths::uvec2 application_t::getWindowSize() { return maths::uvec2(window_->width_, window_->height_); }
+f32 application_t::getAspectRatio() { return (window_->width_ / (float)window_->height_); }
 
 
   

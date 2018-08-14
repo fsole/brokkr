@@ -105,6 +105,7 @@
     <ClInclude Include="..\..\external\imgui\imgui_internal.h" />
     <ClInclude Include="..\..\include\application.h" />
     <ClInclude Include="..\..\include\camera.h" />
+    <ClInclude Include="..\..\include\dynamic-array.h" />
     <ClInclude Include="..\..\include\gui.h" />
     <ClInclude Include="..\..\include\image.h" />
     <ClInclude Include="..\..\include\maths.h" />

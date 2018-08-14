@@ -646,8 +646,7 @@ public:
     if (!diffuseMap.empty())
     {
       bkk::image::image2D_t image = {};
-      std::string path = "../resources/" + diffuseMap;
-      if (bkk::image::load(path.c_str(), true, &image))
+      if (bkk::image::load(diffuseMap.c_str(), true, &image))
       {
         //Create the texture
         bkk::render::texture2DCreateAndGenerateMipmaps(context, image, bkk::render::texture_sampler_t(), &material.diffuseMap_);
@@ -747,14 +746,14 @@ public:
     render::gpuBufferUpdate(context, (void*)&uniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
-    std::vector<object_t>& object(object_.getData());
+    bkk::dynamic_array_t<object_t>& object(object_.getData());
     for (u32 i(0); i < object.size(); ++i)
     {
       render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_);
     }
 
     //Update lights position
-    std::vector<point_light_t>& light(pointLight_.getData());
+    bkk::dynamic_array_t<point_light_t>& light(pointLight_.getData());
     for (u32 i(0); i<light.size(); ++i)
     {
       render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
@@ -944,7 +943,7 @@ private:
     //Meshes
     mesh::mesh_t* mesh = nullptr;
     uint32_t meshCount = mesh::createFromFile(context, url, mesh::EXPORT_ALL, &allocator_, &mesh);
-    std::vector<bkk::handle_t> meshHandles(meshCount);
+    bkk::dynamic_array_t<bkk::handle_t> meshHandles(meshCount);
     for (u32 i(0); i < meshCount; ++i)
     {
       meshHandles[i] = mesh_.add(mesh[i]);
@@ -955,7 +954,7 @@ private:
     mesh::material_t* materials;
     uint32_t* materialIndex;
     uint32_t materialCount = mesh::loadMaterials(url, &materialIndex, &materials);
-    std::vector<bkk::handle_t> materialHandles(materialCount);
+    bkk::dynamic_array_t<bkk::handle_t> materialHandles(materialCount);
 
     std::string modelPath = url;
     modelPath = modelPath.substr(0u, modelPath.find_last_of("/") + 1);

@@ -62,7 +62,7 @@ static int32_t GetQueueIndex(const VkPhysicalDevice* physicalDevice, VkQueueFlag
   vkGetPhysicalDeviceQueueFamilyProperties(*physicalDevice, &queueFamilyPropertyCount, nullptr);
 
   //Get properties of each family
-  std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertyCount);
+  dynamic_array_t<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertyCount);
   vkGetPhysicalDeviceQueueFamilyProperties(*physicalDevice, &queueFamilyPropertyCount, queueFamilyProperties.data());
 
   for (uint32_t queueIndex = 0; queueIndex < queueFamilyPropertyCount; ++queueIndex)
@@ -133,7 +133,7 @@ static VkInstance CreateInstance(const char* applicationName, const char* engine
   instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 
 
-  std::vector<const char*> instanceExtensions;
+  dynamic_array_t<const char*> instanceExtensions;
   instanceExtensions.push_back("VK_KHR_surface");
 
 #ifdef WIN32
@@ -141,7 +141,7 @@ static VkInstance CreateInstance(const char* applicationName, const char* engine
 #else
   instanceExtensions.push_back("VK_KHR_xcb_surface");
 #endif
-  std::vector<const char*> instanceLayers;
+  dynamic_array_t<const char*> instanceLayers;
 
 
 #ifdef VK_DEBUG_LAYERS
@@ -160,8 +160,8 @@ static VkInstance CreateInstance(const char* applicationName, const char* engine
   applicationInfo.apiVersion = VK_API_VERSION_1_0;
   applicationInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
   applicationInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-  applicationInfo.pApplicationName = "Vulkan Sample application";
-  applicationInfo.pEngineName = "VulkanFramework";
+  applicationInfo.pApplicationName = "brokkr Application";
+  applicationInfo.pEngineName = "brokkr Framework";
   instanceCreateInfo.pApplicationInfo = &applicationInfo;
 
   VkInstance instance = VK_NULL_HANDLE;
@@ -180,7 +180,7 @@ static void CreateDeviceAndQueues(VkInstance instance,
   uint32_t physicalDeviceCount = 0;
   vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, nullptr);
 
-  std::vector<VkPhysicalDevice> devices{ physicalDeviceCount };
+  dynamic_array_t<VkPhysicalDevice> devices( physicalDeviceCount);
   vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, devices.data());
 
   //Find a physical device with graphics and compute queues
@@ -216,10 +216,10 @@ static void CreateDeviceAndQueues(VkInstance instance,
   deviceCreateInfo.ppEnabledLayerNames = NULL;
   deviceCreateInfo.enabledLayerCount = 0u;
 
-  std::vector<const char*> deviceExtensions = { "VK_KHR_swapchain" };
+  const char* deviceExtensions = "VK_KHR_swapchain";
 
-  deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
-  deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t> (deviceExtensions.size());
+  deviceCreateInfo.ppEnabledExtensionNames = &deviceExtensions;
+  deviceCreateInfo.enabledExtensionCount = 1u;
 
   *logicalDevice = nullptr;
   vkCreateDevice(*physicalDevice, &deviceCreateInfo, nullptr, logicalDevice);
@@ -236,13 +236,13 @@ static void CreateDeviceAndQueues(VkInstance instance,
 
 static VkBool32 GetDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat *depthFormat)
 {
-  std::vector<VkFormat> depthFormats = { VK_FORMAT_D32_SFLOAT_S8_UINT,
-                                         VK_FORMAT_D32_SFLOAT,
-                                         VK_FORMAT_D24_UNORM_S8_UINT,
-                                         VK_FORMAT_D16_UNORM_S8_UINT,
-                                         VK_FORMAT_D16_UNORM };
+  VkFormat depthFormats[] = { VK_FORMAT_D32_SFLOAT_S8_UINT,
+                              VK_FORMAT_D32_SFLOAT,
+                              VK_FORMAT_D24_UNORM_S8_UINT,
+                              VK_FORMAT_D16_UNORM_S8_UINT,
+                              VK_FORMAT_D16_UNORM };
 
-  for (size_t i(0); i < depthFormats.size(); ++i)
+  for (size_t i(0); i < 5; ++i)
   {
     VkFormatProperties formatProps;
     vkGetPhysicalDeviceFormatProperties(physicalDevice, depthFormats[i], &formatProps);
@@ -390,7 +390,7 @@ static void CreateSurface(VkInstance instance, VkPhysicalDevice physicalDevice, 
   uint32_t surfaceFormatCount = 0;
   context.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface->handle_, &surfaceFormatCount, nullptr);
   assert(surfaceFormatCount > 0);
-  std::vector<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
+  dynamic_array_t<VkSurfaceFormatKHR> surfaceFormats(surfaceFormatCount);
   context.vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface->handle_, &surfaceFormatCount, surfaceFormats.data());
 
   surface->imageFormat_ = VK_FORMAT_R8G8B8A8_UNORM;
@@ -689,11 +689,11 @@ void render::presentFrame(context_t* context, VkSemaphore* waitSemaphore, uint32
   uint32_t currentImage = context->swapChain_.currentImage_;
 
   //Submit current command buffer  
-  std::vector<VkSemaphore> waitSemaphoreList(1 + waitSemaphoreCount);
-  std::vector<VkPipelineStageFlags> waitStageList(1 + waitSemaphoreCount);
+  dynamic_array_t<VkSemaphore> waitSemaphoreList(1 + waitSemaphoreCount);
+  dynamic_array_t<VkPipelineStageFlags> waitStageList(1 + waitSemaphoreCount);
   waitSemaphoreList[0] = context->swapChain_.imageAcquired_;
   waitStageList[0] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-  for (size_t i(0); i < waitSemaphoreCount; ++i)
+  for (uint32_t i(0); i < waitSemaphoreCount; ++i)
   {
     waitSemaphoreList[i+1] = waitSemaphore[i];
     waitStageList[i+1] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
@@ -1331,7 +1331,7 @@ void render::textureCubemapCreate(const context_t& context, const image::image2D
     gpuMemoryUnmap(context, stagingBufferMemory);
   }
 
-  std::vector<VkBufferImageCopy> bufferCopyRegions;
+  dynamic_array_t<VkBufferImageCopy> bufferCopyRegions;
   size_t offset = 0;
   for (uint32_t face = 0; face < 6; face++)
   {
@@ -1738,7 +1738,7 @@ void render::descriptorSetLayoutCreate(const context_t& context, descriptor_bind
     memcpy(descriptorSetLayout->bindings_, bindings, sizeof(descriptor_binding_t)*bindingCount);
   }
   
-  std::vector<VkDescriptorSetLayoutBinding> layoutBindings(bindingCount);
+  dynamic_array_t<VkDescriptorSetLayoutBinding> layoutBindings(bindingCount);
   for (uint32_t i(0); i < layoutBindings.size(); ++i)
   {
     layoutBindings[i].descriptorCount = 1;
@@ -1753,7 +1753,7 @@ void render::descriptorSetLayoutCreate(const context_t& context, descriptor_bind
   descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   if (!layoutBindings.empty())
   {
-    descriptorSetLayoutCreateInfo.bindingCount = (uint32_t)layoutBindings.size();
+    descriptorSetLayoutCreateInfo.bindingCount = layoutBindings.size();
     descriptorSetLayoutCreateInfo.pBindings = &layoutBindings[0];
   }
 
@@ -1777,7 +1777,7 @@ void render::pipelineLayoutCreate(const context_t& context,
 
   pipelineLayout->descriptorSetLayout_ = nullptr;
   pipelineLayout->descriptorSetLayoutCount_ = descriptorSetLayoutCount;
-  std::vector<VkDescriptorSetLayout> setLayouts(descriptorSetLayoutCount);
+  dynamic_array_t<VkDescriptorSetLayout> setLayouts(descriptorSetLayoutCount);
   if (descriptorSetLayoutCount > 0)
   {
     for (uint32_t i(0); i < descriptorSetLayoutCount; ++i)
@@ -1791,7 +1791,7 @@ void render::pipelineLayoutCreate(const context_t& context,
 
   pipelineLayout->pushConstantRange_ = nullptr;
   pipelineLayout->pushConstantRangeCount_ = pushConstantRangeCount;
-  std::vector<VkPushConstantRange> pushConstants(pushConstantRangeCount);
+  dynamic_array_t<VkPushConstantRange> pushConstants(pushConstantRangeCount);
   if (pushConstantRangeCount > 0)
   {
     VkPushConstantRange pushConstantRange;
@@ -1835,7 +1835,7 @@ void render::descriptorPoolCreate(const context_t& context, uint32_t descriptorS
   descriptorPool->storageBuffers_ = storageBuffers.data_;
   descriptorPool->storageImages_ = storageImages.data_;
 
-  std::vector<VkDescriptorPoolSize> descriptorPoolSize;
+  dynamic_array_t<VkDescriptorPoolSize> descriptorPoolSize;
 
   if(descriptorPool->combinedImageSamplers_ > 0u )
     descriptorPoolSize.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptorPool->combinedImageSamplers_ });
@@ -1889,7 +1889,7 @@ void render::descriptorSetDestroy(const context_t& context, descriptor_set_t* de
 
 void render::descriptorSetUpdate(const context_t& context, const descriptor_set_layout_t& descriptorSetLayout, descriptor_set_t* descriptorSet)
 {
-  std::vector<VkWriteDescriptorSet> writeDescriptorSets(descriptorSet->descriptorCount_);
+  dynamic_array_t<VkWriteDescriptorSet> writeDescriptorSets(descriptorSet->descriptorCount_);
   for (uint32_t i(0); i < writeDescriptorSets.size(); ++i)
   {
     writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1931,7 +1931,7 @@ void render::descriptorSetBind(command_buffer_t commandBuffer, const pipeline_la
   VkPipelineBindPoint bindPoint = commandBuffer.type_ == command_buffer_t::GRAPHICS ? VK_PIPELINE_BIND_POINT_GRAPHICS :
                                                                                       VK_PIPELINE_BIND_POINT_COMPUTE;
   
-  std::vector<VkDescriptorSet> descriptorSetHandles(descriptorSetCount);
+  dynamic_array_t<VkDescriptorSet> descriptorSetHandles(descriptorSetCount);
   for (u32 i(0); i < descriptorSetCount; ++i)
   {
     descriptorSetHandles[i] = descriptorSets[i].handle_;
@@ -2021,7 +2021,7 @@ void render::graphicsPipelineCreate(const context_t& context, VkRenderPass rende
 
 void render::graphicsPipelineDestroy(const context_t& context, graphics_pipeline_t* pipeline)
 {
-  vkDestroyPipeline(context.device_, pipeline->handle_, nullptr);
+  vkDestroyPipeline(context.device_, pipeline->handle_, nullptr);  
 }
 
 void render::graphicsPipelineBind(command_buffer_t commandBuffer, const graphics_pipeline_t& pipeline)
@@ -2258,7 +2258,7 @@ void render::renderPassCreate(const context_t& context,
   renderPass->attachmentCount_ = attachmentCount;
   memcpy(renderPass->attachment_, attachments, sizeof(render_pass_t::attachment_t)*attachmentCount);
 
-  std::vector<VkAttachmentDescription> attachmentDescription(attachmentCount);
+  dynamic_array_t<VkAttachmentDescription> attachmentDescription(attachmentCount);
   for (uint32_t i(0); i < attachmentCount; ++i)
   {
     attachmentDescription[i].samples = attachments[i].samples_;
@@ -2274,7 +2274,7 @@ void render::renderPassCreate(const context_t& context,
   {
     //Create default subpass
     VkSubpassDescription subpassDescription = {};
-    std::vector<VkAttachmentReference> attachmentColorReference;
+    dynamic_array_t<VkAttachmentReference> attachmentColorReference;
     VkAttachmentReference depthStencilAttachmentReference;
     for (u32 i(0); i < attachmentDescription.size(); ++i)
     {
@@ -2310,10 +2310,10 @@ void render::renderPassCreate(const context_t& context,
   else
   {
     //Create subpasses descriptions
-    std::vector<VkSubpassDescription> subpassDescription(subpassCount);
-    std::vector< std::vector<VkAttachmentReference> > inputAttachmentRef( subpassCount );
-    std::vector< std::vector<VkAttachmentReference> > colorAttachmentRef(subpassCount);
-    std::vector<VkAttachmentReference> depthStencilAttachmentRef(subpassCount);
+    dynamic_array_t<VkSubpassDescription> subpassDescription(subpassCount);
+    dynamic_array_t< dynamic_array_t<VkAttachmentReference> > inputAttachmentRef( subpassCount );
+    dynamic_array_t< dynamic_array_t<VkAttachmentReference> > colorAttachmentRef(subpassCount);
+    dynamic_array_t<VkAttachmentReference> depthStencilAttachmentRef(subpassCount);
     
     for (uint32_t i = 0; i < subpassCount; ++i)
     {
@@ -2352,7 +2352,7 @@ void render::renderPassCreate(const context_t& context,
     }
 
     //Dependencies
-    std::vector<VkSubpassDependency> subpassDependencies( dependencyCount );
+    dynamic_array_t<VkSubpassDependency> subpassDependencies( dependencyCount );
     for (uint32_t i = 0; i < dependencyCount; ++i)
     {
       subpassDependencies[i].srcSubpass = dependencies[i].srcSubpass;
@@ -2657,8 +2657,8 @@ void render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
                           maths::lookAtMatrix(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(0.0f, 0.0f, -1.0f), maths::vec3(0.0f, 1.0f, 0.0f)),
                           maths::lookAtMatrix(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(0.0f, 0.0f, 1.0f),  maths::vec3(0.0f, 1.0f, 0.0f)) };
 
-  std::vector<render::frame_buffer_t> frameBuffers(mipLevels);
-  std::vector<render::texture_t> renderTargets(mipLevels);
+  dynamic_array_t<render::frame_buffer_t> frameBuffers(mipLevels);
+  dynamic_array_t<render::texture_t> renderTargets(mipLevels);
   u32 mipSize = size;
   for (u32 mipLevel = 0; mipLevel < mipLevels; ++mipLevel)
   {
@@ -3094,8 +3094,8 @@ void render::specularConvolution(const context_t& context, texture_t environment
                           maths::lookAtMatrix(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(0.0f, 0.0f, -1.0f), maths::vec3(0.0f, 1.0f, 0.0f)),
                           maths::lookAtMatrix(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(0.0f, 0.0f, 1.0f),  maths::vec3(0.0f, 1.0f, 0.0f)) };
 
-  std::vector<render::frame_buffer_t> frameBuffers(mipLevels);
-  std::vector<render::texture_t> renderTargets(mipLevels);
+  dynamic_array_t<render::frame_buffer_t> frameBuffers(mipLevels);
+  dynamic_array_t<render::texture_t> renderTargets(mipLevels);
   u32 mipSize = size;
   for (u32 mipLevel = 0; mipLevel < mipLevels; ++mipLevel)
   {
@@ -3480,8 +3480,8 @@ void render::texture2DCreateAndGenerateMipmaps(const context_t& context, const i
   render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
 
 
-  std::vector<render::frame_buffer_t> frameBuffers(mipLevels);
-  std::vector<render::texture_t> renderTargets(mipLevels);
+  dynamic_array_t<render::frame_buffer_t> frameBuffers(mipLevels);
+  dynamic_array_t<render::texture_t> renderTargets(mipLevels);
   u32 mipSize = size;
   for (u32 mipLevel = 0; mipLevel < mipLevels; ++mipLevel)
   {

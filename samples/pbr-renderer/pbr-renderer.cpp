@@ -619,14 +619,14 @@ struct pbr_renderer_t : public application_t
     render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
-    std::vector<object_t>& object(object_.getData());
+    bkk::dynamic_array_t<object_t>& object(object_.getData());
     for (u32 i(0); i < object.size(); ++i)
     {
       render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_);
     }
 
     //Update lights position
-    std::vector<light_t>& light(light_.getData());
+    bkk::dynamic_array_t<light_t>& light(light_.getData());
     for (u32 i(0); i<light.size(); ++i)
     {
       render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
@@ -1113,8 +1113,8 @@ int main()
   //Generate scene
   bkk::handle_t sphere = renderer.addMesh("../resources/sphere_hipoly.obj");  
   u32 roughnessSamples = 9;
-  std::vector<bkk::handle_t> materials(roughnessSamples*roughnessSamples);
-  std::vector<bkk::handle_t> objects(roughnessSamples*roughnessSamples);
+  bkk::dynamic_array_t<bkk::handle_t> materials(roughnessSamples*roughnessSamples);
+  bkk::dynamic_array_t<bkk::handle_t> objects(roughnessSamples*roughnessSamples);
   float roughness = 1.0f / roughnessSamples;
   float F0 = 1.0f / roughnessSamples;
 

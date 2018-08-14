@@ -314,8 +314,8 @@ public:
     image::unload(&image);
 
     //Create particle buffers
-    std::vector<particle_t> particles(particleSystem_.maxParticleCount_);
-    std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
+    bkk::dynamic_array_t<particle_t> particles(particleSystem_.maxParticleCount_);
+    bkk::dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
     for (u32 i(0); i < particleSystem_.maxParticleCount_; ++i)
     {
       particles[i].scale = 0.0f;
@@ -464,7 +464,7 @@ public:
       {
         render::context_t& context = getRenderContext();
         render::contextFlush(context);
-        std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
+        bkk::dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
         for (u32 i(0); i < particleSystem_.maxParticleCount_; ++i)
         {
           particlesState[i].age = -1.0f;
