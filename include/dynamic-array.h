@@ -39,23 +39,17 @@ namespace bkk
      capacity_(0u),
      data_(nullptr)
     {
-      size_ = capacity_ = 0u;
-      data_ = nullptr;
     }
 
     dynamic_array_t(uint32_t size)
-    :size_(0u),
-    capacity_(0u),
-    data_(nullptr)
+    :dynamic_array_t()
     {
       growArray(size);
       size_ = size;  
     }
 
     dynamic_array_t(const dynamic_array_t& v)
-    :size_(0u),
-    capacity_(0u),
-    data_(nullptr)
+    :dynamic_array_t()
     {
       operator=(v);
     }
