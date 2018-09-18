@@ -22,29 +22,52 @@
 * SOFTWARE.
 */
 
-#ifndef IMAGE_H
-#define IMAGE_H
+#ifndef DYNAMIC_STRING_H
+#define DYNAMIC_STRING_H
 
+#include <string.h>
 #include <stdint.h>
-#include <stddef.h>
 
 namespace bkk
 {
-  namespace image
+  struct string_t
   {
-    struct image2D_t
+    char* data_;
+    uint32_t size_;
+
+    string_t();
+    string_t(const string_t& s);
+    string_t(const char* s);
+
+    ~string_t();
+    
+    inline const char* c_str() const
     {
-      uint32_t width_;
-      uint32_t height_;
-      uint32_t componentCount_;
-      uint32_t componentSize_;
-      uint32_t dataSize_;
-      uint8_t* data_;
-    };
+      return data_;
+    }
 
-    bool load(const char* path, bool flipVertical, image2D_t* image);
-    void unload(image2D_t* image);
-  } //namespace image
-}//namespace bkk
+    void clear();
+    bool empty() const;
 
-#endif /* IMAGE_H */
+    bool operator==(const string_t& s) const;
+    bool operator==(const char* s) const;
+    bool operator!=(const string_t& s) const;
+    bool operator!=(const char* s) const;
+    bool operator<(const string_t& s) const;
+
+    string_t& operator=(const char* s);
+    string_t& operator=(const string_t& s);
+
+    string_t& operator+=(const string_t& s);
+    string_t& operator+=(const char* s);
+
+    string_t operator+(const string_t& s) const;
+    string_t operator+(const char* s) const;
+
+    //Utility
+    string_t substr(uint32_t first, uint32_t last) const;
+    int32_t findLastOf(char c) const;
+  };
+}
+
+#endif 

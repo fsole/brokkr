@@ -26,9 +26,10 @@
 #include "mesh.h"
 #include "window.h"
 #include "image.h"
+#include "dynamic-string.h"
 
-#include <cstring>  //memcpy
-#include <cassert>
+#include <stdio.h>
+#include <assert.h>
 
 using namespace bkk;
 using namespace bkk::render;
@@ -45,8 +46,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
   const char* msg,
   void* userData)
 {
-
-  std::cerr << std::endl << "VULKAN_ERROR: " << msg << std::endl;
+  
+  fprintf(stderr, "VULKAN_ERROR: %s", msg );
   return VK_FALSE;
 }
   
@@ -763,11 +764,13 @@ bool render::shaderCreateFromSPIRV(const context_t& context, shader_t::type type
 
 bool render::shaderCreateFromGLSL(const context_t& context, shader_t::type type, const char* file, shader_t* shader)
 {
-  std::string spirv_file_path = "temp.spv";
-  std::string glslangvalidator_params = "arg0 -V -s -o \"" + spirv_file_path + "\" \"" + file + "\"";
+  bkk::string_t spirv_file_path = "temp.spv";
+  bkk::string_t glslangvalidator_params("arg0 -V -s -o \"");
+  glslangvalidator_params += spirv_file_path + "\" \"" + file + "\"";
   
   #ifdef VK_DEBUG_LAYERS
-    glslangvalidator_params = "arg0 -V -o \"" + spirv_file_path + "\" \"" + file + "\"";
+    glslangvalidator_params = "arg0 -V -o \""; 
+    glslangvalidator_params += spirv_file_path + "\" \"" + file + "\"";
   #endif
   
   PROCESS_INFORMATION process_info;
@@ -798,7 +801,7 @@ bool render::shaderCreateFromGLSL(const context_t& context, shader_t::type type,
 
 bool render::shaderCreateFromGLSLSource(const context_t& context, shader_t::type type, const char* glslSource, shader_t* shader)
 {
-  std::string glslTempFile;
+  bkk::string_t glslTempFile;
   switch (type)
   {
   case shader_t::VERTEX_SHADER: glslTempFile = "temp.vert";

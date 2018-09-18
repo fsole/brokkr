@@ -32,6 +32,7 @@
 #include "timer.h"
 #include "transform-manager.h"
 #include "packed-freelist.h"
+#include "dynamic-string.h"
 
 static const char* gGeometryPassVertexShaderSource = R"(
   #version 440 core
@@ -626,7 +627,7 @@ public:
     load(url);
   }
     
-  bkk::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness, std::string diffuseMap)
+  bkk::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness,bkk::string_t diffuseMap)
   {
     render::context_t& context = getRenderContext();
 
@@ -956,11 +957,11 @@ private:
     uint32_t materialCount = mesh::loadMaterials(url, &materialIndex, &materials);
     bkk::dynamic_array_t<bkk::handle_t> materialHandles(materialCount);
 
-    std::string modelPath = url;
-    modelPath = modelPath.substr(0u, modelPath.find_last_of("/") + 1);
+    bkk::string_t modelPath = url;
+    modelPath = modelPath.substr(0u, modelPath.findLastOf('/') + 1);
     for (u32 i(0); i < materialCount; ++i)
     {
-      std::string diffuseMapPath = "";
+      bkk::string_t diffuseMapPath = "";
       if (!materials[i].diffuseMap_.empty())
       {
         diffuseMapPath = modelPath + materials[i].diffuseMap_;

@@ -26,7 +26,7 @@
 #define PACKED_FREELIST_H
 
 #include "dynamic-array.h"
-#include <cassert>
+#include <assert.h>
 
 namespace bkk
 {

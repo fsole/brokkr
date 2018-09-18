@@ -104,6 +104,7 @@
     <ClInclude Include="..\..\external\imgui\imgui.h" />
     <ClInclude Include="..\..\external\imgui\imgui_internal.h" />
     <ClInclude Include="..\..\include\application.h" />
+    <ClInclude Include="..\..\include\dynamic-string.h" />
     <ClInclude Include="..\..\include\camera.h" />
     <ClInclude Include="..\..\include\dynamic-array.h" />
     <ClInclude Include="..\..\include\gui.h" />
@@ -122,6 +123,7 @@
     <ClCompile Include="..\..\external\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\..\external\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\..\src\application.cpp" />
+    <ClCompile Include="..\..\src\dynamic-string.cpp" />
     <ClCompile Include="..\..\src\camera.cpp" />
     <ClCompile Include="..\..\src\gui.cpp" />
     <ClCompile Include="..\..\src\image.cpp" />

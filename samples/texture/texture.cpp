@@ -22,12 +22,15 @@
 * SOFTWARE.
 */
 
+#include <stdio.h>
+
 #include "render.h"
 #include "window.h"
 #include "mesh.h"
 #include "image.h"
 #include "mesh.h"
 #include "camera.h"
+
 
 static const char* gVertexShaderSource = R"(
   #version 440 core
@@ -64,7 +67,7 @@ bkk::render::texture_t createTexture(const bkk::render::context_t& context)
   bkk::image::image2D_t image = {};
   if (!bkk::image::load("../resources/brokkr.png", false, &image))
   {
-    printf("Error loading texture\n");
+    fprintf(stderr,"Error loading texture\n");
   }
   else
   {

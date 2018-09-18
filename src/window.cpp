@@ -23,7 +23,7 @@
 */
 
 #include "window.h"
-#include <cassert>
+#include <assert.h>
 using namespace bkk;
 using namespace bkk::window;
 

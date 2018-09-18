@@ -28,6 +28,7 @@
 #include "maths.h"
 #include "render.h"
 #include "transform-manager.h"
+#include "dynamic-string.h"
 
 namespace bkk
 {
@@ -103,9 +104,9 @@ namespace bkk
     {
       maths::vec3 kd_;
       maths::vec3 ks_;
-      std::string diffuseMap_;
-      std::string specularMap_;
-      std::string normalMap_;
+      bkk::string_t diffuseMap_;
+      bkk::string_t specularMap_;
+      bkk::string_t normalMap_;
     };
 
     enum export_flags_e

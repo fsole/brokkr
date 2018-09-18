@@ -31,7 +31,7 @@
 
 #include <float.h> //FLT_MAX
 #include <map>
-#include <cassert>
+#include <assert.h>
 
 using namespace bkk;
 using namespace bkk::mesh;
@@ -55,9 +55,9 @@ static void CountNodes(aiNode* node, u32& total)
   }
 }
 
-static void TraverseScene(const aiNode* pNode, std::map<std::string, bkk::handle_t>& nodeNameToHandle,  const aiMesh* mesh, skeleton_t* skeleton, u32& boneIndex, bkk::handle_t parentHandle)
+static void TraverseScene(const aiNode* pNode, std::map<bkk::string_t, bkk::handle_t>& nodeNameToHandle,  const aiMesh* mesh, skeleton_t* skeleton, u32& boneIndex, bkk::handle_t parentHandle)
 {
-  std::string nodeName = pNode->mName.data;
+  bkk::string_t nodeName = pNode->mName.data;
 
   aiMatrix4x4 localTransform = pNode->mTransformation;
   localTransform.Transpose();
@@ -68,7 +68,7 @@ static void TraverseScene(const aiNode* pNode, std::map<std::string, bkk::handle
 
   for (uint32_t i = 0; i < mesh->mNumBones; i++)
   {
-    std::string boneName(mesh->mBones[i]->mName.data);
+    bkk::string_t boneName(mesh->mBones[i]->mName.data);
     if (boneName == nodeName)
     {
       skeleton->bones_[boneIndex] = nodeHandle;
@@ -87,7 +87,7 @@ static void TraverseScene(const aiNode* pNode, std::map<std::string, bkk::handle
   }
 }
 
-static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std::string, bkk::handle_t>& nodeNameToHandle,  skeleton_t* skeleton)
+static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<bkk::string_t, bkk::handle_t>& nodeNameToHandle,  skeleton_t* skeleton)
 {
   u32 nodeCount(0);
   CountNodes(scene->mRootNode, nodeCount);
@@ -107,7 +107,7 @@ static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std:
   skeleton->txManager_.update();
 }
 
-static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<std::string, bkk::handle_t>& nodeNameToIndex, u32 boneCount, skeletal_animation_t* animation)
+static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<bkk::string_t, bkk::handle_t>& nodeNameToIndex, u32 boneCount, skeletal_animation_t* animation)
 {
   const aiAnimation* pAnimation = scene->mAnimations[animationIndex];
 
@@ -130,8 +130,8 @@ static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<std
 
     for (u32 channel(0); channel<pAnimation->mNumChannels; ++channel)
     {
-      std::string nodeName(pAnimation->mChannels[channel]->mNodeName.data);
-      std::map<std::string, bkk::handle_t>::iterator it = nodeNameToIndex.find(nodeName);
+      bkk::string_t nodeName(pAnimation->mChannels[channel]->mNodeName.data);
+      std::map<bkk::string_t, bkk::handle_t>::iterator it = nodeNameToIndex.find(nodeName);
       
       animation->nodes_[channel] = it->second;
         
@@ -307,7 +307,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   mesh->animations_ = nullptr;
   if (boneCount > 0 && importBoneWeights)
   {
-    std::map<std::string, bkk::handle_t> nodeNameToHandle;
+    std::map<bkk::string_t, bkk::handle_t> nodeNameToHandle;
     if (boneCount > 0)
     {
       mesh->skeleton_ = new skeleton_t;
@@ -317,8 +317,8 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     //Read weights and bone indices for each vertex
     for (uint32_t i = 0; i < boneCount; i++)
     {
-      std::string boneName(aimesh->mBones[i]->mName.data);
-      std::map<std::string, bkk::handle_t>::iterator it;
+      bkk::string_t boneName(aimesh->mBones[i]->mName.data);
+      std::map<bkk::string_t, bkk::handle_t>::iterator it;
       it = nodeNameToHandle.find(boneName);
       if (it != nodeNameToHandle.end())
       {

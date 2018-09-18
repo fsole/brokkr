@@ -25,7 +25,6 @@
 #include "render.h"
 #include "window.h"
 #include "mesh.h"
-#include "dynamic-array.h"
 
 static const char* gVertexShaderSource = R"(
   #version 440 core

@@ -26,7 +26,7 @@
 #define DYNAMIC_ARRAY_H
 
 namespace bkk
-{
+{  
   template <typename T>
   struct dynamic_array_t
   {

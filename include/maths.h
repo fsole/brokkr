@@ -27,7 +27,9 @@
 
 #include <string.h>
 #include <math.h>
-#include <iostream>
+#include <stdint.h>
+#include <stdlib.h> //RAND_MAX
+//#include <iostream>
 
 
 #define PI       3.14159265358979323846
@@ -425,21 +427,20 @@ namespace bkk
     {
       return v - 2.0f * maths::dot(v, n) * n;
     }
-    
-    //Print
-    template <typename T, u32 N>
-    inline std::ostream& operator<<(std::ostream& o, const Vector<T, N>& v)
-    {
-      o << "[";
-      for (u32 i(0); i < N; ++i)
-      {
-        o << v.data[i];
-        if (i != N - 1)
-          o << ",";
-      }
-      o << "]";
-      return o;
-    }
+        
+    //template <typename T, u32 N>
+    //inline std::ostream& operator<<(std::ostream& o, const Vector<T, N>& v)
+    //{
+    //  o << "[";
+    //  for (u32 i(0); i < N; ++i)
+    //  {
+    //    o << v.data[i];
+    //    if (i != N - 1)
+    //      o << ",";
+    //  }
+    //  o << "]";
+    //  return o;
+    //}
 
     typedef Vector<f32, 2u> vec2;
     typedef Vector<u32, 2u> uvec2;
@@ -666,13 +667,13 @@ namespace bkk
       return Vector<T, 3>(result.x, result.y, result.z);
     }
 
-
-    template <typename T>
-    inline std::ostream& operator<<(std::ostream& o, const Quaternion<T>& q)
-    {
-      o << "["<< q.x << "," << q.y << "," << q.z << "," << q.w; o << "]";
-      return o;
-    }
+    
+    //template <typename T>
+    //inline std::ostream& operator<<(std::ostream& o, const Quaternion<T>& q)
+    //{
+    //  o << "["<< q.x << "," << q.y << "," << q.z << "," << q.w; o << "]";
+    //  return o;
+    //}
 
     typedef struct Quaternion<f32> quat;
     static const quat QUAT_UNIT = quat(0.0f, 0.0f, 0.0f, 1.0f);
@@ -976,7 +977,7 @@ namespace bkk
     inline Matrix<T, 4u, 4u> perspectiveProjectionMatrix(T fov, T aspect, T n, T f)
     {
       Matrix<T, 4u, 4u> result = {};
-      T height = tan(fov * T(0.5))*n;
+      T height = T( tan(fov * T(0.5f))*n);
       T width = height * aspect;
 
       result[0] = n / width;
@@ -1075,27 +1076,26 @@ namespace bkk
 
       return result;
     }
+        
+    //template <typename T, u32 ROWS, u32 COLUMNS>
+    //inline std::ostream& operator<<(std::ostream& o, const Matrix<T, ROWS, COLUMNS>& m)
+    //{
+    //  o << "[";
+    //  for (u32 i(0); i < ROWS; ++i)
+    //  {
+    //    o << "[";
+    //    for (u32 j(0); j < COLUMNS; ++j)
+    //    {
+    //      o << m.data[i*COLUMNS + j];
+    //      if (j != COLUMNS - 1)
+    //        o << ",";
+    //    }
+    //    o << "]";
+    //  }
+    //  o << "]";
 
-    //Print
-    template <typename T, u32 ROWS, u32 COLUMNS>
-    inline std::ostream& operator<<(std::ostream& o, const Matrix<T, ROWS, COLUMNS>& m)
-    {
-      o << "[";
-      for (u32 i(0); i < ROWS; ++i)
-      {
-        o << "[";
-        for (u32 j(0); j < COLUMNS; ++j)
-        {
-          o << m.data[i*COLUMNS + j];
-          if (j != COLUMNS - 1)
-            o << ",";
-        }
-        o << "]";
-      }
-      o << "]";
-
-      return o;
-    }
+    //  return o;
+    //}
 
     typedef Matrix<f32, 3u, 3u> mat3;
     typedef Matrix<f32, 4u, 4u> mat4;

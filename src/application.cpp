@@ -28,7 +28,6 @@
 #include "render.h"
 #include "timer.h"
 #include "gui.h"
-#include <string>
 #include <sstream>
 #include <iomanip>
 
@@ -46,7 +45,7 @@ struct application_t::frame_counter_t
     displayInterval_ = displayInterval;
 
     std::ostringstream titleWithFps;
-    titleWithFps << windowTitle_ << "     0.0ms (0 fps)";
+    titleWithFps << windowTitle_.c_str() << "     0.0ms (0 fps)";
     window::setTitle(titleWithFps.str().c_str(), window_);
   }
 
@@ -60,14 +59,15 @@ struct application_t::frame_counter_t
     {
       timeAccum_ = 0.0f;
 
+      uint32_t fps = (uint32_t)(1000 / timeFrame);
       std::ostringstream titleWithFps;
-      titleWithFps << windowTitle_ << "     " << std::setprecision(3) << timeFrame << "ms (" << (uint32_t)(1000 / timeFrame) << " fps)";
+      titleWithFps << windowTitle_.c_str() << "     " << std::setprecision(3) << timeFrame << "ms (" << fps << " fps)";
       window::setTitle(titleWithFps.str().c_str(), window_);
     }
   }
 
   window::window_t* window_;
-  std::string windowTitle_;
+  bkk::string_t windowTitle_;
 
   timer::time_point_t timePrev_;
   uint32_t displayInterval_;
@@ -95,12 +95,13 @@ application_t::application_t(const char* title, u32 width, u32 height, u32 image
 
 application_t::~application_t()
 {
-  render::contextDestroy(context_);
-  window::destroy(window_);
-
-  delete window_;
-  delete context_;
   delete frameCounter_;
+
+  render::contextDestroy(context_);
+  delete context_;
+
+  window::destroy(window_);
+  delete window_;  
 }
 
 void application_t::loop()
