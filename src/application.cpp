@@ -40,12 +40,12 @@ struct application_t::frame_counter_t
   void init(window::window_t* window, uint32_t displayInterval = 1000u)
   {
     window_ = window;
-    windowTitle_ = window->title_;
+    memcpy( windowTitle_, window->title_, strlen(window->title_) );
     timePrev_ = timer::getCurrent();
     displayInterval_ = displayInterval;
 
     std::ostringstream titleWithFps;
-    titleWithFps << windowTitle_.c_str() << "     0.0ms (0 fps)";
+    titleWithFps << windowTitle_ << "     0.0ms (0 fps)";
     window::setTitle(titleWithFps.str().c_str(), window_);
   }
 
@@ -61,13 +61,13 @@ struct application_t::frame_counter_t
 
       uint32_t fps = (uint32_t)(1000 / timeFrame);
       std::ostringstream titleWithFps;
-      titleWithFps << windowTitle_.c_str() << "     " << std::setprecision(3) << timeFrame << "ms (" << fps << " fps)";
+      titleWithFps << windowTitle_<< "     " << std::setprecision(3) << timeFrame << "ms (" << fps << " fps)";
       window::setTitle(titleWithFps.str().c_str(), window_);
     }
   }
 
   window::window_t* window_;
-  bkk::string_t windowTitle_;
+  char windowTitle_[128];
 
   timer::time_point_t timePrev_;
   uint32_t displayInterval_;

@@ -164,7 +164,7 @@ void window::create(const char* title, unsigned int width, unsigned int height, 
   window->width_ = width;
   window->height_ = height;
   window->activeEvent_ = nullptr;
-  window->title_ = title;
+  memcpy( window->title_, title, strlen(title));
 
   WNDCLASSEX wndClass;
   wndClass.cbSize = sizeof(WNDCLASSEX);
@@ -223,7 +223,7 @@ void window::setTitle(const char* title, window_t* window )
 {
   if (SetWindowText(window->handle_, title))
   {
-    window->title_ = title;
+    memcpy(window->title_, title, strlen(title));
   }
 }
 

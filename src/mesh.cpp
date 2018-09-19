@@ -31,6 +31,7 @@
 
 #include <float.h> //FLT_MAX
 #include <map>
+#include <string>
 #include <assert.h>
 
 using namespace bkk;
@@ -55,9 +56,9 @@ static void CountNodes(aiNode* node, u32& total)
   }
 }
 
-static void TraverseScene(const aiNode* pNode, std::map<bkk::string_t, bkk::handle_t>& nodeNameToHandle,  const aiMesh* mesh, skeleton_t* skeleton, u32& boneIndex, bkk::handle_t parentHandle)
+static void TraverseScene(const aiNode* pNode, std::map<std::string, bkk::handle_t>& nodeNameToHandle,  const aiMesh* mesh, skeleton_t* skeleton, u32& boneIndex, bkk::handle_t parentHandle)
 {
-  bkk::string_t nodeName = pNode->mName.data;
+  std::string nodeName = pNode->mName.data;
 
   aiMatrix4x4 localTransform = pNode->mTransformation;
   localTransform.Transpose();
@@ -68,7 +69,7 @@ static void TraverseScene(const aiNode* pNode, std::map<bkk::string_t, bkk::hand
 
   for (uint32_t i = 0; i < mesh->mNumBones; i++)
   {
-    bkk::string_t boneName(mesh->mBones[i]->mName.data);
+    std::string boneName(mesh->mBones[i]->mName.data);
     if (boneName == nodeName)
     {
       skeleton->bones_[boneIndex] = nodeHandle;
@@ -87,7 +88,7 @@ static void TraverseScene(const aiNode* pNode, std::map<bkk::string_t, bkk::hand
   }
 }
 
-static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<bkk::string_t, bkk::handle_t>& nodeNameToHandle,  skeleton_t* skeleton)
+static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std::string, bkk::handle_t>& nodeNameToHandle,  skeleton_t* skeleton)
 {
   u32 nodeCount(0);
   CountNodes(scene->mRootNode, nodeCount);
@@ -107,7 +108,7 @@ static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<bkk:
   skeleton->txManager_.update();
 }
 
-static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<bkk::string_t, bkk::handle_t>& nodeNameToIndex, u32 boneCount, skeletal_animation_t* animation)
+static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<std::string, bkk::handle_t>& nodeNameToIndex, u32 boneCount, skeletal_animation_t* animation)
 {
   const aiAnimation* pAnimation = scene->mAnimations[animationIndex];
 
@@ -130,8 +131,8 @@ static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<bkk
 
     for (u32 channel(0); channel<pAnimation->mNumChannels; ++channel)
     {
-      bkk::string_t nodeName(pAnimation->mChannels[channel]->mNodeName.data);
-      std::map<bkk::string_t, bkk::handle_t>::iterator it = nodeNameToIndex.find(nodeName);
+      std::string nodeName(pAnimation->mChannels[channel]->mNodeName.data);
+      std::map<std::string, bkk::handle_t>::iterator it = nodeNameToIndex.find(nodeName);
       
       animation->nodes_[channel] = it->second;
         
@@ -307,7 +308,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   mesh->animations_ = nullptr;
   if (boneCount > 0 && importBoneWeights)
   {
-    std::map<bkk::string_t, bkk::handle_t> nodeNameToHandle;
+    std::map<std::string, bkk::handle_t> nodeNameToHandle;
     if (boneCount > 0)
     {
       mesh->skeleton_ = new skeleton_t;
@@ -317,8 +318,8 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     //Read weights and bone indices for each vertex
     for (uint32_t i = 0; i < boneCount; i++)
     {
-      bkk::string_t boneName(aimesh->mBones[i]->mName.data);
-      std::map<bkk::string_t, bkk::handle_t>::iterator it;
+      std::string boneName(aimesh->mBones[i]->mName.data);
+      std::map<std::string, bkk::handle_t>::iterator it;
       it = nodeNameToHandle.find(boneName);
       if (it != nodeNameToHandle.end())
       {
@@ -457,18 +458,24 @@ uint32_t mesh::loadMaterials(const char* file, uint32_t** materialIndices, mater
 
   aiColor3D color;
   aiString path;
+
+  material_t* material;
   for (uint32_t i(0); i < materialCount; ++i)
   {
+    material = (*materials + i);
+
     //Diffuse color
     if (scene->mMaterials[i]->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
     {
-      (*(*materials + i)).kd_ = vec3(color.r, color.g, color.b);
+      material->kd_ = vec3(color.r, color.g, color.b);
     }
 
     //Diffuse map
+    material->diffuseMap_[0] = '\0';
     if (scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_DIFFUSE(0), path) == AI_SUCCESS)
     {
-      (*(*materials + i)).diffuseMap_ = path.C_Str();
+      //(*(*materials + i)).diffuseMap_ = path.C_Str();
+      memcpy(&material->diffuseMap_, path.C_Str(), path.length+1 );
     }
   }
 

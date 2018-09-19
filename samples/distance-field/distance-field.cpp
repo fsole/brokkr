@@ -240,7 +240,7 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
 
   //Read vertex data from mesh
   uint32_t vertexBufferSize = (uint32_t)mesh.vertexBuffer_.memory_.size_ - (uint32_t)mesh.vertexBuffer_.memory_.offset_;
-  u8* vertex = (u8*)malloc(vertexBufferSize);
+  uint8_t* vertex = (uint8_t*)malloc(vertexBufferSize);
   memcpy(vertex, render::gpuBufferMap(context, mesh.vertexBuffer_), vertexBufferSize);
   gpuBufferUnmap(context, mesh.vertexBuffer_);
   vec3* vertexPosition = (vec3*)malloc(sizeof(vec3) * mesh.vertexCount_ );

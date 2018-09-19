@@ -26,10 +26,10 @@
 #include "mesh.h"
 #include "window.h"
 #include "image.h"
-#include "dynamic-string.h"
 
 #include <stdio.h>
 #include <assert.h>
+#include <string>
 
 using namespace bkk;
 using namespace bkk::render;
@@ -764,9 +764,8 @@ bool render::shaderCreateFromSPIRV(const context_t& context, shader_t::type type
 
 bool render::shaderCreateFromGLSL(const context_t& context, shader_t::type type, const char* file, shader_t* shader)
 {
-  bkk::string_t spirv_file_path = "temp.spv";
-  bkk::string_t glslangvalidator_params("arg0 -V -s -o \"");
-  glslangvalidator_params += spirv_file_path + "\" \"" + file + "\"";
+  std::string spirv_file_path = "temp.spv";
+  std::string glslangvalidator_params = "arg0 -V -s -o \"" + spirv_file_path + "\" \"" + file + "\"";
   
   #ifdef VK_DEBUG_LAYERS
     glslangvalidator_params = "arg0 -V -o \""; 
@@ -801,7 +800,7 @@ bool render::shaderCreateFromGLSL(const context_t& context, shader_t::type type,
 
 bool render::shaderCreateFromGLSLSource(const context_t& context, shader_t::type type, const char* glslSource, shader_t* shader)
 {
-  bkk::string_t glslTempFile;
+  std::string glslTempFile;
   switch (type)
   {
   case shader_t::VERTEX_SHADER: glslTempFile = "temp.vert";

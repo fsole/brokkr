@@ -25,7 +25,7 @@
 #ifndef WINDOW_H
 #define WINDOW_H
 
-#include "dynamic-string.h"
+#include <stdint.h>
 
 #ifdef WIN32
 #define NOMINMAX
@@ -161,7 +161,8 @@ namespace bkk
     {
       uint32_t width_;
       uint32_t height_;
-      bkk::string_t title_;
+      char title_[128];
+
 #ifdef WIN32
       HINSTANCE instance_;
       HWND handle_;
