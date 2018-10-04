@@ -22,9 +22,9 @@
 * SOFTWARE.
 */
 
-#include "render.h"
-#include "window.h"
-#include "mesh.h"
+#include "core/render.h"
+#include "core/window.h"
+#include "core/mesh.h"
 
 static const char* gVertexShaderSource = R"(
   #version 440 core
@@ -53,7 +53,7 @@ static const char* gFragmentShaderSource = R"(
   }
 )";
 
-bkk::mesh::mesh_t createTriangleGeometry(const bkk::render::context_t& context )
+bkk::core::mesh::mesh_t createTriangleGeometry(const bkk::core::render::context_t& context )
 {
   struct Vertex
   {
@@ -69,58 +69,58 @@ bkk::mesh::mesh_t createTriangleGeometry(const bkk::render::context_t& context )
 
   static const uint32_t indices[3] = {0,1,2};
 
-  static bkk::render::vertex_attribute_t attributes[2];
-  attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
+  static bkk::core::render::vertex_attribute_t attributes[2];
+  attributes[0].format_ = bkk::core::render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(Vertex);
   attributes[0].instanced_ = false;
-  attributes[1].format_ = bkk::render::vertex_attribute_t::format::VEC2;;
+  attributes[1].format_ = bkk::core::render::vertex_attribute_t::format::VEC2;;
   attributes[1].offset_ = offsetof(Vertex, uv);
   attributes[1].stride_ = sizeof(Vertex);
   attributes[1].instanced_ = false;
 
-  bkk::mesh::mesh_t mesh;
-  bkk::mesh::create( context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &mesh );
+  bkk::core::mesh::mesh_t mesh;
+  bkk::core::mesh::create( context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &mesh );
   return mesh;
 }
 
-void buildCommandBuffers(const bkk::render::context_t& context, const bkk::mesh::mesh_t& mesh, const bkk::render::graphics_pipeline_t& pipeline )
+void buildCommandBuffers(const bkk::core::render::context_t& context, const bkk::core::mesh::mesh_t& mesh, const bkk::core::render::graphics_pipeline_t& pipeline )
 {
-  const bkk::render::command_buffer_t* commandBuffers;
-  uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
+  const bkk::core::render::command_buffer_t* commandBuffers;
+  uint32_t count = bkk::core::render::getPresentationCommandBuffers(context, &commandBuffers);
   for (uint32_t i(0); i<count; ++i)
   {
-    bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
-    bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline);
-    bkk::mesh::draw(commandBuffers[i], mesh);
-    bkk::render::endPresentationCommandBuffer(context, i);
+    bkk::core::render::beginPresentationCommandBuffer(context, i, nullptr);
+    bkk::core::render::graphicsPipelineBind(commandBuffers[i], pipeline);
+    bkk::core::mesh::draw(commandBuffers[i], mesh);
+    bkk::core::render::endPresentationCommandBuffer(context, i);
   }
 }
 
 int main()
 {
   //Create a window
-  bkk::window::window_t window;
-  bkk::window::create( "Hello Triangle", 400u, 400u, &window );
+  bkk::core::window::window_t window;
+  bkk::core::window::create( "Hello Triangle", 400u, 400u, &window );
 
   //Create a context
-  bkk::render::context_t context;
-  bkk::render::contextCreate( "Hello triangle", "", window, 3, &context );
+  bkk::core::render::context_t context;
+  bkk::core::render::contextCreate( "Hello triangle", "", window, 3, &context );
 
   //Create a mesh
-  bkk::mesh::mesh_t mesh = createTriangleGeometry( context );
+  bkk::core::mesh::mesh_t mesh = createTriangleGeometry( context );
   
   //Create pipeline layout
-  bkk::render::pipeline_layout_t pipelineLayout;
-  bkk::render::pipelineLayoutCreate(context, nullptr, 0u, nullptr, 0u, &pipelineLayout);
+  bkk::core::render::pipeline_layout_t pipelineLayout;
+  bkk::core::render::pipelineLayoutCreate(context, nullptr, 0u, nullptr, 0u, &pipelineLayout);
 
   //Load shaders  
-  bkk::render::shader_t vertexShader, fragmentShader;
-  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader);
-  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);  
+  bkk::core::render::shader_t vertexShader, fragmentShader;
+  bkk::core::render::shaderCreateFromGLSLSource(context, bkk::core::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader);
+  bkk::core::render::shaderCreateFromGLSLSource(context, bkk::core::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);  
   
   //Create pipeline
-  bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
+  bkk::core::render::graphics_pipeline_t::description_t pipelineDesc = {};
   pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
   pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
   pipelineDesc.blendState_.resize(1);
@@ -132,8 +132,8 @@ int main()
   pipelineDesc.vertexShader_ = vertexShader;
   pipelineDesc.fragmentShader_ = fragmentShader;
 
-  bkk::render::graphics_pipeline_t pipeline;
-  bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
+  bkk::core::render::graphics_pipeline_t pipeline;
+  bkk::core::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
 
   //Build command buffers
   buildCommandBuffers(context, mesh, pipeline);
@@ -141,37 +141,37 @@ int main()
   bool quit = false;
   while( !quit )
   {
-    bkk::window::event_t* event = nullptr;
-    while( (event = bkk::window::getNextEvent( &window )) )
+    bkk::core::window::event_t* event = nullptr;
+    while( (event = bkk::core::window::getNextEvent( &window )) )
     {
-      if( event->type_ == bkk::window::EVENT_QUIT )
+      if( event->type_ == bkk::core::window::EVENT_QUIT )
       {
         quit = true;
       }
-      else if( event->type_ == bkk::window::EVENT_RESIZE )
+      else if( event->type_ == bkk::core::window::EVENT_RESIZE )
       {
-        bkk::window::event_resize_t* resizeEvent = (bkk::window::event_resize_t*)event;
-        bkk::render::swapchainResize( &context, resizeEvent->width_, resizeEvent->height_ );
+        bkk::core::window::event_resize_t* resizeEvent = (bkk::core::window::event_resize_t*)event;
+        bkk::core::render::swapchainResize( &context, resizeEvent->width_, resizeEvent->height_ );
         buildCommandBuffers(context, mesh, pipeline);
       }
     }
 
-    bkk::render::presentFrame( &context );
+    bkk::core::render::presentFrame( &context );
   }
 
   //Wait for all pending operations to be finished
-  bkk::render::contextFlush( context );
+  bkk::core::render::contextFlush( context );
 
   //Clean-up all resources
-  bkk::render::graphicsPipelineDestroy( context, &pipeline );
-  bkk::render::pipelineLayoutDestroy( context, &pipelineLayout );
-  bkk::mesh::destroy( context, &mesh );
-  bkk::render::shaderDestroy(context, &vertexShader);
-  bkk::render::shaderDestroy(context, &fragmentShader);
-  bkk::render::contextDestroy( &context );
+  bkk::core::render::graphicsPipelineDestroy( context, &pipeline );
+  bkk::core::render::pipelineLayoutDestroy( context, &pipelineLayout );
+  bkk::core::mesh::destroy( context, &mesh );
+  bkk::core::render::shaderDestroy(context, &vertexShader);
+  bkk::core::render::shaderDestroy(context, &fragmentShader);
+  bkk::core::render::contextDestroy( &context );
 
   //Close window
-  bkk::window::destroy( &window );
+  bkk::core::window::destroy( &window );
 
   return 0;
 }

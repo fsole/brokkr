@@ -23,16 +23,20 @@
 */
 #include <string>
 
-#include "application.h"
-#include "camera.h"
-#include "render.h"
-#include "image.h"
-#include "window.h"
-#include "mesh.h"
-#include "maths.h"
-#include "timer.h"
-#include "transform-manager.h"
-#include "packed-freelist.h"
+#include "core/application.h"
+#include "core/render.h"
+#include "core/window.h"
+#include "core/mesh.h"
+#include "core/maths.h"
+#include "core/timer.h"
+#include "core/transform-manager.h"
+#include "core/packed-freelist.h"
+#include "core/camera.h"
+#include "core/image.h"
+
+using namespace bkk;
+using namespace bkk::core;
+using namespace bkk::core::maths;
 
 static const char* gGeometryPassVertexShaderSource = R"(
   #version 440 core
@@ -442,9 +446,6 @@ static const char* gPresentationFragmentShaderSource = R"(
   }
 )";
 
-using namespace bkk;
-using namespace maths;
-
 class scene_sample_t : public application_t
 {
 public:
@@ -498,9 +499,9 @@ public:
 
   struct object_t
   {
-    bkk::handle_t mesh_;
-    bkk::handle_t material_;
-    bkk::handle_t transform_;
+    core::handle_t mesh_;
+    core::handle_t material_;
+    core::handle_t transform_;
     render::gpu_buffer_t ubo_;
     render::descriptor_set_t descriptorSet_;
   };
@@ -550,7 +551,7 @@ public:
     defaultImage.data_ = new uint8_t[4];
     defaultImage.data_[0] = 128u;
     defaultImage.data_[1] = defaultImage.data_[2] = defaultImage.data_[3] = 0u;
-    render::texture2DCreate(context, &defaultImage, 1u, bkk::render::texture_sampler_t(), &defaultDiffuseMap_);
+    render::texture2DCreate(context, &defaultImage, 1u, render::texture_sampler_t(), &defaultDiffuseMap_);
     delete[] defaultImage.data_;
 
 
@@ -575,40 +576,40 @@ public:
 
     //Create render targets 
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT0_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT0_);
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT1_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &finalImage_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &finalImage_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &finalImage_);
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
 
     //Shadow map
     render::texture2DCreate(context, shadowMapSize_, shadowMapSize_, 1u, VK_FORMAT_R16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &shadowMap_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &shadowMap_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &shadowMap_);
     render::depthStencilBufferCreate(context, shadowMapSize_, shadowMapSize_, &shadowPassDepthStencilBuffer);
 
     //Presentation descriptor set layout and pipeline layout
-    binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
-    bkk::render::descriptorSetLayoutCreate(context, &binding, 1u, &presentationDescriptorSetLayout_);
-    bkk::render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, nullptr, 0u, &presentationPipelineLayout_);
+    binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
+    render::descriptorSetLayoutCreate(context, &binding, 1u, &presentationDescriptorSetLayout_);
+    render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, nullptr, 0u, &presentationPipelineLayout_);
 
     //Presentation descriptor sets
-    descriptor = bkk::render::getDescriptor(finalImage_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[0]);
-    descriptor = bkk::render::getDescriptor(gBufferRT0_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[1]);
-    descriptor = bkk::render::getDescriptor(gBufferRT1_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[2]);
-    descriptor = bkk::render::getDescriptor(gBufferRT2_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[3]);
-    descriptor = bkk::render::getDescriptor(shadowMap_);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[4]);
+    descriptor = render::getDescriptor(finalImage_);
+    render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[0]);
+    descriptor = render::getDescriptor(gBufferRT0_);
+    render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[1]);
+    descriptor = render::getDescriptor(gBufferRT1_);
+    render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[2]);
+    descriptor = render::getDescriptor(gBufferRT2_);
+    render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[3]);
+    descriptor = render::getDescriptor(shadowMap_);
+    render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_[4]);
 
     //Create presentation pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gPresentationVertexShaderSource, &presentationVertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gPresentationFragmentShaderSource, &presentationFragmentShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gPresentationVertexShaderSource, &presentationVertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gPresentationFragmentShaderSource, &presentationFragmentShader_);
     render::graphics_pipeline_t::description_t pipelineDesc = {};
     pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
@@ -620,14 +621,14 @@ public:
     pipelineDesc.depthWriteEnabled_ = false;
     pipelineDesc.vertexShader_ = presentationVertexShader_;
     pipelineDesc.fragmentShader_ = presentationFragmentShader_;
-    bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
+    render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
 
     initializeOffscreenPass(context, size);
     buildPresentationCommandBuffers();
     load(url);
   }
     
-  bkk::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness,std::string diffuseMap)
+  core::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness,std::string diffuseMap)
   {
     render::context_t& context = getRenderContext();
 
@@ -646,12 +647,12 @@ public:
     material.diffuseMap_ = {};
     if (!diffuseMap.empty())
     {
-      bkk::image::image2D_t image = {};
-      if (bkk::image::load(diffuseMap.c_str(), true, &image))
+      image::image2D_t image = {};
+      if (image::load(diffuseMap.c_str(), true, &image))
       {
         //Create the texture
-        bkk::render::texture2DCreateAndGenerateMipmaps(context, image, bkk::render::texture_sampler_t(), &material.diffuseMap_);
-        bkk::image::unload(&image);
+        render::texture2DCreateAndGenerateMipmaps(context, image, render::texture_sampler_t(), &material.diffuseMap_);
+        image::unload(&image);
         descriptors[1] = render::getDescriptor(material.diffuseMap_);
       }
     }
@@ -660,11 +661,11 @@ public:
     return material_.add(material);
   }
 
-  bkk::handle_t addObject(bkk::handle_t meshId, bkk::handle_t materialId, const maths::mat4& transform)
+  core::handle_t addObject(core::handle_t meshId, core::handle_t materialId, const maths::mat4& transform)
   {
     render::context_t& context = getRenderContext();
 
-    bkk::handle_t transformId = transformManager_.createTransform(transform);
+    core::handle_t transformId = transformManager_.createTransform(transform);
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
@@ -710,7 +711,7 @@ public:
     }
   }
 
-  bkk::handle_t addPointLight(const maths::vec3& position, float radius, const maths::vec3& color)
+  core::handle_t addPointLight(const maths::vec3& position, float radius, const maths::vec3& color)
   {
     render::context_t& context = getRenderContext();
 
@@ -747,14 +748,14 @@ public:
     render::gpuBufferUpdate(context, (void*)&uniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
-    bkk::dynamic_array_t<object_t>& object(object_.getData());
+    dynamic_array_t<object_t>& object(object_.getData());
     for (u32 i(0); i < object.size(); ++i)
     {
       render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_);
     }
 
     //Update lights position
-    bkk::dynamic_array_t<point_light_t>& light(pointLight_.getData());
+    dynamic_array_t<point_light_t>& light(pointLight_.getData());
     for (u32 i(0); i<light.size(); ++i)
     {
       render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
@@ -944,7 +945,7 @@ private:
     //Meshes
     mesh::mesh_t* mesh = nullptr;
     uint32_t meshCount = mesh::createFromFile(context, url, mesh::EXPORT_ALL, &allocator_, &mesh);
-    bkk::dynamic_array_t<bkk::handle_t> meshHandles(meshCount);
+    dynamic_array_t<core::handle_t> meshHandles(meshCount);
     for (u32 i(0); i < meshCount; ++i)
     {
       meshHandles[i] = mesh_.add(mesh[i]);
@@ -955,7 +956,7 @@ private:
     mesh::material_t* materials;
     uint32_t* materialIndex;
     uint32_t materialCount = mesh::loadMaterials(url, &materialIndex, &materials);
-    bkk::dynamic_array_t<bkk::handle_t> materialHandles(materialCount);
+    dynamic_array_t<core::handle_t> materialHandles(materialCount);
 
     std::string modelPath = url;
     modelPath = modelPath.substr(0u, modelPath.find_last_of('/') + 1);
@@ -1033,9 +1034,9 @@ private:
     render::pipelineLayoutCreate(context, shadowDescriptorSetLayouts, 2, nullptr, 0u, &shadowPipelineLayout_);
 
     //Create shadow pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gShadowPassVertexShaderSource, &shadowVertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gShadowPassFragmentShaderSource, &shadowFragmentShader_);
-    bkk::render::graphics_pipeline_t::description_t shadowPipelineDesc = {};
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gShadowPassVertexShaderSource, &shadowVertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gShadowPassFragmentShaderSource, &shadowFragmentShader_);
+    render::graphics_pipeline_t::description_t shadowPipelineDesc = {};
     shadowPipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)shadowMapSize_, (float)shadowMapSize_, 0.0f, 1.0f };
     shadowPipelineDesc.scissorRect_ = { { 0,0 },{ shadowMapSize_, shadowMapSize_ } };
     shadowPipelineDesc.blendState_.resize(1);
@@ -1134,9 +1135,9 @@ private:
     render::pipelineLayoutCreate(context, descriptorSetLayouts, 3u, nullptr, 0u, &gBufferPipelineLayout_);
 
     //Create geometry pass pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gGeometryPassVertexShaderSource, &gBuffervertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gGeometryPassFragmentShaderSource, &gBufferfragmentShader_);
-    bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gGeometryPassVertexShaderSource, &gBuffervertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gGeometryPassFragmentShaderSource, &gBufferfragmentShader_);
+    render::graphics_pipeline_t::description_t pipelineDesc = {};
     pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
     pipelineDesc.blendState_.resize(3);
@@ -1178,9 +1179,9 @@ private:
     render::pipelineLayoutCreate(context, lightPassDescriptorSetLayouts, 3u, nullptr, 0u, &lightPipelineLayout_);
 
     //Create point light pass pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gPointLightPassVertexShaderSource, &pointLightVertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gPointLightPassFragmentShaderSource, &pointLightFragmentShader_);
-    bkk::render::graphics_pipeline_t::description_t lightPipelineDesc = {};
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gPointLightPassVertexShaderSource, &pointLightVertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gPointLightPassFragmentShaderSource, &pointLightFragmentShader_);
+    render::graphics_pipeline_t::description_t lightPipelineDesc = {};
     lightPipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     lightPipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
     lightPipelineDesc.blendState_.resize(1);
@@ -1200,8 +1201,8 @@ private:
     render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, sphereMesh_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &pointLightPipeline_);
 
     //Create directional light pass pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gDirectionalLightPassVertexShaderSource, &directionalLightVertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gDirectionalLightPassFragmentShaderSource, &directionalLightFragmentShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gDirectionalLightPassVertexShaderSource, &directionalLightVertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gDirectionalLightPassFragmentShaderSource, &directionalLightFragmentShader_);
     lightPipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
     lightPipelineDesc.vertexShader_ = directionalLightVertexShader_;
     lightPipelineDesc.fragmentShader_ = directionalLightFragmentShader_;
@@ -1225,12 +1226,12 @@ private:
         {
           render::commandBufferRenderPassBegin(context, &shadowFrameBuffer_, clearValues, 2u, shadowCommandBuffer_);
           //Shadow pass
-          bkk::render::graphicsPipelineBind(shadowCommandBuffer_, shadowPipeline_);
-          bkk::render::descriptorSetBind(shadowCommandBuffer_, shadowPipelineLayout_, 0, &shadowGlobalsDescriptorSet_, 1u);
+          render::graphicsPipelineBind(shadowCommandBuffer_, shadowPipeline_);
+          render::descriptorSetBind(shadowCommandBuffer_, shadowPipelineLayout_, 0, &shadowGlobalsDescriptorSet_, 1u);
           packed_freelist_iterator_t<object_t> objectIter = object_.begin();
           while (objectIter != object_.end())
           {
-            bkk::render::descriptorSetBind(shadowCommandBuffer_, gBufferPipelineLayout_, 1, &objectIter.get().descriptorSet_, 1u);
+            render::descriptorSetBind(shadowCommandBuffer_, gBufferPipelineLayout_, 1, &objectIter.get().descriptorSet_, 1u);
             mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
             mesh::draw(shadowCommandBuffer_, *mesh);
             ++objectIter;
@@ -1267,29 +1268,29 @@ private:
       {
         render::commandBufferRenderPassBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
         //GBuffer pass
-        bkk::render::graphicsPipelineBind(commandBuffer_, gBufferPipeline_);
-        bkk::render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 0, &globalsDescriptorSet_, 1u);
+        render::graphicsPipelineBind(commandBuffer_, gBufferPipeline_);
+        render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 0, &globalsDescriptorSet_, 1u);
         packed_freelist_iterator_t<object_t> objectIter = object_.begin();
         while (objectIter != object_.end())
         {
-          bkk::render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 1, &objectIter.get().descriptorSet_, 1u);
-          bkk::render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 2, &material_.get(objectIter.get().material_)->descriptorSet_, 1u);
+          render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 1, &objectIter.get().descriptorSet_, 1u);
+          render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 2, &material_.get(objectIter.get().material_)->descriptorSet_, 1u);
           mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
           mesh::draw(commandBuffer_, *mesh);
           ++objectIter;
         }
 
         //Light pass
-        bkk::render::commandBufferNextSubpass(commandBuffer_);
-        bkk::render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 0, &globalsDescriptorSet_, 1u);
-        bkk::render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 1, &lightPassTexturesDescriptorSet_, 1u);
+        render::commandBufferNextSubpass(commandBuffer_);
+        render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 0, &globalsDescriptorSet_, 1u);
+        render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 1, &lightPassTexturesDescriptorSet_, 1u);
 
         //Point lights
-        bkk::render::graphicsPipelineBind(commandBuffer_, pointLightPipeline_);
+        render::graphicsPipelineBind(commandBuffer_, pointLightPipeline_);
         packed_freelist_iterator_t<point_light_t> lightIter = pointLight_.begin();
         while (lightIter != pointLight_.end())
         {
-          bkk::render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 2, &lightIter.get().descriptorSet_, 1u);
+          render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 2, &lightIter.get().descriptorSet_, 1u);
           mesh::draw(commandBuffer_, sphereMesh_);
           ++lightIter;
         }
@@ -1297,8 +1298,8 @@ private:
         //Directional light
         if (directionalLight_ != nullptr)
         {
-          bkk::render::graphicsPipelineBind(commandBuffer_, directionalLightPipeline_);
-          bkk::render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 2, &directionalLight_->descriptorSet_, 1u);
+          render::graphicsPipelineBind(commandBuffer_, directionalLightPipeline_);
+          render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 2, &directionalLight_->descriptorSet_, 1u);
           mesh::draw(commandBuffer_, fullScreenQuad_);
         }
 
@@ -1315,20 +1316,20 @@ private:
   {
     render::context_t& context = getRenderContext();
 
-    const bkk::render::command_buffer_t* commandBuffers;
-    uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
+    const render::command_buffer_t* commandBuffers;
+    uint32_t count = render::getPresentationCommandBuffers(context, &commandBuffers);
     for (uint32_t i(0); i<count; ++i)
     {
-      bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
-      bkk::render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
-      bkk::render::descriptorSetBind(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
-      bkk::mesh::draw(commandBuffers[i], fullScreenQuad_);
-      bkk::render::endPresentationCommandBuffer(context, i);
+      render::beginPresentationCommandBuffer(context, i, nullptr);
+      render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
+      render::descriptorSetBind(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
+      mesh::draw(commandBuffers[i], fullScreenQuad_);
+      render::endPresentationCommandBuffer(context, i);
     }
   }
 
  private:
-  bkk::transform_manager_t transformManager_;
+  transform_manager_t transformManager_;
   render::gpu_memory_allocator_t allocator_;
 
   packed_freelist_t<object_t> object_;

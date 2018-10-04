@@ -24,15 +24,15 @@
 
 
 // This sample is work in progress.
-#include "application.h"
-#include "render.h"
-#include "window.h"
-#include "image.h"
-#include "mesh.h"
-#include "camera.h"
+#include "core/application.h"
+#include "core/render.h"
+#include "core/window.h"
+#include "core/image.h"
+#include "core/mesh.h"
+#include "core/camera.h"
 
-using namespace bkk;
-using namespace bkk::maths;
+using namespace bkk::core;
+using namespace bkk::core::maths;
 
 static const char* gVertexShaderSource = R"(
   #version 440 core
@@ -113,7 +113,7 @@ static maths::uvec2 gImageSize = { 1200u,800u };
 static u32 gSampleCount = 0u;
 
 
-static bkk::mesh::mesh_t createCube(const render::context_t& context, u32 width, u32 height, u32 depth)
+static mesh::mesh_t createCube(const render::context_t& context, u32 width, u32 height, u32 depth)
 {
   float hw = width / 2.0f;
   float hh = height / 2.0f;
@@ -125,14 +125,14 @@ static bkk::mesh::mesh_t createCube(const render::context_t& context, u32 width,
                       2,3,6, 3,7,6,  4,5,0, 5,1,0 };
 
 
-  static bkk::render::vertex_attribute_t attributes[1];
-  attributes[0].format_ = bkk::render::vertex_attribute_t::format::VEC3;
+  static render::vertex_attribute_t attributes[1];
+  attributes[0].format_ = render::vertex_attribute_t::format::VEC3;
   attributes[0].offset_ = 0;
   attributes[0].stride_ = sizeof(vec3);
   attributes[0].instanced_ = false;
 
-  bkk::mesh::mesh_t mesh;
-  bkk::mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 1, nullptr, &mesh);
+  mesh::mesh_t mesh;
+  mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 1, nullptr, &mesh);
 
   mesh.aabb_.min_ = vec3(-hw, -hh, -hd);
   mesh.aabb_.max_ = vec3(hw, hh, hd);
@@ -226,7 +226,7 @@ static maths::vec3 gridToLocal(u32 x, u32 y, u32 z, u32 gridWidth, u32 gridHeigh
                 normalized.z * (aabbMax.z - aabbMin.z) + aabbMin.z );
 }
 
-static void distanceFieldFromMesh(const render::context_t& context, u32 width, u32 height, u32 depth, const bkk::mesh::mesh_t& mesh, render::gpu_buffer_t* buffer)
+static void distanceFieldFromMesh(const render::context_t& context, u32 width, u32 height, u32 depth, const mesh::mesh_t& mesh, render::gpu_buffer_t* buffer)
 {
   //Compute distances for an area twice as big as the bounding box of the mesh
   maths::vec3 aabbMinScaled = mesh.aabb_.min_ * 4.0f;
@@ -381,7 +381,7 @@ void createGraphicsPipeline()
   render::shaderCreateFromGLSLSource(gContext, render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &gFragmentShader);
 
   //Create graphics pipeline
-  bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
+  render::graphics_pipeline_t::description_t pipelineDesc = {};
   pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)gContext.swapChain_.imageWidth_, (float)gContext.swapChain_.imageHeight_, 0.0f, 1.0f };
   pipelineDesc.scissorRect_ = { { 0,0 },{ gContext.swapChain_.imageWidth_,gContext.swapChain_.imageHeight_ } };
   pipelineDesc.blendState_.resize(1);
@@ -414,7 +414,7 @@ void createComputePipeline()
   render::descriptorSetCreate(gContext, gDescriptorPool, gComputeDescriptorSetLayout, descriptors, &gComputeDescriptorSet);
 
   //Create pipeline
-  bkk::render::shaderCreateFromGLSL(gContext, bkk::render::shader_t::COMPUTE_SHADER, "../distance-field/distance-field.comp", &gComputeShader);  
+  render::shaderCreateFromGLSL(gContext, render::shader_t::COMPUTE_SHADER, "../distance-field/distance-field.comp", &gComputeShader);  
   render::computePipelineCreate(gContext, gComputePipelineLayout, gComputeShader, &gComputePipeline);
 }
 
@@ -426,13 +426,13 @@ void createPipelines()
 
 void buildCommandBuffers()
 {
-  const bkk::render::command_buffer_t* commandBuffers;
-  uint32_t count = bkk::render::getPresentationCommandBuffers(gContext, &commandBuffers);
+  const render::command_buffer_t* commandBuffers;
+  uint32_t count = render::getPresentationCommandBuffers(gContext, &commandBuffers);
   for (unsigned i(0); i<count; ++i)
   {
-    bkk::render::beginPresentationCommandBuffer(gContext, i, nullptr);
-    bkk::render::graphicsPipelineBind(commandBuffers[i], gPipeline);
-    bkk::render::descriptorSetBind(commandBuffers[i], gPipelineLayout, 0, &gDescriptorSet, 1u);
+    render::beginPresentationCommandBuffer(gContext, i, nullptr);
+    render::graphicsPipelineBind(commandBuffers[i], gPipeline);
+    render::descriptorSetBind(commandBuffers[i], gPipelineLayout, 0, &gDescriptorSet, 1u);
     mesh::draw(commandBuffers[i], gFSQuad);
     render::endPresentationCommandBuffer(gContext, i);
   }
@@ -444,9 +444,9 @@ void buildComputeCommandBuffer()
   render::commandBufferCreate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer);
 
   render::commandBufferBegin(gContext, gComputeCommandBuffer);
-  bkk::render::computePipelineBind(gComputeCommandBuffer, gComputePipeline);
-  bkk::render::descriptorSetBind(gComputeCommandBuffer, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
-  bkk::render::computeDispatch(gComputeCommandBuffer, gImageSize.x / 16, gImageSize.y / 16, 1);
+  render::computePipelineBind(gComputeCommandBuffer, gComputePipeline);
+  render::descriptorSetBind(gComputeCommandBuffer, gComputePipelineLayout, 0, &gComputeDescriptorSet, 1u);
+  render::computeDispatch(gComputeCommandBuffer, gImageSize.x / 16, gImageSize.y / 16, 1);
   render::commandBufferEnd(gComputeCommandBuffer);
 }
 
@@ -576,7 +576,7 @@ int main()
   createUniformBuffer();
   
   //Create distance field buffer
-  bkk::mesh::mesh_t cube = createCube(gContext, 1u, 1u, 1u);
+  mesh::mesh_t cube = createCube(gContext, 1u, 1u, 1u);
   distanceFieldFromMesh(gContext, 50, 50, 50, cube, &gDistanceField);
   mesh::destroy(gContext, &cube);
 

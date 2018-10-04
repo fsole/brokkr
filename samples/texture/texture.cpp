@@ -24,12 +24,12 @@
 
 #include <stdio.h>
 
-#include "render.h"
-#include "window.h"
-#include "mesh.h"
-#include "image.h"
-#include "mesh.h"
-#include "camera.h"
+#include "core/render.h"
+#include "core/window.h"
+#include "core/mesh.h"
+#include "core/image.h"
+#include "core/mesh.h"
+#include "core/camera.h"
 
 
 static const char* gVertexShaderSource = R"(
@@ -61,84 +61,84 @@ static const char* gFragmentShaderSource = R"(
 )";
 
 
-bkk::render::texture_t createTexture(const bkk::render::context_t& context)
+bkk::core::render::texture_t createTexture(const bkk::core::render::context_t& context)
 {
-  bkk::render::texture_t texture;
-  bkk::image::image2D_t image = {};
-  if (!bkk::image::load("../resources/brokkr.png", false, &image))
+  bkk::core::render::texture_t texture;
+  bkk::core::image::image2D_t image = {};
+  if (!bkk::core::image::load("../resources/brokkr.png", false, &image))
   {
     fprintf(stderr,"Error loading texture\n");
   }
   else
   {
     //Create the texture
-    bkk::render::texture2DCreate(context, &image, 1, bkk::render::texture_sampler_t(), &texture);
-    bkk::image::unload(&image);
+    bkk::core::render::texture2DCreate(context, &image, 1, bkk::core::render::texture_sampler_t(), &texture);
+    bkk::core::image::unload(&image);
   }
 
   return texture;
 }
 
-void buildCommandBuffers(const bkk::render::context_t& context,const bkk::mesh::mesh_t& mesh,
-                         bkk::render::descriptor_set_t* descriptorSet,
-                         bkk::render::pipeline_layout_t* layout, bkk::render::graphics_pipeline_t* pipeline)
+void buildCommandBuffers(const bkk::core::render::context_t& context,const bkk::core::mesh::mesh_t& mesh,
+                         bkk::core::render::descriptor_set_t* descriptorSet,
+                         bkk::core::render::pipeline_layout_t* layout, bkk::core::render::graphics_pipeline_t* pipeline)
 {
-  const bkk::render::command_buffer_t* commandBuffers;
-  uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
+  const bkk::core::render::command_buffer_t* commandBuffers;
+  uint32_t count = bkk::core::render::getPresentationCommandBuffers(context, &commandBuffers);
   for (uint32_t i(0); i<count; ++i)
   {
-    bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
-    bkk::render::graphicsPipelineBind(commandBuffers[i], *pipeline);
-    bkk::render::descriptorSetBind(commandBuffers[i], *layout, 0, descriptorSet, 1u);
-    bkk::mesh::draw(commandBuffers[i], mesh);
-    bkk::render::endPresentationCommandBuffer(context, i);
+    bkk::core::render::beginPresentationCommandBuffer(context, i, nullptr);
+    bkk::core::render::graphicsPipelineBind(commandBuffers[i], *pipeline);
+    bkk::core::render::descriptorSetBind(commandBuffers[i], *layout, 0, descriptorSet, 1u);
+    bkk::core::mesh::draw(commandBuffers[i], mesh);
+    bkk::core::render::endPresentationCommandBuffer(context, i);
   }
 }
 
 int main()
 {
   //Create a window
-  bkk::window::window_t window;
-  bkk::window::create("Textured Quad", 400u, 400u, &window);
+  bkk::core::window::window_t window;
+  bkk::core::window::create("Textured Quad", 400u, 400u, &window);
 
   //Initialize context
-  bkk::render::context_t context;
-  bkk::render::contextCreate("Textured Quad", "", window, 3, &context);
+  bkk::core::render::context_t context;
+  bkk::core::render::contextCreate("Textured Quad", "", window, 3, &context);
 
   //Create a quad and a texture
-  bkk::mesh::mesh_t mesh = bkk::mesh::fullScreenQuad(context);
-  bkk::render::texture_t texture = createTexture(context);
+  bkk::core::mesh::mesh_t mesh = bkk::core::mesh::fullScreenQuad(context);
+  bkk::core::render::texture_t texture = createTexture(context);
 
   //Create descriptor pool
-  bkk::render::descriptor_pool_t descriptorPool;
-  bkk::render::descriptorPoolCreate( context, 1u,
-                                bkk::render::combined_image_sampler_count(1u),
-                                bkk::render::uniform_buffer_count(0u),
-                                bkk::render::storage_buffer_count(0u),
-                                bkk::render::storage_image_count(0u),
+  bkk::core::render::descriptor_pool_t descriptorPool;
+  bkk::core::render::descriptorPoolCreate( context, 1u,
+                                bkk::core::render::combined_image_sampler_count(1u),
+                                bkk::core::render::uniform_buffer_count(0u),
+                                bkk::core::render::storage_buffer_count(0u),
+                                bkk::core::render::storage_image_count(0u),
                                 &descriptorPool);
 
   //Create descriptor layout
-  bkk::render::descriptor_set_layout_t descriptorSetLayout;
-  bkk::render::descriptor_binding_t binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
-  bkk::render::descriptorSetLayoutCreate(context, &binding, 1u, &descriptorSetLayout);
+  bkk::core::render::descriptor_set_layout_t descriptorSetLayout;
+  bkk::core::render::descriptor_binding_t binding = { bkk::core::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::core::render::descriptor_t::stage::FRAGMENT };
+  bkk::core::render::descriptorSetLayoutCreate(context, &binding, 1u, &descriptorSetLayout);
 
   //Create pipeline layout
-  bkk::render::pipeline_layout_t pipelineLayout;
-  bkk::render::pipelineLayoutCreate(context, &descriptorSetLayout, 1u, nullptr, 0u, &pipelineLayout);
+  bkk::core::render::pipeline_layout_t pipelineLayout;
+  bkk::core::render::pipelineLayoutCreate(context, &descriptorSetLayout, 1u, nullptr, 0u, &pipelineLayout);
 
   //Create descriptor set
-  bkk::render::descriptor_set_t descriptorSet;
-  bkk::render::descriptor_t descriptor = bkk::render::getDescriptor(texture);
-  bkk::render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &descriptor, &descriptorSet);
+  bkk::core::render::descriptor_set_t descriptorSet;
+  bkk::core::render::descriptor_t descriptor = bkk::core::render::getDescriptor(texture);
+  bkk::core::render::descriptorSetCreate(context, descriptorPool, descriptorSetLayout, &descriptor, &descriptorSet);
 
   //Load shaders
-  bkk::render::shader_t vertexShader, fragmentShader;
-  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader);
-  bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);
+  bkk::core::render::shader_t vertexShader, fragmentShader;
+  bkk::core::render::shaderCreateFromGLSLSource(context, bkk::core::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader);
+  bkk::core::render::shaderCreateFromGLSLSource(context, bkk::core::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader);
 
   //Create pipeline
-  bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
+  bkk::core::render::graphics_pipeline_t::description_t pipelineDesc = {};
   pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
   pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
   pipelineDesc.blendState_.resize(1);
@@ -150,8 +150,8 @@ int main()
   pipelineDesc.vertexShader_ = vertexShader;
   pipelineDesc.fragmentShader_ = fragmentShader;
 
-  bkk::render::graphics_pipeline_t pipeline;
-  bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
+  bkk::core::render::graphics_pipeline_t pipeline;
+  bkk::core::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
 
   //Build command buffers
   buildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
@@ -159,44 +159,44 @@ int main()
   bool quit = false;
   while (!quit)
   {
-    bkk::window::event_t* event = nullptr;
-    while ((event = bkk::window::getNextEvent(&window)))
+    bkk::core::window::event_t* event = nullptr;
+    while ((event = bkk::core::window::getNextEvent(&window)))
     {
-      if (event->type_ == bkk::window::EVENT_QUIT)
+      if (event->type_ == bkk::core::window::EVENT_QUIT)
       {
         quit = true;
       }
-      else if (event->type_ == bkk::window::EVENT_RESIZE)
+      else if (event->type_ == bkk::core::window::EVENT_RESIZE)
       {
-        bkk::window::event_resize_t* resizeEvent = (bkk::window::event_resize_t*)event;
+        bkk::core::window::event_resize_t* resizeEvent = (bkk::core::window::event_resize_t*)event;
         swapchainResize(&context, resizeEvent->width_, resizeEvent->height_);
         buildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
       }
     }
 
-    bkk::render::presentFrame(&context);
+    bkk::core::render::presentFrame(&context);
   }
 
   //Wait for all pending operations to be finished
-  bkk::render::contextFlush(context);
+  bkk::core::render::contextFlush(context);
 
   //Destroy all resources
-  bkk::mesh::destroy(context, &mesh);
-  bkk::render::textureDestroy(context, &texture);
+  bkk::core::mesh::destroy(context, &mesh);
+  bkk::core::render::textureDestroy(context, &texture);
 
-  bkk::render::shaderDestroy(context, &vertexShader);
-  bkk::render::shaderDestroy(context, &fragmentShader);
+  bkk::core::render::shaderDestroy(context, &vertexShader);
+  bkk::core::render::shaderDestroy(context, &fragmentShader);
 
-  bkk::render::graphicsPipelineDestroy(context, &pipeline);
-  bkk::render::descriptorSetLayoutDestroy(context, &descriptorSetLayout);
-  bkk::render::descriptorSetDestroy(context, &descriptorSet);
-  bkk::render::descriptorPoolDestroy(context, &descriptorPool);
-  bkk::render::pipelineLayoutDestroy(context, &pipelineLayout);
+  bkk::core::render::graphicsPipelineDestroy(context, &pipeline);
+  bkk::core::render::descriptorSetLayoutDestroy(context, &descriptorSetLayout);
+  bkk::core::render::descriptorSetDestroy(context, &descriptorSet);
+  bkk::core::render::descriptorPoolDestroy(context, &descriptorPool);
+  bkk::core::render::pipelineLayoutDestroy(context, &pipelineLayout);
 
-  bkk::render::contextDestroy(&context);
+  bkk::core::render::contextDestroy(&context);
 
   //Close window
-  bkk::window::destroy(&window);
+  bkk::core::window::destroy(&window);
 
   return 0;
 }

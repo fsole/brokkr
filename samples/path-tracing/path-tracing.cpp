@@ -22,16 +22,16 @@
 * SOFTWARE.
 */
 
-#include "application.h"
-#include "render.h"
-#include "window.h"
-#include "image.h"
-#include "mesh.h"
-#include "camera.h"
-#include "maths.h"
+#include "core/application.h"
+#include "core/render.h"
+#include "core/window.h"
+#include "core/image.h"
+#include "core/mesh.h"
+#include "core/camera.h"
+#include "core/maths.h"
 
-using namespace bkk;
-using namespace bkk::maths;
+using namespace bkk::core;
+using namespace bkk::core::maths;
 
 static const char* gVertexShaderSource = R"(
   #version 440 core
@@ -339,11 +339,11 @@ private:
     render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, &descriptor, &descriptorSet_);
 
     //Load shaders
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
 
     //Create graphics pipeline
-    bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
+    render::graphics_pipeline_t::description_t pipelineDesc = {};
     pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
     pipelineDesc.blendState_.resize(1);
@@ -375,20 +375,20 @@ private:
     render::descriptorSetCreate(context, descriptorPool_, computeDescriptorSetLayout_, descriptors, &computeDescriptorSet_);
 
     //Create pipeline
-    bkk::render::shaderCreateFromGLSL(context, bkk::render::shader_t::COMPUTE_SHADER, "../path-tracing/path-tracing.comp", &computeShader_);    
+    render::shaderCreateFromGLSL(context, render::shader_t::COMPUTE_SHADER, "../path-tracing/path-tracing.comp", &computeShader_);    
     render::computePipelineCreate(context, computePipelineLayout_, computeShader_, &computePipeline_);
   }
   
   void buildPresentationCommandBuffers()
   {
     render::context_t& context = getRenderContext();
-    const bkk::render::command_buffer_t* commandBuffers;
-    uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
+    const render::command_buffer_t* commandBuffers;
+    uint32_t count = render::getPresentationCommandBuffers(context, &commandBuffers);
     for (uint32_t i(0); i<count; ++i)
     {
-      bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
-      bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline_);
-      bkk::render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
+      render::beginPresentationCommandBuffer(context, i, nullptr);
+      render::graphicsPipelineBind(commandBuffers[i], pipeline_);
+      render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
       mesh::draw(commandBuffers[i], fullscreenQuadmesh_);
       render::endPresentationCommandBuffer(context, i);
     }
@@ -402,9 +402,9 @@ private:
 
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &computeCommandBuffer_);
     render::commandBufferBegin(context, computeCommandBuffer_);
-    bkk::render::computePipelineBind(computeCommandBuffer_, computePipeline_);
-    bkk::render::descriptorSetBind(computeCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
-    bkk::render::computeDispatch(computeCommandBuffer_, (imageSize_.x + 15) / 16, (imageSize_.y + 15) / 16, 1);
+    render::computePipelineBind(computeCommandBuffer_, computePipeline_);
+    render::descriptorSetBind(computeCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
+    render::computeDispatch(computeCommandBuffer_, (imageSize_.x + 15) / 16, (imageSize_.y + 15) / 16, 1);
     render::commandBufferEnd(computeCommandBuffer_);
   }
 

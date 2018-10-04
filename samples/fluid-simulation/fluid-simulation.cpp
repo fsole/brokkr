@@ -22,18 +22,19 @@
 * SOFTWARE.
 */
 
-#include "application.h"
-#include "render.h"
-#include "window.h"
-#include "image.h"
-#include "mesh.h"
-#include "maths.h"
-#include "timer.h"
-#include "camera.h"
-#include "gui.h"
+#include "core/application.h"
+#include "core/render.h"
+#include "core/window.h"
+#include "core/mesh.h"
+#include "core/maths.h"
+#include "core/timer.h"
+#include "core/transform-manager.h"
+#include "core/packed-freelist.h"
+#include "core/camera.h"
+#include "core/gui.h"
 
-using namespace bkk;
-using namespace maths;
+using namespace bkk::core;
+using namespace bkk::core::maths;
 
 static const char* gVertexShaderSource = R"(
   #version 440 core
@@ -457,8 +458,8 @@ public:
       nullptr, &globalUnifomBuffer_);
 
     //Create particle buffers
-    bkk::dynamic_array_t<particle_t> particles(particleSystem_.maxParticleCount);
-    bkk::dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount);
+    dynamic_array_t<particle_t> particles(particleSystem_.maxParticleCount);
+    dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount);
     for (u32 i(0); i < particleSystem_.maxParticleCount; ++i)
     {
       particles[i].scale = 0.0f;
@@ -501,9 +502,9 @@ public:
     render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, descriptors, &descriptorSet_);
 
     //Create pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
-    bkk::render::graphics_pipeline_t::description_t pipelineDesc;
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
+    render::graphics_pipeline_t::description_t pipelineDesc;
     pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
     pipelineDesc.blendState_.resize(1);
@@ -593,7 +594,7 @@ public:
   {
     render::context_t& context = getRenderContext();
     render::contextFlush(context);
-    bkk::dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount);
+    dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount);
     for (u32 i(0); i < particleSystem_.maxParticleCount; ++i)
     {
       particlesState[i].age = -1.0f;
@@ -654,8 +655,8 @@ public:
     for (uint32_t i(0); i<count; ++i)
     {
       render::beginPresentationCommandBuffer(context, i, clearValues);
-      bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline_);
-      bkk::render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
+      render::graphicsPipelineBind(commandBuffers[i], pipeline_);
+      render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
       mesh::drawInstanced(commandBuffers[i], particleSystem_.maxParticleCount, nullptr, 0u, mesh_);
 
       gui::draw(context, commandBuffers[i]);
@@ -682,27 +683,27 @@ public:
     u32 groupSizeX = (particleSystem_.maxParticleCount + 63) / 64;
 
     //Create computeDensity pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::COMPUTE_SHADER, gComputeDensityShaderSource, &computeDensityShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::COMPUTE_SHADER, gComputeDensityShaderSource, &computeDensityShader_);
     render::computePipelineCreate(context, computePipelineLayout_, computeDensityShader_, &computeDensityPipeline_);
 
     //Build computeDensity command buffer
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &computeDensityCommandBuffer_);
     render::commandBufferBegin(context, computeDensityCommandBuffer_);
-    bkk::render::computePipelineBind(computeDensityCommandBuffer_, computeDensityPipeline_);
-    bkk::render::descriptorSetBind(computeDensityCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
-    bkk::render::computeDispatch(computeDensityCommandBuffer_, groupSizeX, 1u, 1u);
+    render::computePipelineBind(computeDensityCommandBuffer_, computeDensityPipeline_);
+    render::descriptorSetBind(computeDensityCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
+    render::computeDispatch(computeDensityCommandBuffer_, groupSizeX, 1u, 1u);
     render::commandBufferEnd(computeDensityCommandBuffer_);
 
     //Create updateParticle pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::COMPUTE_SHADER, gUpdateParticlesShaderSource, &updateParticlesShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::COMPUTE_SHADER, gUpdateParticlesShaderSource, &updateParticlesShader_);
     render::computePipelineCreate(context, computePipelineLayout_, updateParticlesShader_, &updateParticlesComputePipeline_);
 
     //Build updateParticle command buffer
     render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &updateParticlesCommandBuffer_);
     render::commandBufferBegin(context, updateParticlesCommandBuffer_);
-    bkk::render::computePipelineBind(updateParticlesCommandBuffer_, updateParticlesComputePipeline_);
-    bkk::render::descriptorSetBind(updateParticlesCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);    
-    bkk::render::computeDispatch(updateParticlesCommandBuffer_, groupSizeX, 1u, 1u);
+    render::computePipelineBind(updateParticlesCommandBuffer_, updateParticlesComputePipeline_);
+    render::descriptorSetBind(updateParticlesCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);    
+    render::computeDispatch(updateParticlesCommandBuffer_, groupSizeX, 1u, 1u);
     render::commandBufferEnd(updateParticlesCommandBuffer_);
   }
 

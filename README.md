@@ -2,16 +2,15 @@
 Brokkr is yet another little Vulkan framework written in C++ for Windows.
 
 # Building
-A Visual Studio solution is included under build/vs2015 to compile the library and all the samples with Visual Studio.
+A Visual Studio solution is included under build/vs2017 to compile the library and the samples using Visual Studio.
 Remember to set the working directory to "../../../samples/bin/" in order to run the samples from within Visual Studio.
 
 # Screenshots
-![Alt text](samples/screenshots/pbr-renderer.png?raw=true "Physically based renderer")
-![Alt text](samples/screenshots/deferred-shading.png?raw=true "Deferred shading")
-![Alt text](samples/screenshots/path-tracing.png?raw=true "GPU Path tracing")
-![Alt text](samples/screenshots/scene.png?raw=true "Scene rendering")
-![Alt text](samples/screenshots/skinning.gif?raw=true "Skinning animation")
-![Alt text](samples/screenshots/particles.gif?raw=true "Compute-based Particle system")
-![Alt text](samples/screenshots/fluid-simulation.gif?raw=true "SPH Fluid simulation")
-![Alt text](samples/screenshots/global-illumination.png?raw=true "Reflective shadow maps")
-![Alt text](samples/screenshots/txaa.png?raw=true "Temporal anti-aliasing")
+<image src="samples/screenshots/pbr-renderer.png?raw=true" align="left" width="640">
+<image src="samples/screenshots/path-tracing.png?raw=true" align="left" width="640">
+<image src="samples/screenshots/scene.png?raw=true" align="left" width="640">
+<image src="samples/screenshots/skinning.png?raw=true" align="left" width="640">
+<image src="samples/screenshots/particles.png?raw=true" align="left" width="640">
+<image src="samples/screenshots/fluid-simulation.png?raw=true" align="left" width="640">
+<image src="samples/screenshots/global-illumination.png?raw=true" align="left" width="640">
+<image src="samples/screenshots/txaa.png?raw=true" align="left" width="640">

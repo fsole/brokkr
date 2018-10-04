@@ -22,19 +22,20 @@
 * SOFTWARE.
 */
 
-#include "application.h"
-#include "camera.h"
-#include "render.h"
-#include "window.h"
-#include "mesh.h"
-#include "maths.h"
-#include "timer.h"
-#include "transform-manager.h"
-#include "packed-freelist.h"
-#include "gui.h"
+#include "core/application.h"
+#include "core/render.h"
+#include "core/window.h"
+#include "core/mesh.h"
+#include "core/maths.h"
+#include "core/timer.h"
+#include "core/transform-manager.h"
+#include "core/packed-freelist.h"
+#include "core/camera.h"
+#include "core/gui.h"
 
 using namespace bkk;
-using namespace maths;
+using namespace bkk::core;
+using namespace bkk::core::maths;
 
 static const char* gGeometryPassVertexShaderSource = R"(
   #version 440 core
@@ -341,9 +342,9 @@ struct TXAA_sample_t : public application_t
 
   struct object_t
   {
-    bkk::handle_t mesh_;
-    bkk::handle_t material_;
-    bkk::handle_t transform_;
+    core::handle_t mesh_;
+    core::handle_t material_;
+    core::handle_t transform_;
     render::gpu_buffer_t ubo_;
     render::descriptor_set_t descriptorSet_;
   };
@@ -388,19 +389,19 @@ struct TXAA_sample_t : public application_t
     
     //Create render targets 
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT0_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT0_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT0_);
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT1_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT1_);
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, render::texture_sampler_t(), &gBufferRT2_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &gBufferRT2_);
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, render::texture_sampler_t(), &finalImage_);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &finalImage_);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &finalImage_);
     render::depthStencilBufferCreate(context, size.x, size.y, &depthStencilBuffer_);
     
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, render::texture_sampler_t(), &historyBuffer_[0]);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &historyBuffer_[0]);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &historyBuffer_[0]);
     render::texture2DCreate(context, size.x, size.y, 1u, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, render::texture_sampler_t(), &historyBuffer_[1]);
-    bkk::render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &historyBuffer_[1]);
+    render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &historyBuffer_[1]);
     
     //Create globals uniform buffer    
     sceneUniforms_.projectionMatrix_ = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
@@ -416,17 +417,17 @@ struct TXAA_sample_t : public application_t
     render::descriptorSetCreate(context, descriptorPool_, globalsDescriptorSetLayout_, &descriptor, &globalsDescriptorSet_);
 
     //Presentation descriptor set layout and pipeline layout
-    binding = { bkk::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::render::descriptor_t::stage::FRAGMENT };
-    bkk::render::descriptorSetLayoutCreate(context, &binding, 1u, &presentationDescriptorSetLayout_);
-    bkk::render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, nullptr, 0u, &presentationPipelineLayout_);
+    binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
+    render::descriptorSetLayoutCreate(context, &binding, 1u, &presentationDescriptorSetLayout_);
+    render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, nullptr, 0u, &presentationPipelineLayout_);
 
     //Presentation descriptor sets
-    descriptor = bkk::render::getDescriptor(historyBuffer_[1]);
-    bkk::render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_);
+    descriptor = render::getDescriptor(historyBuffer_[1]);
+    render::descriptorSetCreate(context, descriptorPool_, presentationDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_);
 
     //Create presentation pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gPresentationVertexShaderSource, &presentationVertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gPresentationFragmentShaderSource, &presentationFragmentShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gPresentationVertexShaderSource, &presentationVertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gPresentationFragmentShaderSource, &presentationFragmentShader_);
     render::graphics_pipeline_t::description_t pipelineDesc = {};
     pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
@@ -438,12 +439,12 @@ struct TXAA_sample_t : public application_t
     pipelineDesc.depthWriteEnabled_ = false;
     pipelineDesc.vertexShader_ = presentationVertexShader_;
     pipelineDesc.fragmentShader_ = presentationFragmentShader_;
-    bkk::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
+    render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
     
     initializeOffscreenPass(context, size);
   }
 
-  bkk::handle_t addQuadMesh()
+  core::handle_t addQuadMesh()
   {
     struct Vertex
     {
@@ -468,14 +469,14 @@ struct TXAA_sample_t : public application_t
     return mesh_.add(mesh);
   }
 
-  bkk::handle_t addMesh(const char* url)
+  core::handle_t addMesh(const char* url)
   {
     mesh::mesh_t mesh;
     mesh::createFromFile(getRenderContext(), url, mesh::EXPORT_NORMALS, &allocator_, 0u, &mesh);
     return mesh_.add(mesh);
   }
 
-  bkk::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness)
+  core::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness)
   {
     render::context_t& context = getRenderContext();
 
@@ -494,11 +495,11 @@ struct TXAA_sample_t : public application_t
     return material_.add(material);
   }
 
-  bkk::handle_t addObject(bkk::handle_t meshId, bkk::handle_t materialId, const maths::mat4& transform)
+  core::handle_t addObject(core::handle_t meshId, core::handle_t materialId, const maths::mat4& transform)
   {
     render::context_t& context = getRenderContext();
 
-    bkk::handle_t transformId = transformManager_.createTransform(transform);
+    core::handle_t transformId = transformManager_.createTransform(transform);
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
@@ -512,7 +513,7 @@ struct TXAA_sample_t : public application_t
     return object_.add(object);
   }
 
-  bkk::handle_t addLight(const maths::vec3& position, float radius, const maths::vec3& color)
+  core::handle_t addLight(const maths::vec3& position, float radius, const maths::vec3& color)
   {
     render::context_t& context = getRenderContext();
 
@@ -565,14 +566,14 @@ struct TXAA_sample_t : public application_t
     render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
-    bkk::dynamic_array_t<object_t>& object(object_.getData());
+    dynamic_array_t<object_t>& object(object_.getData());
     for (u32 i(0); i < object.size(); ++i)
     {
       render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_);
     }
 
     //Update lights position
-    bkk::dynamic_array_t<light_t>& light(light_.getData());
+    dynamic_array_t<light_t>& light(light_.getData());
     for (u32 i(0); i < light.size(); ++i)
     {
       render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
@@ -818,9 +819,9 @@ private:
     render::pipelineLayoutCreate(context, descriptorSetLayouts, 3u, nullptr, 0u, &gBufferPipelineLayout_);
 
     //Create geometry pass pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gGeometryPassVertexShaderSource, &gBuffervertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gGeometryPassFragmentShaderSource, &gBufferfragmentShader_);
-    bkk::render::graphics_pipeline_t::description_t pipelineDesc = {};
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gGeometryPassVertexShaderSource, &gBuffervertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gGeometryPassFragmentShaderSource, &gBufferfragmentShader_);
+    render::graphics_pipeline_t::description_t pipelineDesc = {};
     pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
     pipelineDesc.blendState_.resize(3);
@@ -860,9 +861,9 @@ private:
     render::pipelineLayoutCreate(context, lightPassDescriptorSetLayouts, 3u, nullptr, 0u, &lightPipelineLayout_);
 
     //Create light pass pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gLightPassVertexShaderSource, &lightVertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gLightPassFragmentShaderSource, &lightFragmentShader_);
-    bkk::render::graphics_pipeline_t::description_t lightPipelineDesc = {};
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gLightPassVertexShaderSource, &lightVertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gLightPassFragmentShaderSource, &lightFragmentShader_);
+    render::graphics_pipeline_t::description_t lightPipelineDesc = {};
     lightPipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     lightPipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
     lightPipelineDesc.blendState_.resize(1);
@@ -944,7 +945,7 @@ private:
     {
       render::commandBufferRenderPassBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
       //GBuffer pass
-      bkk::render::graphicsPipelineBind(commandBuffer_, gBufferPipeline_);
+      render::graphicsPipelineBind(commandBuffer_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
       descriptorSets[0] = globalsDescriptorSet_;
       packed_freelist_iterator_t<object_t> objectIter = object_.begin();
@@ -952,22 +953,22 @@ private:
       {
         descriptorSets[1] = objectIter.get().descriptorSet_;
         descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
-        bkk::render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
+        render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
         mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
         mesh::draw(commandBuffer_, *mesh);
         ++objectIter;
       }
 
-      bkk::render::commandBufferNextSubpass(commandBuffer_);
+      render::commandBufferNextSubpass(commandBuffer_);
 
       //Light pass      
-      bkk::render::graphicsPipelineBind(commandBuffer_, lightPipeline_);
+      render::graphicsPipelineBind(commandBuffer_, lightPipeline_);
       descriptorSets[1] = lightPassTexturesDescriptorSet_;
       packed_freelist_iterator_t<light_t> lightIter = light_.begin();
       while (lightIter != light_.end())
       {
         descriptorSets[2] = lightIter.get().descriptorSet_;
-        bkk::render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 0u, descriptorSets, 3u);
+        render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 0u, descriptorSets, 3u);
         mesh::draw(commandBuffer_, sphereMesh_);
         ++lightIter;
       }
@@ -990,8 +991,8 @@ private:
       render::commandBufferRenderPassBegin(context, &txaaResolveFrameBuffer_, clearValues, 1u, txaaResolveCommandBuffer_);
       if (bTemporalAA_)
       {
-        bkk::render::graphicsPipelineBind(txaaResolveCommandBuffer_, txaaResolvePipeline_);
-        bkk::render::descriptorSetBind(txaaResolveCommandBuffer_, txaaResolvePipelineLayout_, 0u, &txaaResolveDescriptorSet_, 1u);
+        render::graphicsPipelineBind(txaaResolveCommandBuffer_, txaaResolvePipeline_);
+        render::descriptorSetBind(txaaResolveCommandBuffer_, txaaResolvePipelineLayout_, 0u, &txaaResolveDescriptorSet_, 1u);
         mesh::draw(txaaResolveCommandBuffer_, fullScreenQuad_);
       }
 
@@ -1016,18 +1017,18 @@ private:
   {
     render::context_t& context = getRenderContext();
 
-    const bkk::render::command_buffer_t* commandBuffers;
-    uint32_t count = bkk::render::getPresentationCommandBuffers(context, &commandBuffers);
+    const render::command_buffer_t* commandBuffers;
+    uint32_t count = render::getPresentationCommandBuffers(context, &commandBuffers);
     for (uint32_t i(0); i < count; ++i)
     {
-      bkk::render::beginPresentationCommandBuffer(context, i, nullptr);
-      bkk::render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
-      bkk::render::descriptorSetBind(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_, 1u);
-      bkk::mesh::draw(commandBuffers[i], fullScreenQuad_);
+      render::beginPresentationCommandBuffer(context, i, nullptr);
+      render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
+      render::descriptorSetBind(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_, 1u);
+      mesh::draw(commandBuffers[i], fullScreenQuad_);
 
       gui::draw(context, commandBuffers[i]);
 
-      bkk::render::endPresentationCommandBuffer(context, i);
+      render::endPresentationCommandBuffer(context, i);
     }
   }
 
@@ -1040,7 +1041,7 @@ private:
 
 private:
   ///Member variables
-  bkk::transform_manager_t transformManager_;
+  transform_manager_t transformManager_;
   render::gpu_memory_allocator_t allocator_;
 
   packed_freelist_t<object_t> object_;
@@ -1118,14 +1119,14 @@ int main()
   TXAA_sample_t scene;
 
   //Materials  
-  bkk::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
-  bkk::handle_t redWall = scene.addMaterial(vec3(0.5f, 0.0f, 0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
-  bkk::handle_t greenWall = scene.addMaterial(vec3(0.0f, 0.5f, 0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
-  bkk::handle_t gold = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.000f, 0.766f, 0.336f), 0.3f);
+  core::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
+  core::handle_t redWall = scene.addMaterial(vec3(0.5f, 0.0f, 0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
+  core::handle_t greenWall = scene.addMaterial(vec3(0.0f, 0.5f, 0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
+  core::handle_t gold = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.000f, 0.766f, 0.336f), 0.3f);
 
   //Meshes
-  bkk::handle_t teapot = scene.addMesh("../resources/teapot.obj");
-  bkk::handle_t quad = scene.addQuadMesh();
+  core::handle_t teapot = scene.addMesh("../resources/teapot.obj");
+  core::handle_t quad = scene.addQuadMesh();
  
   //Objects
   scene.addObject(quad, wall, maths::createTransform(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));

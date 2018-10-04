@@ -22,17 +22,17 @@
 * SOFTWARE.
 */
 
-#include "application.h"
-#include "render.h"
-#include "window.h"
-#include "image.h"
-#include "mesh.h"
-#include "maths.h"
-#include "timer.h"
-#include "camera.h"
+#include "core/application.h"
+#include "core/render.h"
+#include "core/window.h"
+#include "core/image.h"
+#include "core/mesh.h"
+#include "core/maths.h"
+#include "core/timer.h"
+#include "core/camera.h"
 
-using namespace bkk;
-using namespace maths;
+using namespace bkk::core;
+using namespace bkk::core::maths;
 
 static const char* gVertexShaderSource = R"(
   #version 440 core
@@ -124,16 +124,16 @@ public:
     mesh::animatorCreate(context, mesh_, 0u, 1.0f, &animator_);
 
     //Load texture
-    bkk::image::image2D_t image = {};
-    if (!bkk::image::load("../resources/mannequin/diffuse.jpg", false, &image))
+    image::image2D_t image = {};
+    if (!image::load("../resources/mannequin/diffuse.jpg", false, &image))
     {
       printf("Error loading texture\n");
     }
     else
     {
       //Create the texture
-      bkk::render::texture2DCreateAndGenerateMipmaps(context, image, bkk::render::texture_sampler_t(), &texture_);
-      bkk::image::unload(&image);
+      render::texture2DCreateAndGenerateMipmaps(context, image, render::texture_sampler_t(), &texture_);
+      image::unload(&image);
     }
 
     //Create pipeline and descriptor set layouts
@@ -157,9 +157,9 @@ public:
     render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, descriptors, &descriptorSet_);
 
     //Create pipeline
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
-    bkk::render::shaderCreateFromGLSLSource(context, bkk::render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
-    bkk::render::graphics_pipeline_t::description_t pipelineDesc;
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
+    render::graphics_pipeline_t::description_t pipelineDesc;
     pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
     pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
     pipelineDesc.blendState_.resize(1);
@@ -259,13 +259,13 @@ public:
     clearValues[0].color = { { 0.2f, 0.3f, 0.4f, 1.0f } };
 
     clearValues[1].depthStencil = { 1.0f,0 };
-    const bkk::render::command_buffer_t* commandBuffers;
+    const render::command_buffer_t* commandBuffers;
     uint32_t count = render::getPresentationCommandBuffers(context, &commandBuffers);
     for (uint32_t i(0); i<count; ++i)
     {
       render::beginPresentationCommandBuffer(context, i, clearValues);
-      bkk::render::graphicsPipelineBind(commandBuffers[i], pipeline_);
-      bkk::render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
+      render::graphicsPipelineBind(commandBuffers[i], pipeline_);
+      render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
       mesh::draw(commandBuffers[i], mesh_);
       render::endPresentationCommandBuffer(context, i);
     }
