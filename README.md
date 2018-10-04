@@ -7,17 +7,17 @@ Remember to set the working directory to "../../../samples/bin/" in order to run
 
 # Screenshots
 <image src="samples/screenshots/path-tracing.png?raw=true" align="left" width="640" title="GPU Path tracing">
-
+<br />
 <image src="samples/screenshots/pbr-renderer.png?raw=true" align="left" width="640" title="Deferred shading">
-
+<br />
 <image src="samples/screenshots/scene.png?raw=true" align="left" width="640" title="Scene rendering">
-
+<br />
 <image src="samples/screenshots/skinning.gif?raw=true" align="left" title="Skinning animation">
-
+<br />
 <image src="samples/screenshots/particles.gif?raw=true" align="left" title="Compute-based Particle system">
-
+<br />
 <image src="samples/screenshots/fluid-simulation.gif?raw=true" align="left" width="640" title="SPH Fluid simulation">
-
+<br />
 <image src="samples/screenshots/global-illumination.png?raw=true" align="left" width="640" title="Reflective shadow maps">
-
+<br />
 <image src="samples/screenshots/txaa.png?raw=true" align="left" width="640" title="Temporal anti-aliasing">
