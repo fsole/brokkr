@@ -119,7 +119,6 @@
     <ClInclude Include="..\..\include\framework\camera.h" />
     <ClInclude Include="..\..\include\framework\gui.h" />
     <ClInclude Include="..\..\include\framework\material.h" />
-    <ClInclude Include="..\..\include\framework\resource-manager.h" />
     <ClInclude Include="..\..\include\framework\shader.h" />
   </ItemGroup>
   <ItemGroup>
@@ -136,7 +135,6 @@
     <ClCompile Include="..\..\src\framework\camera.cpp" />
     <ClCompile Include="..\..\src\framework\gui.cpp" />
     <ClCompile Include="..\..\src\framework\material.cpp" />
-    <ClCompile Include="..\..\src\framework\resource-manager.cpp" />
     <ClCompile Include="..\..\src\framework\shader.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
