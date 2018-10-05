@@ -22,7 +22,8 @@
 * SOFTWARE.
 */
 
-#include "core/gui.h"
+#include "framework/gui.h"
+
 #include "core/maths.h"
 #include "core/image.h"
 
