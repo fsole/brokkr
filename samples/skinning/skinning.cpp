@@ -22,15 +22,17 @@
 * SOFTWARE.
 */
 
-#include "core/application.h"
+#include "framework/application.h"
+#include "framework/camera.h"
+
 #include "core/render.h"
 #include "core/window.h"
 #include "core/image.h"
 #include "core/mesh.h"
 #include "core/maths.h"
 #include "core/timer.h"
-#include "core/camera.h"
 
+using namespace bkk;
 using namespace bkk::core;
 using namespace bkk::core::maths;
 
@@ -98,7 +100,7 @@ static const char* gFragmentShaderSource = R"(
 )";
 
 
-class skinning_sample_t : public application_t
+class skinning_sample_t : public framework::application_t
 {
 public:
   skinning_sample_t()
@@ -289,7 +291,7 @@ private:
   render::shader_t vertexShader_;
   render::shader_t fragmentShader_;
 
-  camera::orbiting_camera_t camera_;
+  framework::orbiting_camera_t camera_;
   maths::mat4 projectionTx_;
   maths::mat4 modelTx_;
 };

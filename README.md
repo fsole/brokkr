@@ -7,7 +7,8 @@ Remember to set the working directory to "../../../samples/bin/" in order to run
 
 # Screenshots
 <p><image src="samples/screenshots/path-tracing.png?raw=true" width="640" title="GPU Path tracing" /></p>
-<p><image src="samples/screenshots/pbr-renderer.png?raw=true" width="640" title="Deferred shading" /></p>
+<p><image src="samples/screenshots/pbr-renderer.png?raw=true" width="640" title="PBR renderer" /></p>
+<p><image src="samples/screenshots/deferred-shading.png?raw=true" width="640" title="Deferred shading" /></p>
 <p><image src="samples/screenshots/scene.png?raw=true"width="640" title="Scene rendering" /></p>
 <p><image src="samples/screenshots/skinning.gif?raw=true" title="Skinning animation" /></p>
 <p><image src="samples/screenshots/particles.gif?raw=true" title="Compute-based Particle system" /></p>

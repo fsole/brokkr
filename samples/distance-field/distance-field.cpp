@@ -24,13 +24,14 @@
 
 
 // This sample is work in progress.
-#include "core/application.h"
+#include "framework/camera.h"
+
 #include "core/render.h"
 #include "core/window.h"
 #include "core/image.h"
 #include "core/mesh.h"
-#include "core/camera.h"
 
+using namespace bkk;
 using namespace bkk::core;
 using namespace bkk::core::maths;
 
@@ -105,7 +106,7 @@ static render::shader_t gVertexShader;
 static render::shader_t gFragmentShader;
 static render::shader_t gComputeShader;
 
-static camera::free_camera_t gCamera;
+static framework::free_camera_t gCamera;
 static maths::vec2 gMousePosition = vec2(0.0f, 0.0f);
 static bool gMouseButtonPressed = false;
 

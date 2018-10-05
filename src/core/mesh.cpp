@@ -38,7 +38,7 @@ using namespace bkk::core;
 using namespace bkk::core::mesh;
 using namespace bkk::core::maths;
 
-using bkk::core::handle_T;  //To avoid ambiguity with Windows handle_t type
+using bkk::core::handle_t;  //To avoid ambiguity with Windows handle_t type
 
 //Helper functions
 static size_t GetNextMultiple(size_t from, size_t multiple)

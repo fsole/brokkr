@@ -30,12 +30,15 @@
 
 namespace bkk
 {
+  //Forward declarations
   namespace core
   {
-    //Forward declarations
     namespace render { struct context_t; }
     namespace window { struct window_t; }
+  }
 
+  namespace framework
+  {
     class application_t
     {
     public:
@@ -44,33 +47,33 @@ namespace bkk
 
       void loop();
 
-      render::context_t& getRenderContext();
+      core::render::context_t& getRenderContext();
 
-      window::window_t& getWindow();
-      maths::uvec2 getWindowSize();
+      core::window::window_t& getWindow();
+      core::maths::uvec2 getWindowSize();
       f32 getAspectRatio();
 
       f32 getTimeDelta();
 
-      maths::vec2 getMousePosition() { return mouseCurrentPos_; }
+      core::maths::vec2 getMousePosition() { return mouseCurrentPos_; }
       s32 getMousePressedButton() { return mouseButtonPressed_; }
 
       //Callbacks
       virtual void onQuit() {}
       virtual void onResize(u32 width, u32 height) {}
       virtual void onKeyEvent(u32 key, bool pressed) {}
-      virtual void onMouseButton(u32 button, bool pressed, const maths::vec2& mousePos, const maths::vec2& mousePrevPos) {}
-      virtual void onMouseMove(const maths::vec2& mousePos, const maths::vec2& mouseDeltaPos) {}
+      virtual void onMouseButton(u32 button, bool pressed, const core::maths::vec2& mousePos, const core::maths::vec2& mousePrevPos) {}
+      virtual void onMouseMove(const core::maths::vec2& mousePos, const core::maths::vec2& mouseDeltaPos) {}
       virtual void buildGuiFrame() {}
       virtual void render() {}
 
     private:
-      window::window_t* window_;
-      render::context_t* context_;
+      core::window::window_t* window_;
+      core::render::context_t* context_;
 
       float timeDelta_;
-      maths::vec2 mouseCurrentPos_;
-      maths::vec2 mousePrevPos_;
+      core::maths::vec2 mouseCurrentPos_;
+      core::maths::vec2 mousePrevPos_;
       s32 mouseButtonPressed_;
 
       struct frame_counter_t;

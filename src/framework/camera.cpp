@@ -22,10 +22,10 @@
 * SOFTWARE.
 */
 
-#include "core/camera.h"
+#include "framework/camera.h"
 
 using namespace bkk::core;
-using namespace bkk::core::camera;
+using namespace bkk::framework;
 
 orbiting_camera_t::orbiting_camera_t()
 :target_(0.0f,0.0f,0.0f),

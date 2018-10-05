@@ -103,8 +103,8 @@
     <ClInclude Include="..\..\external\imgui\imconfig.h" />
     <ClInclude Include="..\..\external\imgui\imgui.h" />
     <ClInclude Include="..\..\external\imgui\imgui_internal.h" />
-    <ClInclude Include="..\..\include\core\application.h" />
-    <ClInclude Include="..\..\include\core\camera.h" />
+    <ClInclude Include="..\..\external\pugixml\pugiconfig.hpp" />
+    <ClInclude Include="..\..\external\pugixml\pugixml.hpp" />
     <ClInclude Include="..\..\include\core\dynamic-array.h" />
     <ClInclude Include="..\..\include\core\gui.h" />
     <ClInclude Include="..\..\include\core\image.h" />
@@ -116,19 +116,28 @@
     <ClInclude Include="..\..\include\core\timer.h" />
     <ClInclude Include="..\..\include\core\transform-manager.h" />
     <ClInclude Include="..\..\include\core\window.h" />
+    <ClInclude Include="..\..\include\framework\application.h" />
+    <ClInclude Include="..\..\include\framework\camera.h" />
+    <ClInclude Include="..\..\include\framework\material.h" />
+    <ClInclude Include="..\..\include\framework\resource-manager.h" />
+    <ClInclude Include="..\..\include\framework\shader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\external\imgui\imgui.cpp" />
     <ClCompile Include="..\..\external\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\..\external\imgui\imgui_draw.cpp" />
-    <ClCompile Include="..\..\src\core\application.cpp" />
-    <ClCompile Include="..\..\src\core\camera.cpp" />
+    <ClCompile Include="..\..\external\pugixml\pugixml.cpp" />
     <ClCompile Include="..\..\src\core\gui.cpp" />
     <ClCompile Include="..\..\src\core\image.cpp" />
     <ClCompile Include="..\..\src\core\mesh.cpp" />
     <ClCompile Include="..\..\src\core\render.cpp" />
     <ClCompile Include="..\..\src\core\transform-manager.cpp" />
     <ClCompile Include="..\..\src\core\window.cpp" />
+    <ClCompile Include="..\..\src\framework\application.cpp" />
+    <ClCompile Include="..\..\src\framework\camera.cpp" />
+    <ClCompile Include="..\..\src\framework\material.cpp" />
+    <ClCompile Include="..\..\src\framework\resource-manager.cpp" />
+    <ClCompile Include="..\..\src\framework\shader.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

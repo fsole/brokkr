@@ -27,7 +27,9 @@
 *    - Press 'G' to enable disable Global illumination
 */
 
-#include "core/application.h"
+#include "framework/application.h"
+#include "framework/camera.h"
+
 #include "core/render.h"
 #include "core/window.h"
 #include "core/mesh.h"
@@ -35,7 +37,6 @@
 #include "core/timer.h"
 #include "core/transform-manager.h"
 #include "core/packed-freelist.h"
-#include "core/camera.h"
 
 using namespace bkk;
 using namespace bkk::core;
@@ -622,7 +623,7 @@ static const char* gPresentationFragmentShaderSource = R"(
   }
 )";
 
-class global_illumination_sample_t : public application_t
+class global_illumination_sample_t : public framework::application_t
 {
 public:
   struct point_light_t
@@ -1625,7 +1626,7 @@ private:
   mesh::mesh_t fullScreenQuad_;
 
   directional_light_t* directionalLight_ = nullptr;
-  camera::free_camera_t camera_;
+  framework::free_camera_t camera_;
   bool globalIllumination_ = true;
 };
 

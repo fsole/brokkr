@@ -22,7 +22,10 @@
 * SOFTWARE.
 */
 
-#include "core/application.h"
+#include "framework/application.h"
+#include "framework/camera.h"
+#include "framework/gui.h"
+
 #include "core/render.h"
 #include "core/window.h"
 #include "core/mesh.h"
@@ -30,8 +33,7 @@
 #include "core/timer.h"
 #include "core/transform-manager.h"
 #include "core/packed-freelist.h"
-#include "core/camera.h"
-#include "core/gui.h"
+
 
 using namespace bkk;
 using namespace bkk::core;
@@ -257,7 +259,7 @@ static const char* gPresentationFragmentShaderSource = R"(
   }
 )";
 
-struct deferred_shading_sample_t : public application_t
+struct deferred_shading_sample_t : public framework::application_t
 {
   struct light_t
   {
@@ -880,7 +882,7 @@ private:
       render::descriptorSetBind(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
       mesh::draw(commandBuffers[i], fullScreenQuad_);
 
-      gui::draw(context, commandBuffers[i]);
+      framework::gui::draw(context, commandBuffers[i]);
 
       render::endPresentationCommandBuffer(context, i);
     }
@@ -982,7 +984,7 @@ private:
   mesh::mesh_t sphereMesh_;
   mesh::mesh_t fullScreenQuad_;
   
-  camera::free_camera_t camera_;
+  framework::free_camera_t camera_;
   bool bAnimateLights_;
 };
 

@@ -29,7 +29,6 @@
 #include "core/mesh.h"
 #include "core/image.h"
 #include "core/mesh.h"
-#include "core/camera.h"
 
 
 static const char* gVertexShaderSource = R"(

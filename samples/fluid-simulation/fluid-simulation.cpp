@@ -22,7 +22,10 @@
 * SOFTWARE.
 */
 
-#include "core/application.h"
+#include "framework/application.h"
+#include "framework/camera.h"
+#include "framework/gui.h"
+
 #include "core/render.h"
 #include "core/window.h"
 #include "core/mesh.h"
@@ -30,9 +33,8 @@
 #include "core/timer.h"
 #include "core/transform-manager.h"
 #include "core/packed-freelist.h"
-#include "core/camera.h"
-#include "core/gui.h"
 
+using namespace bkk;
 using namespace bkk::core;
 using namespace bkk::core::maths;
 
@@ -374,7 +376,7 @@ static const char* gUpdateParticlesShaderSource = R"(
   }
 )";
 
-class fluid_simulation_sample_t : public application_t
+class fluid_simulation_sample_t : public framework::application_t
 {
 public:
 
@@ -659,7 +661,7 @@ public:
       render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
       mesh::drawInstanced(commandBuffers[i], particleSystem_.maxParticleCount, nullptr, 0u, mesh_);
 
-      gui::draw(context, commandBuffers[i]);
+      framework::gui::draw(context, commandBuffers[i]);
       render::endPresentationCommandBuffer(context, i);
     }
   }
@@ -747,7 +749,7 @@ private:
   render::command_buffer_t computeDensityCommandBuffer_;
   render::shader_t computeDensityShader_;
 
-  camera::orbiting_camera_t camera_;
+  framework::orbiting_camera_t camera_;
   maths::mat4 projectionTx_;
   maths::mat4 modelTx_;
   f32 emissionRate_ = 100.0f;

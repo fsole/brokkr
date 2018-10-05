@@ -30,16 +30,16 @@
 
 namespace bkk
 {
-  namespace core
+  namespace framework
   {
     namespace gui
     {
-      void init(const render::context_t& context);
-      void destroy(const render::context_t& context);
+      void init(const core::render::context_t& context);
+      void destroy(const core::render::context_t& context);
 
-      void beginFrame(const render::context_t& context);
+      void beginFrame(const core::render::context_t& context);
       void endFrame();
-      void draw(const render::context_t& context, render::command_buffer_t commandBuffer);
+      void draw(const core::render::context_t& context, core::render::command_buffer_t commandBuffer);
 
       void updateMousePosition(float x, float y);
       void updateMouseButton(uint32_t button, bool pressed);

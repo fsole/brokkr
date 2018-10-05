@@ -22,15 +22,17 @@
 * SOFTWARE.
 */
 
-#include "core/application.h"
+#include "framework/application.h"
+#include "framework/camera.h"
+
 #include "core/render.h"
 #include "core/window.h"
 #include "core/image.h"
 #include "core/mesh.h"
 #include "core/maths.h"
 #include "core/timer.h"
-#include "core/camera.h"
 
+using namespace bkk;
 using namespace bkk::core;
 using namespace bkk::core::maths;
 
@@ -241,7 +243,7 @@ static const char* gComputeShader = R"(
   }
 )";
 
-class particles_sample_t : public application_t
+class particles_sample_t : public framework::application_t
 {
 public:
 
@@ -563,7 +565,7 @@ private:
   render::command_buffer_t computeCommandBuffer_;
   render::shader_t computeShader_;
 
-  camera::orbiting_camera_t camera_;
+  framework::orbiting_camera_t camera_;
   maths::mat4 projectionTx_;
   maths::mat4 modelTx_;
   f32 emissionRate_ = 100.0f;

@@ -29,45 +29,43 @@
 
 namespace bkk
 {
-  namespace core
+  namespace framework
   {
-    namespace camera
-    {    
-      struct orbiting_camera_t
-      {
-        orbiting_camera_t();
-        orbiting_camera_t(const maths::vec3& target, const f32 offset, const maths::vec2& angle, f32 rotationSensitivity);
+    struct orbiting_camera_t
+    {
+      orbiting_camera_t();
+      orbiting_camera_t(const core::maths::vec3& target, const f32 offset, const core::maths::vec2& angle, f32 rotationSensitivity);
 
-        void Move(f32 amount);
-        void Rotate(f32 angleY, f32 angleZ);
-        void Update();
+      void Move(f32 amount);
+      void Rotate(f32 angleY, f32 angleZ);
+      void Update();
 
-        maths::mat4 view_;
-        maths::vec3 target_;
-        f32 offset_;
-        maths::vec2 angle_;
-        f32 rotationSensitivity_;
-      };
+      core::maths::mat4 view_;
+      core::maths::vec3 target_;
+      f32 offset_;
+      core::maths::vec2 angle_;
+      f32 rotationSensitivity_;
+    };
 
 
-      struct free_camera_t
-      {
-        free_camera_t();
-        free_camera_t(const maths::vec3& position, const maths::vec2& angle, f32 velocity, f32 rotationSensitivity);
+    struct free_camera_t
+    {
+      free_camera_t();
+      free_camera_t(const core::maths::vec3& position, const core::maths::vec2& angle, f32 velocity, f32 rotationSensitivity);
 
-        void Move(f32 xAmount, f32 zAmount);
-        void Rotate(f32 angleY, f32 angleX);
-        void Update();
+      void Move(f32 xAmount, f32 zAmount);
+      void Rotate(f32 angleY, f32 angleX);
+      void Update();
 
-        maths::mat4 tx_;
-        maths::mat4 view_;
-        maths::vec3 position_;
-        maths::vec2 angle_;
-        f32  velocity_; //Units per second
-        f32 rotationSensitivity_;
-      };
-    }
+      core::maths::mat4 tx_;
+      core::maths::mat4 view_;
+      core::maths::vec3 position_;
+      core::maths::vec2 angle_;
+      f32  velocity_; //Units per second
+      f32 rotationSensitivity_;
+    };
   }
+
 }
 
 

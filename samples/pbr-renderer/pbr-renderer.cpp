@@ -22,7 +22,9 @@
 * SOFTWARE.
 */
 
-#include "core/application.h"
+#include "framework/application.h"
+#include "framework/camera.h"
+
 #include "core/render.h"
 #include "core/window.h"
 #include "core/image.h"
@@ -31,7 +33,6 @@
 #include "core/timer.h"
 #include "core/transform-manager.h"
 #include "core/packed-freelist.h"
-#include "core/camera.h"
 
 using namespace bkk;
 using namespace bkk::core;
@@ -384,7 +385,7 @@ static const char* gPresentationFragmentShaderSource = R"(
   }
 )";
 
-struct pbr_renderer_t : public application_t
+struct pbr_renderer_t : public framework::application_t
 {
   struct light_t
   {
@@ -1105,7 +1106,7 @@ private:
   mesh::mesh_t sphereMesh_;
   mesh::mesh_t fullScreenQuad_;
 
-  camera::free_camera_t camera_;
+  framework::free_camera_t camera_;
 };
 
 int main()

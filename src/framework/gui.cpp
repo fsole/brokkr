@@ -27,6 +27,7 @@
 #include "core/image.h"
 
 using namespace bkk::core;
+using namespace bkk::framework;
 
 struct gui_context_t
 {
