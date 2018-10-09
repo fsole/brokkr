@@ -16,8 +16,8 @@ namespace bkk
       bool setProperty(uint32_t id, void* value);
 
     private:
-      shader_property_layout_t propertyLayout_;
-      
+
+      framework::shader_t* shader_;
       void* uniformData_;      
       core::render::gpu_buffer_t uniformBuffer_;
     };
