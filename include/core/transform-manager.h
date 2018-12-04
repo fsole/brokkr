@@ -28,6 +28,8 @@
 #include "core/maths.h"
 #include "core/packed-freelist.h"
 
+#include <vector>
+
 namespace bkk
 {
   namespace core
@@ -54,8 +56,8 @@ namespace bkk
       void sortTransforms();
 
       packed_freelist_t<maths::mat4> transform_;    ///< Local transforms
-      dynamic_array_t<handle_t> parent_;  ///< Parent of each transform
-      dynamic_array_t<maths::mat4> world_;     ///< World transforms
+      std::vector<handle_t> parent_;  ///< Parent of each transform
+      std::vector<maths::mat4> world_;     ///< World transforms
 
       bool hierarchy_changed_;                    ///< Flag to indicates that the hierarchy has changed since the last update
     };

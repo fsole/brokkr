@@ -81,28 +81,21 @@ application_t::application_t(const char* title, u32 width, u32 height, u32 image
  mousePrevPos_(0.0f,0.0f),
  mouseButtonPressed_(-1)
 {
-  window_ = new core::window::window_t();
-  context_ = new core::render::context_t();
+  core::window::create(title, width, height, &window_);
 
-  core::window::create(title, width, height, window_);
-  core::render::contextCreate(title, "", *window_, imageCount, context_);
+  renderer_.initialize(title, imageCount, window_);
 
   frameCounter_ = new frame_counter_t();
-  frameCounter_->init(window_);
+  frameCounter_->init(&window_);
   timeDelta_ = 0.0f;
 
-  framework::gui::init(*context_);
+  framework::gui::init(renderer_.getContext());
 }
 
 application_t::~application_t()
-{
+{  
+  core::window::destroy(&window_);
   delete frameCounter_;
-
-  core::render::contextDestroy(context_);
-  delete context_;
-
-  core::window::destroy(window_);
-  delete window_;  
 }
 
 void application_t::loop()
@@ -117,7 +110,7 @@ void application_t::loop()
     timeDelta_ = core::timer::getDifference(timePrev, currentTime);
 
     core::window::event_t* event = nullptr;
-    while ((event = core::window::getNextEvent(window_)))
+    while ((event = core::window::getNextEvent(&window_)))
     {
       switch (event->type_)
       {
@@ -129,7 +122,7 @@ void application_t::loop()
       case core::window::EVENT_RESIZE:
       {
         core::window::event_resize_t* resizeEvent = (core::window::event_resize_t*)event;
-        core::render::swapchainResize(context_, resizeEvent->width_, resizeEvent->height_);
+        core::render::swapchainResize(&renderer_.getContext(), resizeEvent->width_, resizeEvent->height_);
         onResize(resizeEvent->width_, resizeEvent->height_);
         break;
       }
@@ -171,7 +164,7 @@ void application_t::loop()
       }
     }
 
-    framework::gui::beginFrame(*context_);
+    framework::gui::beginFrame(renderer_.getContext());
     buildGuiFrame();
     framework::gui::endFrame();
 
@@ -181,17 +174,27 @@ void application_t::loop()
     timePrev = currentTime;
   }
 
-  core::render::contextFlush(*context_);
-  framework::gui::destroy(*context_);
+  core::render::contextFlush(renderer_.getContext());
+  framework::gui::destroy(renderer_.getContext());
   onQuit();
-  
 }
 
-core::render::context_t& application_t::getRenderContext() { return *context_; }
-core::window::window_t& application_t::getWindow() { return *window_; }
+void application_t::beginFrame()
+{
+  renderer_.update();
+}
+
+void application_t::presentFrame()
+{
+  renderer_.presentFrame();
+} 
+
+renderer_t& application_t::getRenderer() { return renderer_;  }
+core::render::context_t& application_t::getRenderContext() { return renderer_.getContext(); }
+core::window::window_t& application_t::getWindow() { return window_; }
 f32 application_t::getTimeDelta() { return timeDelta_; }
-core::maths::uvec2 application_t::getWindowSize() { return core::maths::uvec2(window_->width_, window_->height_); }
-f32 application_t::getAspectRatio() { return (window_->width_ / (float)window_->height_); }
+core::maths::uvec2 application_t::getWindowSize() { return core::maths::uvec2(window_.width_, window_.height_); }
+f32 application_t::getAspectRatio() { return (window_.width_ / (float)window_.height_); }
 
 
   

@@ -460,8 +460,8 @@ public:
       nullptr, &globalUnifomBuffer_);
 
     //Create particle buffers
-    dynamic_array_t<particle_t> particles(particleSystem_.maxParticleCount);
-    dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount);
+    std::vector<particle_t> particles(particleSystem_.maxParticleCount);
+    std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount);
     for (u32 i(0); i < particleSystem_.maxParticleCount; ++i)
     {
       particles[i].scale = 0.0f;
@@ -571,7 +571,7 @@ public:
     buildCommandBuffers();
     render::presentFrame(&context);
 
-    particleSystem_.deltaTime = min( 0.033f, getTimeDelta() / 1000.0f );
+    particleSystem_.deltaTime = minValue( 0.033f, getTimeDelta() / 1000.0f );
     static float particlesToEmit = 0.0f;
     particleSystem_.particlesToEmit = 0;
     particlesToEmit += emissionRate_ * particleSystem_.deltaTime;
@@ -596,7 +596,7 @@ public:
   {
     render::context_t& context = getRenderContext();
     render::contextFlush(context);
-    dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount);
+    std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount);
     for (u32 i(0); i < particleSystem_.maxParticleCount; ++i)
     {
       particlesState[i].age = -1.0f;

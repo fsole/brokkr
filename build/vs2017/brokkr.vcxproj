@@ -106,19 +106,26 @@
     <ClInclude Include="..\..\external\pugixml\pugiconfig.hpp" />
     <ClInclude Include="..\..\external\pugixml\pugixml.hpp" />
     <ClInclude Include="..\..\include\core\dynamic-array.h" />
+    <ClInclude Include="..\..\include\core\hash-table.h" />
     <ClInclude Include="..\..\include\core\image.h" />
     <ClInclude Include="..\..\include\core\maths.h" />
     <ClInclude Include="..\..\include\core\mesh.h" />
     <ClInclude Include="..\..\include\core\packed-freelist.h" />
     <ClInclude Include="..\..\include\core\render-types.h" />
     <ClInclude Include="..\..\include\core\render.h" />
+    <ClInclude Include="..\..\include\core\string-utils.h" />
     <ClInclude Include="..\..\include\core\timer.h" />
     <ClInclude Include="..\..\include\core\transform-manager.h" />
     <ClInclude Include="..\..\include\core\window.h" />
+    <ClInclude Include="..\..\include\framework\actor.h" />
     <ClInclude Include="..\..\include\framework\application.h" />
     <ClInclude Include="..\..\include\framework\camera.h" />
+    <ClInclude Include="..\..\include\framework\command-buffer.h" />
+    <ClInclude Include="..\..\include\framework\frame-buffer.h" />
     <ClInclude Include="..\..\include\framework\gui.h" />
     <ClInclude Include="..\..\include\framework\material.h" />
+    <ClInclude Include="..\..\include\framework\render-target.h" />
+    <ClInclude Include="..\..\include\framework\renderer.h" />
     <ClInclude Include="..\..\include\framework\shader.h" />
   </ItemGroup>
   <ItemGroup>
@@ -131,10 +138,15 @@
     <ClCompile Include="..\..\src\core\render.cpp" />
     <ClCompile Include="..\..\src\core\transform-manager.cpp" />
     <ClCompile Include="..\..\src\core\window.cpp" />
+    <ClCompile Include="..\..\src\framework\actor.cpp" />
     <ClCompile Include="..\..\src\framework\application.cpp" />
     <ClCompile Include="..\..\src\framework\camera.cpp" />
+    <ClCompile Include="..\..\src\framework\command-buffer.cpp" />
+    <ClCompile Include="..\..\src\framework\frame-buffer.cpp" />
+    <ClCompile Include="..\..\src\framework\render-target.cpp" />
     <ClCompile Include="..\..\src\framework\gui.cpp" />
     <ClCompile Include="..\..\src\framework\material.cpp" />
+    <ClCompile Include="..\..\src\framework\renderer.cpp" />
     <ClCompile Include="..\..\src\framework\shader.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

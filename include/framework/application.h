@@ -27,59 +27,62 @@
 #define APPLICATION_H
 
 #include "core/maths.h"
+#include "core/window.h"
+
+#include "framework/gui.h"
+#include "framework/renderer.h"
 
 namespace bkk
 {
-  //Forward declarations
-  namespace core
-  {
-    namespace render { struct context_t; }
-    namespace window { struct window_t; }
-  }
-
   namespace framework
   {
     class application_t
     {
-    public:
-      application_t(const char* title, u32 width, u32 height, u32 imageCount);
-      ~application_t();
+      public:
+        application_t(const char* title, u32 width, u32 height, u32 imageCount);
+        ~application_t();
 
-      void loop();
+        void loop();
 
-      core::render::context_t& getRenderContext();
+        renderer_t& getRenderer();
+        core::render::context_t& getRenderContext();
 
-      core::window::window_t& getWindow();
-      core::maths::uvec2 getWindowSize();
-      f32 getAspectRatio();
+        core::window::window_t& getWindow();
+        core::maths::uvec2 getWindowSize();
+        f32 getAspectRatio();
 
-      f32 getTimeDelta();
+        f32 getTimeDelta();
 
-      core::maths::vec2 getMousePosition() { return mouseCurrentPos_; }
-      s32 getMousePressedButton() { return mouseButtonPressed_; }
+        core::maths::vec2 getMousePosition() { return mouseCurrentPos_; }
+        s32 getMousePressedButton() { return mouseButtonPressed_; }
 
-      //Callbacks
-      virtual void onQuit() {}
-      virtual void onResize(u32 width, u32 height) {}
-      virtual void onKeyEvent(u32 key, bool pressed) {}
-      virtual void onMouseButton(u32 button, bool pressed, const core::maths::vec2& mousePos, const core::maths::vec2& mousePrevPos) {}
-      virtual void onMouseMove(const core::maths::vec2& mousePos, const core::maths::vec2& mouseDeltaPos) {}
-      virtual void buildGuiFrame() {}
-      virtual void render() {}
+
+        //Callbacks
+        virtual void onQuit() {}
+        virtual void onResize(u32 width, u32 height) {}
+        virtual void onKeyEvent(u32 key, bool pressed) {}
+        virtual void onMouseButton(u32 button, bool pressed, const core::maths::vec2& mousePos, const core::maths::vec2& mousePrevPos) {}
+        virtual void onMouseMove(const core::maths::vec2& mousePos, const core::maths::vec2& mouseDeltaPos) {}
+        virtual void buildGuiFrame() {}
+        virtual void render() {}
+
+        void beginFrame();
+        void presentFrame();
+        
+      protected:
+        framework::renderer_t renderer_;
 
     private:
-      core::window::window_t* window_;
-      core::render::context_t* context_;
+        core::window::window_t window_;
+        float timeDelta_;
+        core::maths::vec2 mouseCurrentPos_;
+        core::maths::vec2 mousePrevPos_;
+        s32 mouseButtonPressed_;
 
-      float timeDelta_;
-      core::maths::vec2 mouseCurrentPos_;
-      core::maths::vec2 mousePrevPos_;
-      s32 mouseButtonPressed_;
+        struct frame_counter_t;
+        frame_counter_t* frameCounter_;
 
-      struct frame_counter_t;
-      frame_counter_t* frameCounter_;
-
-      application_t();
+        application_t();
     };
   }
 }

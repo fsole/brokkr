@@ -501,17 +501,19 @@ struct deferred_shading_sample_t : public framework::application_t
     render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
-    dynamic_array_t<object_t>& object( object_.getData() );
-    for (u32 i(0); i < object.size(); ++i)
+    object_t* objects;
+    uint32_t objectCount = object_.getData(&objects);    
+    for (u32 i(0); i < objectCount; ++i)
     {
-      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_ );
+      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(objects[i].transform_), 0, sizeof(mat4), &objects[i].ubo_ );
     }
 
     //Update lights position
-    dynamic_array_t<light_t>& light(light_.getData());
-    for (u32 i(0); i<light.size(); ++i)
+    light_t* lights;
+    uint32_t lightCount = light_.getData(&lights);
+    for (u32 i(0); i<lightCount; ++i)
     {
-      render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
+      render::gpuBufferUpdate(context, &lights[i].uniforms_.position_, 0, sizeof(vec4), &lights[i].ubo_);
     }
     
     buildPresentationCommandBuffers();
@@ -904,10 +906,11 @@ private:
 
     static f32 totalTime = 0.0f;
     totalTime += getTimeDelta()*0.001f;
-    dynamic_array_t<light_t>& lights = light_.getData();
-    for (u32 i(0); i < lights.size(); ++i)
+    light_t* lights;
+    uint32_t lightCount = light_.getData(&lights);
+    for (u32 i(0); i<lightCount; ++i)
     {
-      float t = totalTime + i* 5.0f / lights.size();
+      float t = totalTime + i* 5.0f / lightCount;
       int baseFrame = (int)t;
       float f = t - baseFrame;
 

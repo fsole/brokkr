@@ -622,17 +622,19 @@ struct pbr_renderer_t : public framework::application_t
     render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
-    dynamic_array_t<object_t>& object(object_.getData());
-    for (u32 i(0); i < object.size(); ++i)
+    object_t* objects;
+    uint32_t objectCount = object_.getData(&objects);
+    for (u32 i(0); i < objectCount; ++i)
     {
-      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_);
+      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(objects[i].transform_), 0, sizeof(mat4), &objects[i].ubo_);
     }
 
     //Update lights position
-    dynamic_array_t<light_t>& light(light_.getData());
-    for (u32 i(0); i<light.size(); ++i)
+    light_t* lights;
+    uint32_t lightCount = light_.getData(&lights);
+    for (u32 i(0); i<lightCount; ++i)
     {
-      render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
+      render::gpuBufferUpdate(context, &lights[i].uniforms_.position_, 0, sizeof(vec4), &lights[i].ubo_);
     }
 
     buildAndSubmitCommandBuffer();
@@ -1116,8 +1118,8 @@ int main()
   //Generate scene
   core::handle_t sphere = renderer.addMesh("../resources/sphere_hipoly.obj");  
   u32 roughnessSamples = 9;
-  dynamic_array_t<core::handle_t> materials(roughnessSamples*roughnessSamples);
-  dynamic_array_t<core::handle_t> objects(roughnessSamples*roughnessSamples);
+  std::vector<core::handle_t> materials(roughnessSamples*roughnessSamples);
+  std::vector<core::handle_t> objects(roughnessSamples*roughnessSamples);
   float roughness = 1.0f / roughnessSamples;
   float F0 = 1.0f / roughnessSamples;
 

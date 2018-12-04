@@ -682,7 +682,7 @@ namespace bkk
       {
         Matrix<T, 3, 3>()
         {
-          memset(data, 0, 9 * sizeof(T));
+          setIdentity();
         }
 
         ~Matrix<T, 3, 3>() {}
@@ -723,7 +723,7 @@ namespace bkk
       {
         Matrix<T, 4, 4>()
         {
-          memset(data, 0, 16 * sizeof(T));
+          setIdentity();
         }
 
         Matrix<T, 4, 4>(const Matrix<T, 4, 4>& m)
@@ -955,7 +955,9 @@ namespace bkk
       template <typename T>
       inline Matrix<T, 4u, 4u> perspectiveProjectionMatrix(T fov, T aspect, T n, T f)
       {
-        Matrix<T, 4u, 4u> result = {};
+        Matrix<T, 4u, 4u> result;
+        memset(result.data, 0, 16 * sizeof(T));
+
         T height = T(tan(fov * T(0.5f))*n);
         T width = height * aspect;
 
@@ -1009,20 +1011,20 @@ namespace bkk
         T deltaZ = (farPlane - nearPlane);
 
 
-        result[0] = T(2.0 / (right - left));
+        result[0] = T(2.0 / deltaX);
         result[1] = T(0.0);
         result[2] = T(0.0);
-        result[3] = T(-(right + left) / (right - left));
+        result[3] = T(-(right + left) / deltaX);
 
         result[4] = T(0.0);
-        result[5] = T(2.0 / (top - bottom));
+        result[5] = T(2.0 / deltaY);
         result[6] = T(0.0);
-        result[7] = T(-(top + bottom) / (top - bottom));
+        result[7] = T(-(top + bottom) / deltaY);
 
         result[8] = T(0.0);
         result[9] = T(0.0);
-        result[10] = T(-2.0 / (farPlane - nearPlane));
-        result[11] = T(-(farPlane + nearPlane) / (farPlane - nearPlane));
+        result[10] = T(-2.0 / deltaZ);
+        result[11] = T(-(farPlane + nearPlane) / deltaZ);
 
         result[12] = T(0.0);
         result[13] = T(0.0);

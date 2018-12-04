@@ -316,8 +316,8 @@ public:
     image::unload(&image);
 
     //Create particle buffers
-    dynamic_array_t<particle_t> particles(particleSystem_.maxParticleCount_);
-    dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
+    std::vector<particle_t> particles(particleSystem_.maxParticleCount_);
+    std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
     for (u32 i(0); i < particleSystem_.maxParticleCount_; ++i)
     {
       particles[i].scale = 0.0f;
@@ -422,7 +422,7 @@ public:
     render::gpuBufferUpdate(context, (void*)&matrices, 0, sizeof(matrices), &globalUnifomBuffer_);
     render::presentFrame(&context);
 
-    particleSystem_.deltaTime_ = min(0.033f, getTimeDelta() / 1000.0f);
+    particleSystem_.deltaTime_ = minValue(0.033f, getTimeDelta() / 1000.0f);
     static float particlesToEmit = 0.0f;
     particleSystem_.particlesToEmit_ = 0;
     particlesToEmit += emissionRate_ * particleSystem_.deltaTime_;
@@ -466,7 +466,7 @@ public:
       {
         render::context_t& context = getRenderContext();
         render::contextFlush(context);
-        dynamic_array_t<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
+        std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
         for (u32 i(0); i < particleSystem_.maxParticleCount_; ++i)
         {
           particlesState[i].age = -1.0f;

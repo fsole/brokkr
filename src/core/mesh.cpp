@@ -32,6 +32,7 @@
 #include <float.h> //FLT_MAX
 #include <map>
 #include <string>
+#include <vector>
 #include <assert.h>
 
 using namespace bkk::core;
@@ -105,7 +106,7 @@ static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std:
   skeleton->nodeCount_ = nodeCount;
 
   u32 boneIndex = 0;
-  TraverseScene(scene->mRootNode, nodeNameToHandle, mesh, skeleton, boneIndex, INVALID_ID);
+  TraverseScene(scene->mRootNode, nodeNameToHandle, mesh, skeleton, boneIndex, NULL_HANDLE);
 
   skeleton->txManager_.update();
 }
@@ -188,8 +189,8 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   u32 vertexSize = 3;
   u32 attributeCount = 1;
 
-  bool importNormals = (((flags & EXPORT_NORMALS) != 0) && bHasNormal);
-  bool importUV = (((flags & EXPORT_UV) != 0) && bHasUV );
+  bool importNormals = (((flags & EXPORT_NORMALS) != 0));
+  bool importUV = (((flags & EXPORT_UV) != 0) );
   bool importBoneWeights = (((flags & EXPORT_BONE_WEIGHTS) != 0) && (boneCount > 0));
 
   if (importNormals)
@@ -209,7 +210,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   }
 
   //Attributes description
-  dynamic_array_t<render::vertex_attribute_t> attributes(attributeCount);
+  std::vector<render::vertex_attribute_t> attributes(attributeCount);
 
   //First attribute is position
   attributes[0].format_ = render::vertex_attribute_t::format::VEC3;
@@ -284,6 +285,13 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
         vertexData[index+1] = aimesh->mNormals[vertex].y;
         vertexData[index+2] = aimesh->mNormals[vertex].z;
       }
+      else
+      {
+        vertexData[index] = 0.0f;
+        vertexData[index + 1] = 1.0f;
+        vertexData[index + 2] = 0.0f;
+      }
+
 
       index += 3;
     }
@@ -294,6 +302,11 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
       {
         vertexData[index] = aimesh->mTextureCoords[0][vertex].x;
         vertexData[index+1] = aimesh->mTextureCoords[0][vertex].y;
+      }
+      else
+      {
+        vertexData[index] = 0.0f;
+        vertexData[index + 1] = 0.0f;
       }
 
       index += 2;
@@ -514,8 +527,8 @@ void mesh::draw(render::command_buffer_t commandBuffer, const mesh_t& mesh)
   vkCmdBindIndexBuffer(commandBuffer.handle_, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
 
   uint32_t attributeCount = mesh.vertexFormat_.attributeCount_;
-  dynamic_array_t<VkBuffer> buffers(attributeCount);
-  dynamic_array_t<VkDeviceSize> offsets(attributeCount);
+  std::vector<VkBuffer> buffers(attributeCount);
+  std::vector<VkDeviceSize> offsets(attributeCount);
   for (uint32_t i(0); i<attributeCount; ++i)
   {
     buffers[i] = mesh.vertexBuffer_.handle_;
@@ -531,8 +544,8 @@ void mesh::drawInstanced(render::command_buffer_t commandBuffer, u32 instanceCou
   vkCmdBindIndexBuffer(commandBuffer.handle_, mesh.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT32);
 
   uint32_t attributeCount = mesh.vertexFormat_.attributeCount_;
-  dynamic_array_t<VkBuffer> buffers(attributeCount);
-  dynamic_array_t<VkDeviceSize> offsets(attributeCount);
+  std::vector<VkBuffer> buffers(attributeCount);
+  std::vector<VkDeviceSize> offsets(attributeCount);
   for (uint32_t i(0); i<attributeCount; ++i)
   {
     buffers[i] = mesh.vertexBuffer_.handle_;
@@ -542,8 +555,8 @@ void mesh::drawInstanced(render::command_buffer_t commandBuffer, u32 instanceCou
 
   if (instancedAttributesCount > 0 && instanceBuffer)
   {
-    dynamic_array_t<VkBuffer> instancedBuffers(instancedAttributesCount);
-    dynamic_array_t<VkDeviceSize> instancedOffsets(instancedAttributesCount);
+    std::vector<VkBuffer> instancedBuffers(instancedAttributesCount);
+    std::vector<VkDeviceSize> instancedOffsets(instancedAttributesCount);
     for (uint32_t i(0); i < instancedAttributesCount; ++i)
     {
       instancedBuffers[i] = instanceBuffer->handle_;

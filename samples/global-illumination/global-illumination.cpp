@@ -918,17 +918,19 @@ public:
     render::gpuBufferUpdate(context, (void*)&uniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
-    dynamic_array_t<object_t>& object(object_.getData());
-    for (u32 i(0); i < object.size(); ++i)
+    object_t* objects;
+    uint32_t objectCount = object_.getData(&objects);
+    for (u32 i(0); i < objectCount; ++i)
     {
-      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_);
+      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(objects[i].transform_), 0, sizeof(mat4), &objects[i].ubo_);
     }
 
     //Update lights position
-    dynamic_array_t<point_light_t>& light(pointLight_.getData());
-    for (u32 i(0); i<light.size(); ++i)
+    point_light_t* lights;
+    uint32_t lightCount = pointLight_.getData(&lights);
+    for (u32 i(0); i<lightCount; ++i)
     {
-      render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
+      render::gpuBufferUpdate(context, &lights[i].uniforms_.position_, 0, sizeof(vec4), &lights[i].ubo_);
     }
 
     buildAndSubmitCommandBuffer();
@@ -1130,7 +1132,7 @@ private:
     //Meshes
     mesh::mesh_t* mesh = nullptr;
     uint32_t meshCount = mesh::createFromFile(context, url, mesh::EXPORT_ALL, &allocator_, &mesh);
-    dynamic_array_t<core::handle_t> meshHandles(meshCount);
+    std::vector<core::handle_t> meshHandles(meshCount);
     for (u32 i(0); i < meshCount; ++i)
     {
       meshHandles[i] = mesh_.add(mesh[i]);
@@ -1141,7 +1143,7 @@ private:
     mesh::material_t* materials;
     uint32_t* materialIndex;
     uint32_t materialCount = mesh::loadMaterials(url, &materialIndex, &materials);
-    dynamic_array_t<core::handle_t> materialHandles(materialCount);
+    std::vector<core::handle_t> materialHandles(materialCount);
     for (u32 i(0); i < materialCount; ++i)
     {
       materialHandles[i] = addMaterial(vec3(float((double)rand() / (RAND_MAX)), float((double)rand() / (RAND_MAX)), float((double)rand() / (RAND_MAX))), 0.0f, vec3(0.1f, 0.1f, 0.1f), 0.5f);

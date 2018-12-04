@@ -26,11 +26,55 @@
 #define CAMERA_H
 
 #include "core/maths.h"
+#include "core/render.h"
 
 namespace bkk
 {
   namespace framework
   {
+    struct actor_t;
+    class renderer_t;
+
+    struct camera_t
+    {
+      struct uniforms_t
+      {
+        core::maths::mat4 cameraToWorld_;
+        core::maths::mat4 worldToCamera_;
+        core::maths::mat4 projection_;
+        core::maths::mat4 projectionInverse_;
+      };
+
+      enum projection_mode_e
+      {
+        PERSPECTIVE_PROJECTION = 0,
+        ORTHOGRAPHIC_PROJECTION = 1
+      };
+
+      camera_t();
+      camera_t(projection_mode_e projectionMode, float fov, float aspect, float nearPlane, float farPlane);
+
+      void update(renderer_t* renderer);
+      void cull(actor_t* actors, uint32_t actorCount);
+      void destroy(renderer_t* renderer);
+
+      
+
+      uniforms_t uniforms_;
+      core::render::gpu_buffer_t uniformBuffer_ = {};
+      core::render::descriptor_set_t descriptorSet_ = {};
+
+      projection_mode_e projection_;
+      float fov_;
+      float aspect_;
+      float nearPlane_;
+      float farPlane_;
+      
+
+      uint32_t visibleActorsCount_ = 0u;
+      actor_t* visibleActors_ = nullptr;
+    };
+
     struct orbiting_camera_t
     {
       orbiting_camera_t();

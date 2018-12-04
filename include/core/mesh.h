@@ -129,7 +129,7 @@ namespace bkk
 
 
       //Load all submeshes from a file
-      //Warning: Allocates an array of meshes (returned by reference in 'meshes') and passes ownership of that memory to the caller
+      //Warning: Allocates an array of meshes from the heap (returned by reference in 'meshes') and passes ownership of that memory to the caller
       uint32_t createFromFile(const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, mesh_t** meshes);
 
       //Load a single submesh from a file

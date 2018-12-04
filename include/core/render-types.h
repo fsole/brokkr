@@ -26,7 +26,7 @@
 #define RENDER_TYPES_H
 
 #include <vulkan/vulkan.h>
-#include "core/dynamic-array.h"
+#include "vector"
 
 namespace bkk
 {
@@ -108,12 +108,12 @@ namespace bkk
         uint32_t imageWidth_;
         uint32_t imageHeight_;
 
-        dynamic_array_t<VkImage> image_;
-        dynamic_array_t<VkImageView> imageView_;
+        std::vector<VkImage> image_;
+        std::vector<VkImageView> imageView_;
         depth_stencil_buffer_t depthStencil_;
 
-        dynamic_array_t<VkFramebuffer> frameBuffer_;
-        dynamic_array_t<command_buffer_t> commandBuffer_;
+        std::vector<VkFramebuffer> frameBuffer_;
+        std::vector<command_buffer_t> commandBuffer_;
 
         VkRenderPass renderPass_;
 
@@ -298,16 +298,18 @@ namespace bkk
         type type_;
       };
 
-      struct graphics_pipeline_t
+      struct pipeline_t
       {
-
         VkPipeline handle_;
+      };
 
+      struct graphics_pipeline_t : pipeline_t
+      {
         struct description_t
         {
           VkViewport viewPort_;
           VkRect2D scissorRect_;
-          dynamic_array_t<VkPipelineColorBlendAttachmentState> blendState_;
+          std::vector<VkPipelineColorBlendAttachmentState> blendState_;
           VkCullModeFlags cullMode_;
           bool depthTestEnabled_;
           bool depthWriteEnabled_;
@@ -319,11 +321,11 @@ namespace bkk
         };
 
         description_t desc_;
+        pipeline_layout_t layout_;
       };
 
-      struct compute_pipeline_t
-      {
-        VkPipeline handle_;
+      struct compute_pipeline_t : pipeline_t
+      {         
         shader_t computeShader_;
       };
 
@@ -389,8 +391,8 @@ namespace bkk
 
         struct subpass_t
         {
-          dynamic_array_t<uint32_t> colorAttachmentIndex_;
-          dynamic_array_t<uint32_t> inputAttachmentIndex_;
+          std::vector<uint32_t> colorAttachmentIndex_;
+          std::vector<uint32_t> inputAttachmentIndex_;
           int32_t depthStencilAttachmentIndex_ = -1;
         };
 

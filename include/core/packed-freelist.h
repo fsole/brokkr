@@ -27,6 +27,7 @@
 
 #include "core/dynamic-array.h"
 #include <assert.h>
+#include <vector>
 
 namespace bkk
 {
@@ -36,8 +37,19 @@ namespace bkk
     {
       uint16_t index_;
       uint16_t generation_;
+
+      bool operator==(const handle_t& handle) const
+      {
+        return index_ == handle.index_ && generation_ == handle.generation_;
+      }
+
+      bool operator!=(const handle_t& handle) const
+      {
+        return index_ != handle.index_ || generation_ != handle.generation_;
+      }
+
     };
-    static const handle_t INVALID_ID = { 65535u,65535u };
+    static const handle_t NULL_HANDLE = { 65535u,65535u };
 
     template <typename T> struct packed_freelist_iterator_t;
 
@@ -195,9 +207,10 @@ namespace bkk
        * @brief Get the packed data vector
        * @return A reference to the data vector
        */
-      dynamic_array_t<T>& getData()
+      uint32_t getData(T** data)
       {
-        return data_;
+        *data = data_.data();
+        return (uint32_t)data_.size();
       }
 
       packed_freelist_iterator_t<T> begin()
@@ -218,11 +231,11 @@ namespace bkk
 
     private:
 
-      dynamic_array_t<handle_t> freeList_;  ///< Free list of IDs (vector with holes)
+      std::vector<handle_t> freeList_;  ///< Free list of IDs (vector with holes)
       uint16_t headFreeList_;           ///< Head of the free list (fist free element in freeList_)
 
-      dynamic_array_t<T> data_;             ///< Packed data
-      dynamic_array_t<handle_t> id_;        ///< Id of each packed element (Needed to go from index to ID)
+      std::vector<T> data_;             ///< Packed data
+      std::vector<handle_t> id_;        ///< Id of each packed element (Needed to go from index to ID)
       uint16_t elementCount_;           ///< Number of packed elements
     };
 
@@ -248,7 +261,9 @@ namespace bkk
 
       T& get()
       {
-        return packedFreelist_->getData()[index_];
+        T* data;
+        packedFreelist_->getData(&data);
+        return data[index_];
       }
 
       packed_freelist_t<T>* packedFreelist_;

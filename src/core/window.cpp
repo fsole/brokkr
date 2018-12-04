@@ -161,6 +161,8 @@ static long __stdcall WindowProcedure(HWND hWnd, unsigned int msg, WPARAM wp, LP
 
 void window::create(const char* title, unsigned int width, unsigned int height, window_t* window)
 {
+  *window = {};
+
   window->instance_ = GetModuleHandle(0);
   window->width_ = width;
   window->height_ = height;

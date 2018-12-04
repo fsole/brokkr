@@ -25,6 +25,8 @@
 #ifndef DYNAMIC_ARRAY_H
 #define DYNAMIC_ARRAY_H
 
+#include <stdint.h>
+
 namespace bkk
 {  
   namespace core
@@ -162,7 +164,7 @@ namespace bkk
 
           //Initialize new memory to zero
           memset(data_ + capacity_, 0, sizeof(T)*(growSize - capacity_));
-
+          
           capacity_ = growSize;
         }
       }

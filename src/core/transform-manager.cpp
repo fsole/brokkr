@@ -23,6 +23,7 @@
 */
 
 #include "core/transform-manager.h"
+#include <algorithm>
 
 using namespace bkk::core;
 
@@ -32,12 +33,12 @@ handle_t transform_manager_t::createTransform( const maths::mat4& transform )
   if( id.index_ >= parent_.size() )
   {
     //Resize vectors
-    u32 newSize = parent_.size() + 1;
+    uint32_t newSize = (uint32_t)parent_.size() + 1u;
     parent_.resize( newSize );
     world_.resize( newSize );
   }
 
-  parent_[id.index_] = INVALID_ID;
+  parent_[id.index_] = NULL_HANDLE;
   hierarchy_changed_ = true;
 
   return id;
@@ -51,8 +52,17 @@ bool transform_manager_t::destroyTransform( handle_t id )
   u32 lastTransform( transform_.getElementCount()-1 );
   if( transform_.getIndexFromId( id, &index ) && index < lastTransform )
   {
-    parent_.swap(index, lastTransform);
-    world_.swap(index, lastTransform);
+    {
+      handle_t temp = parent_[index];
+      parent_[index] = parent_[lastTransform];
+      parent_[lastTransform] = temp;
+    }
+
+    {
+      maths::mat4 temp = world_[index];
+      world_[index] = world_[lastTransform];
+      world_[lastTransform] = temp;
+    }
   }
 
   return transform_.remove( id );
@@ -96,7 +106,7 @@ handle_t transform_manager_t::getParent( handle_t id )
     return parent_[index];
   }
 
-  return INVALID_ID;
+  return NULL_HANDLE;
 }
 
 maths::mat4* transform_manager_t::getWorldMatrix( handle_t id )
@@ -124,7 +134,7 @@ void transform_manager_t::sortTransforms()
   };
 
   u32 count( transform_.getElementCount() );
-  dynamic_array_t<transform_handle_t> orderedTransform(count);
+  std::vector<transform_handle_t> orderedTransform(count);
   for( u32 i(0); i<count; ++i )
   {
     handle_t parentId = parent_[i];
@@ -138,7 +148,7 @@ void transform_manager_t::sortTransforms()
     }
   }
 
-  orderedTransform.sort();
+  std::sort(orderedTransform.begin(), orderedTransform.end());
 
   //2. Reorder transforms using the ordered helper vector
   for( u32 i(0); i<count; ++i )
@@ -159,10 +169,12 @@ void transform_manager_t::update()
 
   //Update world transforms
   u32 parentIndex;
-  dynamic_array_t<maths::mat4>& transform( transform_.getData() );
-  for( u32 i(0); i<transform_.getElementCount(); ++i )
+
+  maths::mat4* transforms;
+  uint32_t transformCount = transform_.getData(&transforms);
+  for( u32 i(0); i<transformCount; ++i )
   {
-    world_[i] = transform[i];
+    world_[i] = transforms[i];
     if( transform_.getIndexFromId( parent_[i], &parentIndex ) )
     {
       world_[i] = world_[i] * world_[parentIndex];

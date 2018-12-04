@@ -519,6 +519,9 @@ public:
   scene_sample_t( const char* url )
   :application_t("Scene", 1200u, 800u, 3u)
   {
+
+    framework::shader_handle_t shader = getRenderer().shaderCreate("../resources/example.shader");
+
     render::context_t& context = getRenderContext();
     uvec2 size = getWindowSize();
 
@@ -749,17 +752,19 @@ public:
     render::gpuBufferUpdate(context, (void*)&uniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
-    dynamic_array_t<object_t>& object(object_.getData());
-    for (u32 i(0); i < object.size(); ++i)
+    object_t* objects;
+    uint32_t objectCount = object_.getData(&objects);
+    for (u32 i(0); i < objectCount; ++i)
     {
-      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(object[i].transform_), 0, sizeof(mat4), &object[i].ubo_);
+      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(objects[i].transform_), 0, sizeof(mat4), &objects[i].ubo_);
     }
 
     //Update lights position
-    dynamic_array_t<point_light_t>& light(pointLight_.getData());
-    for (u32 i(0); i<light.size(); ++i)
+    point_light_t* lights;
+    uint32_t lightCount = pointLight_.getData(&lights);
+    for (u32 i(0); i<lightCount; ++i)
     {
-      render::gpuBufferUpdate(context, &light[i].uniforms_.position_, 0, sizeof(vec4), &light[i].ubo_);
+      render::gpuBufferUpdate(context, &lights[i].uniforms_.position_, 0, sizeof(vec4), &lights[i].ubo_);
     }
 
     buildAndSubmitCommandBuffer();
@@ -946,7 +951,7 @@ private:
     //Meshes
     mesh::mesh_t* mesh = nullptr;
     uint32_t meshCount = mesh::createFromFile(context, url, mesh::EXPORT_ALL, &allocator_, &mesh);
-    dynamic_array_t<core::handle_t> meshHandles(meshCount);
+    std::vector<core::handle_t> meshHandles(meshCount);
     for (u32 i(0); i < meshCount; ++i)
     {
       meshHandles[i] = mesh_.add(mesh[i]);
@@ -957,7 +962,7 @@ private:
     mesh::material_t* materials;
     uint32_t* materialIndex;
     uint32_t materialCount = mesh::loadMaterials(url, &materialIndex, &materials);
-    dynamic_array_t<core::handle_t> materialHandles(materialCount);
+    std::vector<core::handle_t> materialHandles(materialCount);
 
     std::string modelPath = url;
     modelPath = modelPath.substr(0u, modelPath.find_last_of('/') + 1);
@@ -1008,19 +1013,19 @@ private:
     render::render_pass_t::subpass_dependency_t shadowDependencies[2];
     shadowDependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     shadowDependencies[0].dstSubpass = 0;
-    shadowDependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    shadowDependencies[0].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    shadowDependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    shadowDependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     shadowDependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
     shadowDependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
     shadowDependencies[1].srcSubpass = 0;
     shadowDependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-    shadowDependencies[1].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    shadowDependencies[1].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    shadowDependencies[1].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    shadowDependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     shadowDependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     shadowDependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-    render::renderPassCreate(context, shadowAttachments, 2u, &shadowPass, 1u, shadowDependencies, 2u, &shadowRenderPass_);
+    render::renderPassCreate(context, shadowAttachments, 2u, &shadowPass, 1u, nullptr, 0u, &shadowRenderPass_);
 
     //Create frame buffer
     VkImageView shadowFbAttachment[2] = { shadowMap_.imageView_, shadowPassDepthStencilBuffer.imageView_ };
