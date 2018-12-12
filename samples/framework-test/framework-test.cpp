@@ -38,8 +38,8 @@ public:
   framework_test_t()
     :application_t("Framework test", 1200u, 800u, 3u)
   {
-    render_target_handle_t colorBuffer = renderer_.renderTargetCreate(1200u, 800u, VK_FORMAT_R32G32B32A32_SFLOAT, true);
-    frameBuffer_ = renderer_.frameBufferCreate(&colorBuffer, 1u);
+    renderTarget_ = renderer_.renderTargetCreate(1200u, 800u, VK_FORMAT_R32G32B32A32_SFLOAT, true);
+    frameBuffer_ = renderer_.frameBufferCreate(&renderTarget_, 1u);
 
     //create shaders
     shader_handle_t shader = renderer_.shaderCreate("../framework-test/simple.shader");
@@ -70,15 +70,24 @@ public:
   {
     beginFrame();
 
-    actor_t* visibleActors = nullptr;
     renderer_.setupCamera(camera_);
-    int count = renderer_.getVisibleActors(camera_, &visibleActors);
 
-    //Render opaque objects to the back buffer
-    command_buffer_t cmdBuffer(&renderer_);
+    //Render opaque objects to an offscreen render target
+    actor_t* visibleActors = nullptr;
+    int count = renderer_.getVisibleActors(camera_, &visibleActors);
+    
+    command_buffer_t cmdBuffer(&renderer_, frameBuffer_);
     cmdBuffer.clearRenderTargets(maths::vec4(0.0f, 1.0f, 0.0f, 1.0f));
     cmdBuffer.render(visibleActors, count, "OpaquePass");
     cmdBuffer.submit();
+    cmdBuffer.release();
+
+    //Copy offscreen render target to the back buffer    
+    cmdBuffer = command_buffer_t(&renderer_);
+    cmdBuffer.clearRenderTargets(maths::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    cmdBuffer.blit(renderTarget_ /*, material*/);
+    cmdBuffer.submit();
+    cmdBuffer.release();
 
     presentFrame();
   }
@@ -91,6 +100,7 @@ public:
 
 private:
   frame_buffer_handle_t frameBuffer_;
+  render_target_handle_t renderTarget_;
   camera_handle_t camera_;
 };
 

@@ -15,11 +15,24 @@ using namespace bkk::framework;
 command_buffer_t::command_buffer_t()
 {}
 
+command_buffer_t::command_buffer_t(const command_buffer_t& cmdBuffer)
+  :renderer_(cmdBuffer.renderer_),
+  frameBuffer_(cmdBuffer.frameBuffer_),
+  commandBuffer_(cmdBuffer.commandBuffer_),
+  semaphore_(cmdBuffer.semaphore_),
+  clearColor_(cmdBuffer.clearColor_),
+  clear_(cmdBuffer.clear_),
+  released_(cmdBuffer.released_)
+{
+
+}
+
 command_buffer_t::command_buffer_t(renderer_t* renderer, frame_buffer_handle_t frameBuffer, command_buffer_t* prevCommandBuffer)
 :renderer_(renderer),
  frameBuffer_(frameBuffer),
  clearColor_(0.0f, 0.0f, 0.0f, 0.0f),
- clear_(false)
+ clear_(false),
+ released_(false)
 { 
   VkSemaphore* waitSemaphore = nullptr;
   VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
@@ -41,9 +54,7 @@ command_buffer_t::command_buffer_t(renderer_t* renderer, frame_buffer_handle_t f
 }
 
 command_buffer_t::~command_buffer_t()
-{
-  release();
-}
+{}
 
 void command_buffer_t::clearRenderTargets(core::maths::vec4 color)
 {
@@ -78,7 +89,7 @@ void command_buffer_t::beginCommandBuffer()
 
 void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* passName)
 {
-  camera_t* camera = renderer_->getActiveCamera(); 
+  camera_t* camera = renderer_->getActiveCamera();
 
   beginCommandBuffer();
   
@@ -117,6 +128,39 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
   render::commandBufferEnd(commandBuffer_);
 }
 
+void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle_t materialHandle)
+{
+  material_t* material = renderer_->getTextureBlitMaterial();
+  if (materialHandle != NULL_HANDLE)
+  {    
+    material = renderer_->getMaterial(materialHandle);
+  }
+
+  if (!material) return;
+
+  material->setTexture("MainTexture", renderer_->getRenderTarget(renderTarget)->getColorBuffer());
+
+  camera_t* camera = renderer_->getActiveCamera();
+  actor_t* actor = renderer_->getActor( renderer_->getRootActor() );
+  mesh::mesh_t* mesh = renderer_->getMesh(actor->getMesh() );
+
+  core::render::graphics_pipeline_t pipeline = material->getPipeline("blit", frameBuffer_, renderer_);
+
+  render::descriptor_set_t materialDescriptorSet = material->getDescriptorSet();
+
+  beginCommandBuffer();
+
+  render::graphicsPipelineBind(commandBuffer_, pipeline);
+  render::descriptorSetBind(commandBuffer_, pipeline.layout_, 0, &camera->descriptorSet_, 1u);
+  render::descriptorSetBind(commandBuffer_, pipeline.layout_, 1, &actor->descriptorSet_, 1u);
+  render::descriptorSetBind(commandBuffer_, pipeline.layout_, 2, &materialDescriptorSet, 1u);
+
+  core::mesh::draw(commandBuffer_, *mesh);
+
+  render::commandBufferRenderPassEnd(commandBuffer_);
+  render::commandBufferEnd(commandBuffer_);
+}
+
 void command_buffer_t::submit()
 {
   render::context_t& context = renderer_->getContext();  
@@ -125,12 +169,22 @@ void command_buffer_t::submit()
 
 void command_buffer_t::release()
 {
+  if (!released_)
+  {    
+    renderer_->releaseCommandBuffer(this);
+    released_ = true;
+  }
+}
+
+void command_buffer_t::cleanup()
+{
   if (commandBuffer_.handle_ != VK_NULL_HANDLE)
   {
     render::context_t& context = renderer_->getContext();
     core::render::commandBufferDestroy(context, &commandBuffer_);
     commandBuffer_ = {};
     render::semaphoreDestroy(context, semaphore_);
+    released_ = true;
   }
 }
 

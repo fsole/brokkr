@@ -206,7 +206,7 @@ bool material_t::setTexture(const char* property, render::texture_t texture)
   //Find texture
   const std::vector<texture_desc_t>& textureDesc = shader->getTextureDescriptions();
   int32_t bindPoint = -1;
-  for (uint32_t i(0); textureDesc.size(); ++i)
+  for (uint32_t i(0); i<textureDesc.size(); ++i)
   {
     if (textureDesc[i].name_.compare(property) == 0)
       bindPoint = textureDesc[i].binding_;

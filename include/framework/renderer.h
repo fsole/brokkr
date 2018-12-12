@@ -27,6 +27,8 @@ namespace bkk
     typedef core::handle_t mesh_handle_t;
     typedef core::handle_t camera_handle_t;
 
+    class command_buffer_t;
+
     class renderer_t
     {
       public:
@@ -52,9 +54,10 @@ namespace bkk
         core::mesh::mesh_t* getMesh(mesh_handle_t handle);
 
         actor_handle_t actorCreate(const char* name, mesh_handle_t mesh, material_handle_t material, core::maths::mat4 transform = core::maths::mat4() );
-        actor_t* getActor(actor_handle_t handle);
+        actor_t* getActor(actor_handle_t handle);        
         void actorSetParent(actor_handle_t actor, actor_handle_t parent);
         void actorSetTransform(actor_handle_t actor, const core::maths::mat4& newTransform);
+        actor_handle_t getRootActor() { return rootActor_; }
 
         camera_handle_t addCamera(camera_t& camera);
         camera_t* getCamera(camera_handle_t handle);
@@ -71,8 +74,12 @@ namespace bkk
         void presentFrame();
         void update();
 
-      private:
+        material_t* getTextureBlitMaterial() { return materials_.get(textureBlit_); }
 
+        void releaseCommandBuffer(const command_buffer_t* cmdBuffer);
+
+      private:
+        void createTextureBlitResources();
         void buildPresentationCommandBuffers();
 
 
@@ -88,6 +95,7 @@ namespace bkk
         
         frame_buffer_handle_t backBuffer_;
         camera_handle_t activeCamera_;
+        actor_handle_t rootActor_;
 
         core::render::descriptor_set_layout_t globalsDescriptorSetLayout_;
         core::render::descriptor_set_layout_t objectDescriptorSetLayout_;
@@ -101,11 +109,15 @@ namespace bkk
         bkk::core::render::graphics_pipeline_t presentationPipeline_;
 
         //Texture blit resources
+        material_handle_t textureBlit_;
         bkk::core::render::descriptor_set_layout_t textureBlitDescriptorSetLayout_;
         bkk::core::render::pipeline_layout_t textureBlitPipelineLayout_;
         bkk::core::render::shader_t textureBlitVertexShader_;
         bkk::core::render::shader_t textureBlitFragmentShader_;
         VkSemaphore renderComplete_;
+
+        //Command buffers to be released on the next frame
+        std::vector<command_buffer_t> releasedCommandBuffers_;
     };
   }
 }

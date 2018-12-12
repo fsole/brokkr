@@ -6,6 +6,7 @@
 
 #include "framework/renderer.h"
 #include "framework/gui.h"
+#include "framework/command-buffer.h"
 
 using namespace bkk::core;
 using namespace bkk::framework;
@@ -83,6 +84,9 @@ renderer_t::~renderer_t()
     for (uint32_t i = 0; i < count; ++i)
       shaders[i].destroy(this);
 
+    for (uint32_t i(0); i < releasedCommandBuffers_.size(); ++i)
+      releasedCommandBuffers_[i].cleanup();
+
     if (backBuffer_ != NULL_HANDLE )
     {
       render::descriptorSetLayoutDestroy(context_, &textureBlitDescriptorSetLayout_);
@@ -118,14 +122,16 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
     &descriptorPool_);
 
   
-  //buildPresentationCommandBuffers();
+  shader_handle_t shader = shaderCreate("../../shaders/textureBlit.shader");
+  textureBlit_ = materialCreate(shader);
+  mesh_handle_t quad = addMesh( mesh::fullScreenQuad(context_) );
+  rootActor_ = actorCreate("Root", quad, textureBlit_);
 }
 
 render::context_t& renderer_t::getContext()
 {
   return context_;
 }
-
 
 shader_handle_t renderer_t::shaderCreate(const char* file)
 {
@@ -228,6 +234,7 @@ bool renderer_t::setupCamera(camera_handle_t handle)
   camera_t* camera = cameras_.get(handle);
   if (!camera)
     return false;
+
   camera->update(this);
 
   ////Culling
@@ -253,6 +260,11 @@ int renderer_t::getVisibleActors(camera_handle_t cameraHandle, actor_t** actors)
 void renderer_t::presentFrame()
 {
   render::presentFrame(&context_, &renderComplete_, 1u);
+
+  for (uint32_t i(0); i < releasedCommandBuffers_.size(); ++i)
+    releasedCommandBuffers_[i].cleanup();
+
+  releasedCommandBuffers_.clear();
 }
 
 void renderer_t::update()
@@ -271,39 +283,43 @@ void renderer_t::update()
   buildPresentationCommandBuffers();
 }
 
+void renderer_t::createTextureBlitResources()
+{
+  render_target_handle_t colorBufferHandle = renderTargetCreate(context_.swapChain_.imageWidth_, context_.swapChain_.imageHeight_, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+  backBuffer_ = frameBufferCreate(&colorBufferHandle, 1u);
+
+  fullScreenQuad_ = mesh::fullScreenQuad(context_);
+  render::descriptor_binding_t binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
+  render::descriptorSetLayoutCreate(context_, &binding, 1u, &textureBlitDescriptorSetLayout_);
+
+  render::descriptor_t descriptor = render::getDescriptor(renderTargets_.get(colorBufferHandle)->getColorBuffer());
+  render::descriptorSetCreate(context_, descriptorPool_, textureBlitDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_);
+
+  render::pipelineLayoutCreate(context_, &textureBlitDescriptorSetLayout_, 1u, nullptr, 0u, &textureBlitPipelineLayout_);
+  render::shaderCreateFromGLSLSource(context_, render::shader_t::VERTEX_SHADER, gTextureBlitVertexShaderSource, &textureBlitVertexShader_);
+  render::shaderCreateFromGLSLSource(context_, render::shader_t::FRAGMENT_SHADER, gTextureBlitFragmentShaderSource, &textureBlitFragmentShader_);
+
+  //Create pipeline
+  render::graphics_pipeline_t::description_t pipelineDesc = {};
+  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context_.swapChain_.imageWidth_, (float)context_.swapChain_.imageHeight_, 0.0f, 1.0f };
+  pipelineDesc.scissorRect_ = { { 0,0 },{ context_.swapChain_.imageWidth_,context_.swapChain_.imageHeight_ } };
+  pipelineDesc.blendState_.resize(1);
+  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
+  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
+  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
+  pipelineDesc.depthTestEnabled_ = false;
+  pipelineDesc.depthWriteEnabled_ = false;
+  pipelineDesc.vertexShader_ = textureBlitVertexShader_;
+  pipelineDesc.fragmentShader_ = textureBlitFragmentShader_;
+  render::graphicsPipelineCreate(context_, context_.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, textureBlitPipelineLayout_, pipelineDesc, &presentationPipeline_);
+
+  renderComplete_ = render::semaphoreCreate(context_);
+}
 void renderer_t::buildPresentationCommandBuffers()
 {
   if (backBuffer_ == NULL_HANDLE)
   {
-    render_target_handle_t colorBufferHandle = renderTargetCreate(context_.swapChain_.imageWidth_, context_.swapChain_.imageHeight_, VK_FORMAT_R32G32B32A32_SFLOAT, false);
-    backBuffer_ = frameBufferCreate(&colorBufferHandle, 1u);
-
-    fullScreenQuad_ = mesh::fullScreenQuad(context_);
-    render::descriptor_binding_t binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
-    render::descriptorSetLayoutCreate(context_, &binding, 1u, &textureBlitDescriptorSetLayout_);
-
-    render::descriptor_t descriptor = render::getDescriptor(renderTargets_.get(colorBufferHandle)->getColorBuffer());
-    render::descriptorSetCreate(context_, descriptorPool_, textureBlitDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_);
-
-    render::pipelineLayoutCreate(context_, &textureBlitDescriptorSetLayout_, 1u, nullptr, 0u, &textureBlitPipelineLayout_);
-    render::shaderCreateFromGLSLSource(context_, render::shader_t::VERTEX_SHADER, gTextureBlitVertexShaderSource, &textureBlitVertexShader_);
-    render::shaderCreateFromGLSLSource(context_, render::shader_t::FRAGMENT_SHADER, gTextureBlitFragmentShaderSource, &textureBlitFragmentShader_);
-
-    //Create pipeline
-    render::graphics_pipeline_t::description_t pipelineDesc = {};
-    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context_.swapChain_.imageWidth_, (float)context_.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipelineDesc.scissorRect_ = { { 0,0 },{ context_.swapChain_.imageWidth_,context_.swapChain_.imageHeight_ } };
-    pipelineDesc.blendState_.resize(1);
-    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-    pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-    pipelineDesc.depthTestEnabled_ = false;
-    pipelineDesc.depthWriteEnabled_ = false;
-    pipelineDesc.vertexShader_ = textureBlitVertexShader_;
-    pipelineDesc.fragmentShader_ = textureBlitFragmentShader_;
-    render::graphicsPipelineCreate(context_, context_.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, textureBlitPipelineLayout_, pipelineDesc, &presentationPipeline_);
-
-    renderComplete_ = render::semaphoreCreate(context_);
+    createTextureBlitResources();
   }
 
   const render::command_buffer_t* commandBuffers;
@@ -342,4 +358,9 @@ render::descriptor_set_layout_t renderer_t::getObjectDescriptorSetLayout()
 
 render::descriptor_pool_t renderer_t::getDescriptorPool() {
   return descriptorPool_;
+}
+
+void renderer_t::releaseCommandBuffer(const command_buffer_t* cmdBuffer)
+{
+  releasedCommandBuffers_.push_back(*cmdBuffer);
 }

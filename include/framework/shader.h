@@ -64,9 +64,9 @@ namespace bkk
 
       std::string name_;
       type_e type_;
-      int32_t binding_;
-      bool shared_;
+      int32_t binding_;      
       uint32_t size_;
+      bool shared_;
       std::vector<field_desc_t> fields_;
     };
     

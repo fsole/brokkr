@@ -37,14 +37,6 @@ namespace bkk
 
     struct camera_t
     {
-      struct uniforms_t
-      {
-        core::maths::mat4 cameraToWorld_;
-        core::maths::mat4 worldToCamera_;
-        core::maths::mat4 projection_;
-        core::maths::mat4 projectionInverse_;
-      };
-
       enum projection_mode_e
       {
         PERSPECTIVE_PROJECTION = 0,
@@ -59,7 +51,13 @@ namespace bkk
       void destroy(renderer_t* renderer);
 
       
-
+      struct uniforms_t
+      {
+        core::maths::mat4 cameraToWorld_;
+        core::maths::mat4 worldToCamera_;
+        core::maths::mat4 projection_;
+        core::maths::mat4 projectionInverse_;
+      };
       uniforms_t uniforms_;
       core::render::gpu_buffer_t uniformBuffer_ = {};
       core::render::descriptor_set_t descriptorSet_ = {};
