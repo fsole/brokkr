@@ -495,7 +495,7 @@ public:
     render::descriptorPoolCreate(context, 2u,
       render::combined_image_sampler_count(0u),
       render::uniform_buffer_count(1u),
-      render::storage_buffer_count(3u),
+      render::storage_buffer_count(4u),
       render::storage_image_count(0u),
       &descriptorPool_);
 

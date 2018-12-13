@@ -76,7 +76,7 @@ void material_t::destroy(renderer_t* renderer)
     delete[] uniformData_[i];
   }
 
-  if (descriptorSet_.handle_ == VK_NULL_HANDLE)
+  if (descriptorSet_.handle_ != VK_NULL_HANDLE)
   {
     render::descriptorSetDestroy(context, &descriptorSet_);
   }

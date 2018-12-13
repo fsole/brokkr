@@ -1203,15 +1203,15 @@ private:
     render::render_pass_t::subpass_dependency_t shadowDependencies[2];
     shadowDependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
     shadowDependencies[0].dstSubpass = 0;
-    shadowDependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    shadowDependencies[0].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    shadowDependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    shadowDependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     shadowDependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
     shadowDependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
     shadowDependencies[1].srcSubpass = 0;
     shadowDependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-    shadowDependencies[1].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    shadowDependencies[1].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    shadowDependencies[1].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    shadowDependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     shadowDependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     shadowDependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 

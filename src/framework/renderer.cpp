@@ -101,7 +101,7 @@ renderer_t::~renderer_t()
 
     render::descriptorSetLayoutDestroy(context_, &globalsDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context_, &objectDescriptorSetLayout_);
-    render::descriptorPoolDestroy(context_, &descriptorPool_);
+    render::descriptorPoolDestroy(context_, &globalDescriptorPool_);
     render::contextDestroy(&context_);
   }
 }
@@ -119,7 +119,7 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
     render::uniform_buffer_count(1000u),
     render::storage_buffer_count(1000u),
     render::storage_image_count(1000u),
-    &descriptorPool_);
+    &globalDescriptorPool_);
 
   
   shader_handle_t shader = shaderCreate("../../shaders/textureBlit.shader");
@@ -293,7 +293,7 @@ void renderer_t::createTextureBlitResources()
   render::descriptorSetLayoutCreate(context_, &binding, 1u, &textureBlitDescriptorSetLayout_);
 
   render::descriptor_t descriptor = render::getDescriptor(renderTargets_.get(colorBufferHandle)->getColorBuffer());
-  render::descriptorSetCreate(context_, descriptorPool_, textureBlitDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_);
+  render::descriptorSetCreate(context_, globalDescriptorPool_, textureBlitDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_);
 
   render::pipelineLayoutCreate(context_, &textureBlitDescriptorSetLayout_, 1u, nullptr, 0u, &textureBlitPipelineLayout_);
   render::shaderCreateFromGLSLSource(context_, render::shader_t::VERTEX_SHADER, gTextureBlitVertexShaderSource, &textureBlitVertexShader_);
@@ -357,7 +357,7 @@ render::descriptor_set_layout_t renderer_t::getObjectDescriptorSetLayout()
 }
 
 render::descriptor_pool_t renderer_t::getDescriptorPool() {
-  return descriptorPool_;
+  return globalDescriptorPool_;
 }
 
 void renderer_t::releaseCommandBuffer(const command_buffer_t* cmdBuffer)

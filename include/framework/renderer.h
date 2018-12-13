@@ -99,7 +99,7 @@ namespace bkk
 
         core::render::descriptor_set_layout_t globalsDescriptorSetLayout_;
         core::render::descriptor_set_layout_t objectDescriptorSetLayout_;
-        core::render::descriptor_pool_t descriptorPool_;
+        core::render::descriptor_pool_t globalDescriptorPool_;
 
         core::transform_manager_t transformManager_;
 
