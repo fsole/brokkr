@@ -34,6 +34,7 @@ namespace bkk
   {
     struct actor_t;
     class renderer_t;
+    typedef core::handle_t camera_handle_t;
 
     struct camera_t
     {
@@ -53,8 +54,8 @@ namespace bkk
       
       struct uniforms_t
       {
-        core::maths::mat4 cameraToWorld_;
-        core::maths::mat4 worldToCamera_;
+        core::maths::mat4 worldToView_;
+        core::maths::mat4 viewToWorld_;
         core::maths::mat4 projection_;
         core::maths::mat4 projectionInverse_;
       };
@@ -94,6 +95,7 @@ namespace bkk
     {
       free_camera_t();
       free_camera_t(const core::maths::vec3& position, const core::maths::vec2& angle, f32 velocity, f32 rotationSensitivity);
+      void setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer);
 
       void Move(f32 xAmount, f32 zAmount);
       void Rotate(f32 angleY, f32 angleX);
@@ -105,6 +107,10 @@ namespace bkk
       core::maths::vec2 angle_;
       f32  velocity_; //Units per second
       f32 rotationSensitivity_;
+
+      camera_handle_t cameraHandle_;
+      renderer_t* renderer_;
+
     };
   }
 

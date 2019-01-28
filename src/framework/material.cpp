@@ -5,15 +5,8 @@
 #include "framework/material.h"
 #include "framework/renderer.h"
 
-
 using namespace bkk::framework;
 using namespace bkk::core;
-
-static render::gpu_buffer_t createUniformBufferFromDesc(buffer_desc_t bufferDesc)
-{
-  
-}
-
 
 material_t::material_t()
 :shader_(core::NULL_HANDLE),
@@ -55,15 +48,7 @@ material_t::material_t(shader_handle_t shaderHandle, renderer_t* renderer)
         descriptors_[bufferDesc[i].binding_] = render::getDescriptor(ubo);
         uniformBufferUpdate_.push_back(false);
       }
-      
-
     }
-
-
-      //Descriptor set
-      //core::render::descriptor_t descriptor = core::render::getDescriptor(camera->uniformBuffer_);
-      //core::render::descriptorSetCreate(context_, descriptorPool_, globalsDescriptorSetLayout_, &descriptor, &camera->descriptorSet_);
-    
   }
 }
 
@@ -180,7 +165,7 @@ bool material_t::setBuffer(const char* property, render::gpu_buffer_t buffer)
   //Find buffer
   const std::vector<buffer_desc_t>& bufferDesc = shader->getBufferDescriptions();
   int32_t bindPoint = -1;
-  for (uint32_t i(0); bufferDesc.size(); ++i)
+  for (uint32_t i(0); i<bufferDesc.size(); ++i)
   {
     if (bufferDesc[i].shared_ == true && bufferDesc[i].name_.compare(property) == 0)
       bindPoint = bufferDesc[i].binding_;
@@ -253,7 +238,7 @@ render::descriptor_set_t material_t::getDescriptorSet()
     {
     }
 
-    updateDescriptorSet_ = true;
+    updateDescriptorSet_ = false;
   }
 
   return descriptorSet_;

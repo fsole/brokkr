@@ -181,7 +181,7 @@ frame_buffer_t* renderer_t::getFrameBuffer(frame_buffer_handle_t handle)
 }
 
 
-mesh_handle_t renderer_t::addMesh(mesh::mesh_t& mesh)
+mesh_handle_t renderer_t::addMesh(const mesh::mesh_t& mesh)
 {
   return meshes_.add(mesh);
 }
@@ -214,7 +214,7 @@ void renderer_t::actorSetTransform(actor_handle_t actor, const maths::mat4& newT
   transformManager_.setTransform(actors_.get(actor)->getTransform(), newTransform);
 }
 
-camera_handle_t renderer_t::addCamera(camera_t& camera)
+camera_handle_t renderer_t::addCamera(const camera_t& camera)
 {
   return cameras_.add(camera);
 }

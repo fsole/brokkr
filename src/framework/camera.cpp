@@ -23,6 +23,7 @@
 */
 
 #include "core/maths.h"
+#include "core/packed-freelist.h"
 
 #include "framework/camera.h"
 #include "framework/actor.h"
@@ -54,7 +55,7 @@ void camera_t::update(renderer_t* renderer)
   }
 
   maths::invertMatrix(uniforms_.projection_, uniforms_.projectionInverse_);
-  maths::invertMatrix(uniforms_.cameraToWorld_, uniforms_.worldToCamera_);
+  maths::invertMatrix(uniforms_.viewToWorld_, uniforms_.worldToView_);
 
   render::context_t& context = renderer->getContext();
   if (uniformBuffer_.handle_ == VK_NULL_HANDLE)
@@ -150,7 +151,9 @@ free_camera_t::free_camera_t()
  position_(0.0f, 0.0f, 0.0f),
  angle_(0.0f, 0.0f),
  velocity_(1.0f),
- rotationSensitivity_(0.01f)
+ rotationSensitivity_(0.01f),
+ cameraHandle_(bkk::core::NULL_HANDLE),
+ renderer_(nullptr)
 {
   Update();
 }
@@ -159,7 +162,9 @@ free_camera_t::free_camera_t(const maths::vec3& position, const maths::vec2& ang
   :position_(position),
   angle_(angle),
   velocity_(velocity),
-  rotationSensitivity_(rotationSensitivity)
+  rotationSensitivity_(rotationSensitivity),
+  cameraHandle_(bkk::core::NULL_HANDLE),
+  renderer_(nullptr)
 {
   Update();
 }
@@ -187,4 +192,20 @@ void free_camera_t::Update()
   maths::quat orientation = maths::quaternionFromAxisAngle(maths::vec3(1.0f, 0.0f, 0.0f), angle_.x) * maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), angle_.y);
   tx_ = maths::createTransform(position_, maths::VEC3_ONE, orientation);
   maths::invertMatrix(tx_, view_);
+
+  if (cameraHandle_ != bkk::core::NULL_HANDLE)
+  {
+    camera_t* camera = renderer_->getCamera(cameraHandle_);
+    if (camera)
+    {
+      camera->uniforms_.viewToWorld_ = tx_;
+      camera->uniforms_.worldToView_ = view_;
+    }
+  }
+}
+
+void free_camera_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
+{
+  cameraHandle_ = cameraHandle;
+  renderer_ = renderer;
 }

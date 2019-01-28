@@ -18,7 +18,11 @@ static uint32_t deserializeFieldDescription(pugi::xml_node fieldNode, uint32_t o
 {
   uint32_t fieldSize = 0;
   buffer_desc_t::field_desc_t::type_e fieldType = buffer_desc_t::field_desc_t::TYPE_COUNT;
-  if (strcmp(fieldNode.attribute("Type").value(), "float") == 0){
+  if (strcmp(fieldNode.attribute("Type").value(), "int") == 0){
+    fieldType = buffer_desc_t::field_desc_t::INT;
+    fieldSize = sizeof(int);
+  }
+  else if (strcmp(fieldNode.attribute("Type").value(), "float") == 0) {
     fieldType = buffer_desc_t::field_desc_t::FLOAT;
     fieldSize = sizeof(float);
   }
@@ -87,7 +91,10 @@ static void deserializeTextureDescription(pugi::xml_node resourceNode, uint32_t 
 
 static void fieldDescriptionToGLSL(const buffer_desc_t& bufferDesc, const buffer_desc_t::field_desc_t& fieldDesc, std::string& code )
 {
-  if (fieldDesc.type_ == buffer_desc_t::field_desc_t::FLOAT){
+  if (fieldDesc.type_ == buffer_desc_t::field_desc_t::INT){
+    code += "int ";
+  }
+  else if (fieldDesc.type_ == buffer_desc_t::field_desc_t::FLOAT) {
     code += "float ";
   }
   else if (fieldDesc.type_ == buffer_desc_t::field_desc_t::VEC2){
@@ -307,15 +314,16 @@ static void generateGlslHeader(const std::vector<texture_desc_t>& textures,
   //Buffers
   for (uint32_t i = 0; i < buffers.size(); ++i)
   {
-    generatedCode += "layout(set=2, binding=";
-    generatedCode += intToString(buffers[i].binding_);
-
     if (buffers[i].type_ == buffer_desc_t::UNIFORM_BUFFER){
+      generatedCode += "layout(set=2, binding=";
+      generatedCode += intToString(buffers[i].binding_);
       generatedCode += ") uniform _";
       generatedCode += buffers[i].name_;
       generatedCode += "{\n";
     }
     else{
+      generatedCode += "layout(std140, set=2, binding=";
+      generatedCode += intToString(buffers[i].binding_);
       generatedCode += ") readonly buffer _";
       generatedCode += buffers[i].name_;
       generatedCode += "{\n";
@@ -514,8 +522,9 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
       pipelineDesc.blendState_[0].colorWriteMask = 0xF;
       pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
       pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-      pipelineDesc.depthTestEnabled_ = false;
-      pipelineDesc.depthWriteEnabled_ = false;
+      pipelineDesc.depthTestEnabled_ = true;
+      pipelineDesc.depthWriteEnabled_ = true;
+      pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
       pipelineDesc.vertexShader_ = vertexShader;
       pipelineDesc.fragmentShader_ = fragmentShader;
       graphicsPipelineDescriptions_.push_back(pipelineDesc);

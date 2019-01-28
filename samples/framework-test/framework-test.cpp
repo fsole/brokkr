@@ -34,36 +34,140 @@ using namespace bkk::framework;
 
 class framework_test_t : public application_t
 {
+private:
+  struct light_t
+  {
+    maths::vec4 position;
+    maths::vec4 color;
+  };
+
 public:
   framework_test_t()
-    :application_t("Framework test", 1200u, 800u, 3u)
+    :application_t("Framework test", 1200u, 800u, 3u)    
   {
     renderTarget_ = renderer_.renderTargetCreate(1200u, 800u, VK_FORMAT_R32G32B32A32_SFLOAT, true);
     frameBuffer_ = renderer_.frameBufferCreate(&renderTarget_, 1u);
 
+    //create light buffer
+    lightBuffer_ = createLightBuffer();
+
     //create shaders
     shader_handle_t shader = renderer_.shaderCreate("../framework-test/simple.shader");
 
-    //create geometries
-    mesh::mesh_t mesh;
-    mesh::createFromFile(renderer_.getContext(), "../resources/teapot.obj", mesh::EXPORT_ALL, nullptr, 0, &mesh);
-    mesh_handle_t meshHandle = renderer_.addMesh(mesh);
+    //create meshes
+    mesh::mesh_t teapot;
+    mesh::createFromFile(getRenderContext(), "../resources/teapot.obj", mesh::EXPORT_ALL, nullptr, 0, &teapot);
+    mesh_handle_t teapotHandle = renderer_.addMesh(teapot);
+    mesh_handle_t planeHandle = renderer_.addMesh(mesh::unitQuad(getRenderContext()));
 
-    //Create actors
-    material_handle_t material = renderer_.materialCreate(shader);
-    renderer_.getMaterial(material)->setProperty("globals.color", maths::vec3(1, 0, 0));
-    renderer_.getMaterial(material)->setProperty("globals.intensity", 1.0f);
-    maths::mat4 transform = maths::createTransform(maths::vec3(-5.0, -1.0, -10.0), maths::VEC3_ONE, maths::QUAT_UNIT);
-    renderer_.actorCreate("teapot0", meshHandle, material, transform);
+    //create materials
+    material_handle_t material0 = renderer_.materialCreate(shader);
+    material_t* materialPtr = renderer_.getMaterial(material0);
+    materialPtr->setProperty("globals.diffuseColor", maths::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    materialPtr->setProperty("globals.specularColor", maths::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    materialPtr->setProperty("globals.shininess", 100.0f);
+    materialPtr->setBuffer("lights", lightBuffer_);
 
-    material = renderer_.materialCreate(shader);
-    renderer_.getMaterial(material)->setProperty("globals.color", maths::vec3(0, 0, 1));
-    renderer_.getMaterial(material)->setProperty("globals.intensity", 1.0f);
-    transform = maths::createTransform(maths::vec3(5.0, -1.0, -10.0), maths::VEC3_ONE, maths::QUAT_UNIT);
-    renderer_.actorCreate("teapot1", meshHandle, material, transform);
+    material_handle_t material1 = renderer_.materialCreate(shader);
+    materialPtr = renderer_.getMaterial(material1);
+    materialPtr->setProperty("globals.diffuseColor", maths::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    materialPtr->setProperty("globals.specularColor", maths::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    materialPtr->setProperty("globals.shininess", 100.0f);
+    materialPtr->setBuffer("lights", lightBuffer_);
 
-    camera_t camera(camera_t::PERSPECTIVE_PROJECTION, 1.2f, 1200.0f / 800.0f, 1.0f, 100.0f);
-    camera_ = renderer_.addCamera(camera);
+    material_handle_t material2 = renderer_.materialCreate(shader);
+    materialPtr = renderer_.getMaterial(material2);
+    materialPtr->setProperty("globals.diffuseColor", maths::vec4(0.5f, 0.5f, 0.5f, 1.0f));
+    materialPtr->setProperty("globals.specularColor", maths::vec4(1.1f, 1.1f, 1.1f, 1.0f));
+    materialPtr->setProperty("globals.shininess", 100.0f);
+    materialPtr->setBuffer("lights", lightBuffer_);
+
+    //create actors
+    maths::mat4 transform = maths::createTransform(maths::vec3(-5.0f, -1.0f, -10.0f), maths::VEC3_ONE, maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), maths::degreeToRadian(30.0f)));
+    renderer_.actorCreate("teapot0", teapotHandle, material0, transform);
+
+    transform = maths::createTransform(maths::vec3(5.0f, -1.0f, -10.0f), maths::VEC3_ONE, maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), maths::degreeToRadian(150.0f)));
+    renderer_.actorCreate("teapot1", teapotHandle, material1, transform);
+    
+    transform = maths::createTransform(maths::vec3(0.0f, -1.0f, -10.0f), maths::vec3(20.0f, 20.0f, 20.0f), maths::quaternionFromAxisAngle(maths::vec3(1, 0, 0), maths::degreeToRadian(90.0f)) );
+    renderer_.actorCreate("plane", planeHandle, material2, transform);
+    
+    //create camera
+    camera_ = renderer_.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, 1200.0f / 800.0f, 0.1f, 100.0f));
+    cameraController_.setCameraHandle(camera_, &renderer_);
+  }
+  
+  render::gpu_buffer_t createLightBuffer()
+  {
+    int lightCount = 2;
+    std::vector<light_t> lights(lightCount);
+    lights[0].position = maths::vec4(-10.0f, 10.0f, -10.0f, 1.0f);
+    lights[0].color = maths::vec4(1.0f, 1.0f, 1.0f, 0.0f);
+    lights[1].position = maths::vec4(10.0f, 10.0f, -10.0f, 1.0f);
+    lights[1].color = maths::vec4(1.0f, 1.0f, 1.0f, 0.0f);
+
+    //Create buffer
+    render::gpu_buffer_t lightBuffer = {};
+    render::context_t& context = getRenderContext();
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::STORAGE_BUFFER,
+      render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, 
+      nullptr, sizeof(light_t)*lightCount + sizeof(maths::vec4), nullptr,
+      &lightBuffer );
+    
+    render::gpuBufferUpdate(context, &lightCount, 0u, sizeof(int), &lightBuffer);
+    render::gpuBufferUpdate(context, lights.data(), sizeof(maths::vec4), lightCount * sizeof(light_t), &lightBuffer);
+
+    return lightBuffer;
+  }
+
+  void onKeyEvent(u32 key, bool pressed)
+  {
+    if (pressed)
+    {
+      float delta = 0.5f;
+      switch (key)
+      {
+        case window::key_e::KEY_UP:
+        case 'w':
+        {
+          cameraController_.Move(0.0f, -delta);
+          break;
+        }
+        case window::key_e::KEY_DOWN:
+        case 's':
+        {
+          cameraController_.Move(0.0f, delta);
+          break;
+        }
+        case window::key_e::KEY_LEFT:
+        case 'a':
+        {
+          cameraController_.Move(-delta, 0.0f);
+          break;
+        }
+        case window::key_e::KEY_RIGHT:
+        case 'd':
+        {
+          cameraController_.Move(delta, 0.0f);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+
+  void onMouseMove(const maths::vec2& mousePos, const maths::vec2 &mouseDeltaPos)
+  {
+    if (getMousePressedButton() > -1)
+    {
+      cameraController_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
+    }
+  }
+
+  void onQuit() 
+  {
+    render::gpuBufferDestroy(getRenderContext(), nullptr, &lightBuffer_);
   }
 
   void render()
@@ -77,7 +181,7 @@ public:
     int count = renderer_.getVisibleActors(camera_, &visibleActors);
     
     command_buffer_t cmdBuffer(&renderer_, frameBuffer_);
-    cmdBuffer.clearRenderTargets(maths::vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    cmdBuffer.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
     cmdBuffer.render(visibleActors, count, "OpaquePass");
     cmdBuffer.submit();
     cmdBuffer.release();
@@ -102,6 +206,8 @@ private:
   frame_buffer_handle_t frameBuffer_;
   render_target_handle_t renderTarget_;
   camera_handle_t camera_;
+  free_camera_t cameraController_;
+  render::gpu_buffer_t lightBuffer_;
 };
 
 int main()

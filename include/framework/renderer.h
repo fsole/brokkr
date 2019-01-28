@@ -50,7 +50,7 @@ namespace bkk
         frame_buffer_handle_t frameBufferCreate(render_target_handle_t* renderTargets, uint32_t targetCount,VkImageLayout* initialLayouts = nullptr, VkImageLayout* finalLayouts = nullptr);
         frame_buffer_t* getFrameBuffer(frame_buffer_handle_t handle);
 
-        mesh_handle_t addMesh(core::mesh::mesh_t& mesh);
+        mesh_handle_t addMesh(const core::mesh::mesh_t& mesh);
         core::mesh::mesh_t* getMesh(mesh_handle_t handle);
 
         actor_handle_t actorCreate(const char* name, mesh_handle_t mesh, material_handle_t material, core::maths::mat4 transform = core::maths::mat4() );
@@ -59,7 +59,7 @@ namespace bkk
         void actorSetTransform(actor_handle_t actor, const core::maths::mat4& newTransform);
         actor_handle_t getRootActor() { return rootActor_; }
 
-        camera_handle_t addCamera(camera_t& camera);
+        camera_handle_t addCamera(const camera_t& camera);
         camera_t* getCamera(camera_handle_t handle);
         camera_t* getActiveCamera();
         bool setupCamera(camera_handle_t camera);

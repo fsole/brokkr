@@ -39,6 +39,7 @@ namespace bkk
       struct field_desc_t
       {
         enum type_e {
+          INT,
           FLOAT,
           VEC2,
           VEC3,
