@@ -208,4 +208,5 @@ void free_camera_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* re
 {
   cameraHandle_ = cameraHandle;
   renderer_ = renderer;
+  Update();
 }

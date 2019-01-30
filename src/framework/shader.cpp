@@ -342,6 +342,25 @@ static void generateGlslHeader(const std::vector<texture_desc_t>& textures,
   }
 }
 
+static VkCompareOp depthTestFunctionFromString(const char* test)
+{
+  VkCompareOp result = VK_COMPARE_OP_LESS_OR_EQUAL;
+  if (strcmp(test, "LEqual") == 0 ){
+    result = VK_COMPARE_OP_LESS_OR_EQUAL;
+  }
+  else if (strcmp(test, "Never") == 0){
+    result = VK_COMPARE_OP_NEVER;
+  }
+  else if (strcmp(test, "Always") == 0){
+    result = VK_COMPARE_OP_ALWAYS;
+  }
+  else if (strcmp(test, "GEqual") == 0){
+    result = VK_COMPARE_OP_GREATER_OR_EQUAL;
+  }
+
+  return result;
+}
+
 shader_t::shader_t()
 :name_(),
 textures_(),
@@ -517,14 +536,48 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
       render::pipelineLayoutCreate(context, descriptorSetLayouts, 3u, nullptr, 0u, &pipelineLayout);      
       pipelineLayouts_.push_back(pipelineLayout);
 
+      bool depthWrite = true;
+      pugi::xml_node zWrite = passNode.child("ZWrite");
+      if (zWrite)
+        depthWrite = strcmp(zWrite.attribute("Value").value(), "On") == 0 ? true : false;
+
+      bool depthTest = true;
+      VkCompareOp depthTestFunc = VK_COMPARE_OP_LESS_OR_EQUAL;
+      pugi::xml_node zTest = passNode.child("ZTest");
+      if (zTest)
+      {
+        if (strcmp(zTest.attribute("Value").value(), "Off") == 0)
+        {
+          depthTest = false;
+        }
+        else
+        {
+          depthTestFunc = depthTestFunctionFromString(zTest.attribute("Value").value());
+        }
+      }
+
+      VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
+      pugi::xml_node cull = passNode.child("Cull");
+      if (cull)
+      {
+        if (strcmp(cull.attribute("Value").value(), "Front") == 0)
+        {
+          cullMode = VK_CULL_MODE_FRONT_BIT;
+        }
+        if (strcmp(cull.attribute("Value").value(), "Off") == 0)
+        {
+          cullMode = VK_CULL_MODE_NONE;
+        }
+      }
+
       render::graphics_pipeline_t::description_t pipelineDesc = {};      
       pipelineDesc.blendState_.resize(1);
       pipelineDesc.blendState_[0].colorWriteMask = 0xF;
       pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-      pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-      pipelineDesc.depthTestEnabled_ = true;
-      pipelineDesc.depthWriteEnabled_ = true;
-      pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
+      pipelineDesc.cullMode_ = cullMode;
+      pipelineDesc.depthTestEnabled_ = depthTest;
+      pipelineDesc.depthWriteEnabled_ = depthWrite;
+      pipelineDesc.depthTestFunction_ = depthTestFunc;
       pipelineDesc.vertexShader_ = vertexShader;
       pipelineDesc.fragmentShader_ = fragmentShader;
       graphicsPipelineDescriptions_.push_back(pipelineDesc);

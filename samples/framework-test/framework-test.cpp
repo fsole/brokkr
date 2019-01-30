@@ -38,12 +38,16 @@ private:
   struct light_t
   {
     maths::vec4 position;
-    maths::vec4 color;
+    maths::vec3 color;
+    float radius;
   };
 
 public:
   framework_test_t()
-    :application_t("Framework test", 1200u, 800u, 3u)    
+  :application_t("Framework test", 1200u, 800u, 3u),
+   cameraController_(maths::vec3(0.0f, 4.0f, 12.0f), maths::vec2(0.1f, 0.0f), 1.0f, 0.01f),
+   lightIntensity_(1.0f),
+   currentLightIntensity_(1.0f)
   {
     renderTarget_ = renderer_.renderTargetCreate(1200u, 800u, VK_FORMAT_R32G32B32A32_SFLOAT, true);
     frameBuffer_ = renderer_.frameBufferCreate(&renderTarget_, 1u);
@@ -55,10 +59,10 @@ public:
     shader_handle_t shader = renderer_.shaderCreate("../framework-test/simple.shader");
 
     //create meshes
-    mesh::mesh_t teapot;
-    mesh::createFromFile(getRenderContext(), "../resources/teapot.obj", mesh::EXPORT_ALL, nullptr, 0, &teapot);
-    mesh_handle_t teapotHandle = renderer_.addMesh(teapot);
-    mesh_handle_t planeHandle = renderer_.addMesh(mesh::unitQuad(getRenderContext()));
+    mesh::mesh_t teapotMesh;
+    mesh::createFromFile(getRenderContext(), "../resources/teapot.obj", mesh::EXPORT_ALL, nullptr, 0, &teapotMesh);
+    mesh_handle_t teapot = renderer_.addMesh(teapotMesh);
+    mesh_handle_t plane = renderer_.addMesh(mesh::unitQuad(getRenderContext()));
 
     //create materials
     material_handle_t material0 = renderer_.materialCreate(shader);
@@ -78,19 +82,19 @@ public:
     material_handle_t material2 = renderer_.materialCreate(shader);
     materialPtr = renderer_.getMaterial(material2);
     materialPtr->setProperty("globals.diffuseColor", maths::vec4(0.5f, 0.5f, 0.5f, 1.0f));
-    materialPtr->setProperty("globals.specularColor", maths::vec4(1.1f, 1.1f, 1.1f, 1.0f));
+    materialPtr->setProperty("globals.specularColor", maths::vec4(1.0f, 1.0f, 1.0f, 1.0f));
     materialPtr->setProperty("globals.shininess", 100.0f);
     materialPtr->setBuffer("lights", lightBuffer_);
 
     //create actors
-    maths::mat4 transform = maths::createTransform(maths::vec3(-5.0f, -1.0f, -10.0f), maths::VEC3_ONE, maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), maths::degreeToRadian(30.0f)));
-    renderer_.actorCreate("teapot0", teapotHandle, material0, transform);
+    maths::mat4 transform = maths::createTransform(maths::vec3(-5.0f, -1.0f, 0.0f), maths::VEC3_ONE, maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), maths::degreeToRadian(30.0f)));
+    renderer_.actorCreate("teapot0", teapot, material0, transform);
 
-    transform = maths::createTransform(maths::vec3(5.0f, -1.0f, -10.0f), maths::VEC3_ONE, maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), maths::degreeToRadian(150.0f)));
-    renderer_.actorCreate("teapot1", teapotHandle, material1, transform);
+    transform = maths::createTransform(maths::vec3(5.0f, -1.0f, 0.0f), maths::VEC3_ONE, maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), maths::degreeToRadian(150.0f)));
+    renderer_.actorCreate("teapot1", teapot, material1, transform);
     
-    transform = maths::createTransform(maths::vec3(0.0f, -1.0f, -10.0f), maths::vec3(20.0f, 20.0f, 20.0f), maths::quaternionFromAxisAngle(maths::vec3(1, 0, 0), maths::degreeToRadian(90.0f)) );
-    renderer_.actorCreate("plane", planeHandle, material2, transform);
+    transform = maths::createTransform(maths::vec3(0.0f, -1.0f, 0.0f), maths::vec3(20.0f, 20.0f, 20.0f), maths::quaternionFromAxisAngle(maths::vec3(1, 0, 0), maths::degreeToRadian(90.0f)) );
+    renderer_.actorCreate("plane", plane, material2, transform);
     
     //create camera
     camera_ = renderer_.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, 1200.0f / 800.0f, 0.1f, 100.0f));
@@ -98,13 +102,15 @@ public:
   }
   
   render::gpu_buffer_t createLightBuffer()
-  {
+  {    
     int lightCount = 2;
     std::vector<light_t> lights(lightCount);
-    lights[0].position = maths::vec4(-10.0f, 10.0f, -10.0f, 1.0f);
-    lights[0].color = maths::vec4(1.0f, 1.0f, 1.0f, 0.0f);
-    lights[1].position = maths::vec4(10.0f, 10.0f, -10.0f, 1.0f);
-    lights[1].color = maths::vec4(1.0f, 1.0f, 1.0f, 0.0f);
+    lights[0].position = maths::vec4(-7.0f, 5.0f, 0.0f, 1.0f);
+    lights[0].color = maths::vec3(1.0f, 1.0f, 1.0f);
+    lights[0].radius = 13.0f;
+    lights[1].position = maths::vec4(7.0f, 5.0f, 0.0f, 1.0f);
+    lights[1].color = maths::vec3(1.0f, 1.0f, 1.0f);
+    lights[1].radius = 13.0f;
 
     //Create buffer
     render::gpu_buffer_t lightBuffer = {};
@@ -114,7 +120,9 @@ public:
       nullptr, sizeof(light_t)*lightCount + sizeof(maths::vec4), nullptr,
       &lightBuffer );
     
+    
     render::gpuBufferUpdate(context, &lightCount, 0u, sizeof(int), &lightBuffer);
+    render::gpuBufferUpdate(context, &currentLightIntensity_, sizeof(int), sizeof(float), &lightBuffer);
     render::gpuBufferUpdate(context, lights.data(), sizeof(maths::vec4), lightCount * sizeof(light_t), &lightBuffer);
 
     return lightBuffer;
@@ -159,7 +167,7 @@ public:
 
   void onMouseMove(const maths::vec2& mousePos, const maths::vec2 &mouseDeltaPos)
   {
-    if (getMousePressedButton() > -1)
+    if (getMousePressedButton() == window::MOUSE_RIGHT)
     {
       cameraController_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
     }
@@ -172,6 +180,12 @@ public:
 
   void render()
   {
+    if (currentLightIntensity_ != lightIntensity_)
+    {
+      currentLightIntensity_ = lightIntensity_;
+      render::gpuBufferUpdate(getRenderContext(), &currentLightIntensity_, sizeof(int), sizeof(float), &lightBuffer_);
+    }
+
     beginFrame();
 
     renderer_.setupCamera(camera_);
@@ -199,15 +213,20 @@ public:
   void buildGuiFrame()
   {
     ImGui::Begin("Controls");
+    ImGui::SliderFloat("Light Intensity", &lightIntensity_, 0.0f, 10.0f);
     ImGui::End();
   }
 
 private:
   frame_buffer_handle_t frameBuffer_;
-  render_target_handle_t renderTarget_;
+  render_target_handle_t renderTarget_;  
+  render::gpu_buffer_t lightBuffer_;
+
   camera_handle_t camera_;
   free_camera_t cameraController_;
-  render::gpu_buffer_t lightBuffer_;
+
+  float lightIntensity_;
+  float currentLightIntensity_;
 };
 
 int main()

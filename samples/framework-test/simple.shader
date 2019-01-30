@@ -10,9 +10,11 @@
 		</Resource>
 		<Resource Name="lights" Type="storage_buffer" Shared="yes"> 			
 			<Field Name="count" Type="int" />
+			<Field Name="intensity" Type="float" />
 			<Field Name="data" Type="compound_type" Count="">
 				<Field Name="position" Type="vec4" />
-				<Field Name="color" Type="vec4" />
+				<Field Name="color" Type="vec3" />
+				<Field Name="radius" Type="float" />
 			</Field>
 		</Resource>
 	</Resources>
@@ -21,6 +23,7 @@
 	<Pass Name="OpaquePass">
 		<ZWrite Value="On" />
 		<ZTest Value="LEqual" />
+		<Cull Value="Back" />
 		<Blend Target="0" SrcColor="SrcAlpha" DstColor="OneMinusSrcAlpha" SrcAlpha="" DstAlpha=""/>
 				
 		
@@ -43,22 +46,22 @@
 		
 		<FragmentShader>
 		
-			vec3 applyLight(vec4 position, vec3 N, vec4 diffuseColor, vec4 specularColor, float shininess, vec4 lightPosition,  vec4 lightColor)
+			vec3 applyLight(vec4 position, vec3 N, vec3 V, vec3 kd, vec3 ks, float shininess, vec4 lightPosition,  vec3 lightColor, float lightRadius)
 			{
 				vec3 pointToLight = (lightPosition - position ).xyz;
-				vec3 L = normalize(pointToLight);
-				vec3 V = normalize(-position.xyz);
-				float NdotL = clamp( dot( N, L ), 0 , 1);
-				vec3 diffuse = diffuseColor.rgb * NdotL;
+				float lightDistance = length(pointToLight);
+				vec3 L = pointToLight / lightDistance;
+				
+				float NdotL = max( dot(N,L), 0.0 );
+				vec3 diffuse = kd * NdotL;
 				
 				vec3 R = normalize(-reflect(L,N));
-				float spec = pow(max(dot(R,V),0.0), shininess );
+				vec3 specular = ks * pow(max(dot(R,V),0.0), shininess );
 				
-				float lightDistance    = length(pointToLight);
-				float attenuation = 1.0 - clamp( lightDistance / 30, 0.0, 1.0);
-				attenuation *= attenuation;
+				float attenuation = pow(1.0 - clamp( lightDistance / lightRadius, 0.0, 1.0), 2);
+				vec3 lightRadiance = lightColor * attenuation;
 				
-				return (diffuse + spec*specularColor.rgb) * lightColor.rgb * attenuation;
+				return (diffuse + specular) * lightRadiance;
 			}
 			
 			layout(location = 0) in vec4 positionVS;
@@ -67,11 +70,12 @@
 			layout(location = 0) out vec4 color;
 			void main()
 			{
+				vec3 V = normalize(-positionVS.xyz);
 				vec3 c = vec3(0,0,0);
 				for( int i = 0; i &lt; lights.count; ++i )
 				{
 					vec4 lightVS = camera.worldToView * lights.data[i].position;
-					c += applyLight( positionVS, normalVS, globals.diffuseColor, globals.specularColor, globals.shininess, lightVS, lights.data[i].color );
+					c += applyLight( positionVS, normalVS, V, globals.diffuseColor.rgb, globals.specularColor.rgb, globals.shininess, lightVS, lights.data[i].color, lights.data[i].radius ) * lights.intensity;
 				}
 				
 				color = vec4( pow(c,vec3(1.0 / 2.2)), 1.0);
