@@ -88,6 +88,9 @@ namespace bkk
         const std::vector<texture_desc_t>& getTextureDescriptions() const;
         const std::vector<buffer_desc_t>& getBufferDescriptions() const;
 
+        uint32_t getPassCount() const{return (uint32_t)pass_.size();}
+        uint32_t getPassIndexFromName(const char* pass) const;
+
       private:
         std::string name_;
 

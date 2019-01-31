@@ -29,7 +29,7 @@ namespace bkk
         void clearRenderTargets(core::maths::vec4 color);
         
         void render(actor_t* actors, uint32_t actorCount, const char* passName );
-        void blit(render_target_handle_t renderTarget, material_handle_t materialHandle = core::NULL_HANDLE);
+        void blit(render_target_handle_t renderTarget, material_handle_t materialHandle = core::NULL_HANDLE, const char* pass = nullptr);
         
         void submit();
         void release();

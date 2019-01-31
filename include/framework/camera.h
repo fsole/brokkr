@@ -27,6 +27,7 @@
 
 #include "core/maths.h"
 #include "core/render.h"
+#include "core/packed-freelist.h"
 
 namespace bkk
 {

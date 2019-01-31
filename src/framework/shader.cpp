@@ -653,3 +653,18 @@ const std::vector<buffer_desc_t>& shader_t::getBufferDescriptions() const
 {
   return buffers_;
 }
+
+uint32_t shader_t::getPassIndexFromName(const char* pass) const
+{
+  if (pass != nullptr)
+  {
+    uint64_t passName = hashString(pass);
+    for (uint32_t i(0); i < pass_.size(); ++i)
+    {
+      if (passName == pass_[i])
+        return i;
+    }
+  }
+
+  return 0;
+}

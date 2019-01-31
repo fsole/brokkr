@@ -39,7 +39,7 @@ namespace bkk
         void destroy(renderer_t* renderer);
 
         core::render::graphics_pipeline_t getPipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer);
-        core::render::descriptor_set_t getDescriptorSet();
+        core::render::descriptor_set_t getDescriptorSet(const char* pass = nullptr);
 
 
       private:
@@ -47,13 +47,14 @@ namespace bkk
         shader_handle_t shader_;
 
         std::vector<uint8_t*> uniformData_;
+        std::vector<size_t> uniformDataSize_;
         std::vector<core::render::gpu_buffer_t> uniformBuffers_;
         std::vector<bool> uniformBufferUpdate_;
 
         std::vector<core::render::descriptor_t> descriptors_;
 
-        core::render::descriptor_set_t descriptorSet_;
-        bool updateDescriptorSet_;
+        std::vector<core::render::descriptor_set_t> descriptorSet_;
+        std::vector<bool> updateDescriptorSet_;
     };
   }
 }

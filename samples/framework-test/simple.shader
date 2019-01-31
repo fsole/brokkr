@@ -78,7 +78,8 @@
 					c += applyLight( positionVS, normalVS, V, globals.diffuseColor.rgb, globals.specularColor.rgb, globals.shininess, lightVS, lights.data[i].color, lights.data[i].radius ) * lights.intensity;
 				}
 				
-				color = vec4( pow(c,vec3(1.0 / 2.2)), 1.0);
+				color = vec4( c, 1.0);
+				//color = vec4( pow(c,vec3(1.0 / 2.2)), 1.0);
 			}			
 		</FragmentShader>
 	

@@ -10,17 +10,13 @@ using namespace bkk::core;
 
 material_t::material_t()
 :shader_(core::NULL_HANDLE),
- renderer_(nullptr),
- descriptorSet_(),
- updateDescriptorSet_(true)
+ renderer_(nullptr)
 {
 }
 
 material_t::material_t(shader_handle_t shaderHandle, renderer_t* renderer)
 :shader_(shaderHandle),
- renderer_(renderer),
- descriptorSet_(),
- updateDescriptorSet_(true)
+ renderer_(renderer)
 {
   shader_t* shader = renderer->getShader(shaderHandle);
   if (shader)
@@ -30,6 +26,15 @@ material_t::material_t(shader_handle_t shaderHandle, renderer_t* renderer)
     const std::vector<texture_desc_t>& textureDesc = shader->getTextureDescriptions();
     descriptors_.resize(bufferDesc.size() + textureDesc.size());
 
+    uint32_t passCount = shader->getPassCount();
+    descriptorSet_.resize(passCount);
+    updateDescriptorSet_.resize(passCount);
+    for (uint32_t i = 0; i < passCount; ++i)
+    {
+      descriptorSet_[i] = {};
+      updateDescriptorSet_[i] = true;
+    }
+
     for (uint32_t i(0); i < bufferDesc.size(); ++i)
     {
       if (bufferDesc[i].shared_ == false)
@@ -37,6 +42,7 @@ material_t::material_t(shader_handle_t shaderHandle, renderer_t* renderer)
         uint8_t* data = new uint8_t[bufferDesc[i].size_];
         memset(data, 0, bufferDesc[i].size_);
         uniformData_.push_back(data);
+        uniformDataSize_.push_back(bufferDesc[i].size_);
 
         render::gpu_buffer_t ubo = {};
         render::gpuBufferCreate(context,
@@ -60,10 +66,13 @@ void material_t::destroy(renderer_t* renderer)
     render::gpuBufferDestroy(context, nullptr, &uniformBuffers_[i]);
     delete[] uniformData_[i];
   }
-
-  if (descriptorSet_.handle_ != VK_NULL_HANDLE)
+  
+  for (int i = 0; i < descriptorSet_.size(); ++i)
   {
-    render::descriptorSetDestroy(context, &descriptorSet_);
+    if (descriptorSet_[i].handle_ != VK_NULL_HANDLE)
+    {
+      render::descriptorSetDestroy(context, &descriptorSet_[i]);
+    }
   }
 }
 
@@ -174,10 +183,14 @@ bool material_t::setBuffer(const char* property, render::gpu_buffer_t buffer)
   if (bindPoint < 0) return false;
 
   descriptors_[bindPoint] = render::getDescriptor(buffer);
-  if (descriptorSet_.handle_ != VK_NULL_HANDLE)
+
+  for (int i = 0; i < descriptorSet_.size(); ++i)
   {
-    descriptorSet_.descriptors_[bindPoint] = render::getDescriptor(buffer);
-    updateDescriptorSet_ = true;
+    if (descriptorSet_[i].handle_ != VK_NULL_HANDLE)
+    {
+      descriptorSet_[i].descriptors_[bindPoint] = render::getDescriptor(buffer);
+      updateDescriptorSet_[i] = true;
+    }
   }
 
   return true;
@@ -200,16 +213,19 @@ bool material_t::setTexture(const char* property, render::texture_t texture)
   if (bindPoint < 0) return false;
 
   descriptors_[bindPoint] = render::getDescriptor(texture);
-  if (descriptorSet_.handle_ != VK_NULL_HANDLE)
+  for (int i = 0; i < descriptorSet_.size(); ++i)
   {
-    descriptorSet_.descriptors_[bindPoint] = render::getDescriptor(texture);
-    updateDescriptorSet_ = true;
+    if (descriptorSet_[i].handle_ != VK_NULL_HANDLE)
+    {
+      descriptorSet_[i].descriptors_[bindPoint] = render::getDescriptor(texture);
+      updateDescriptorSet_[i] = true;
+    }
   }
 
   return true;
 }
 
-render::descriptor_set_t material_t::getDescriptorSet()
+render::descriptor_set_t material_t::getDescriptorSet(const char* pass)
 {
   render::context_t& context = renderer_->getContext();
 
@@ -222,24 +238,26 @@ render::descriptor_set_t material_t::getDescriptorSet()
   {
     if (uniformBufferUpdate_[i])
     {
-      render::gpuBufferUpdate(context, uniformData_[i], 0u, uniformBuffers_[i].memory_.size_, &uniformBuffers_[i]);
+      render::gpuBufferUpdate(context, uniformData_[i], 0u, uniformDataSize_[i], &uniformBuffers_[i]);
       uniformBufferUpdate_[i] = false;
     }
   }
 
-  if ( updateDescriptorSet_ )
+  uint32_t i = shader->getPassIndexFromName(pass);
+  if ( updateDescriptorSet_[i] )
   {
-    if (descriptorSet_.handle_ == VK_NULL_HANDLE)
+    if (descriptorSet_[i].handle_ == VK_NULL_HANDLE)
     {
       render::descriptor_t* descriptorsPtr = descriptors_.empty() ? nullptr : &descriptors_[0];
-      render::descriptorSetCreate(context, renderer_->getDescriptorPool(), shader->getDescriptorSetLayout(), descriptorsPtr, &descriptorSet_);
+      render::descriptorSetCreate(context, renderer_->getDescriptorPool(), shader->getDescriptorSetLayout(), descriptorsPtr, &descriptorSet_[i]);
     }
     else
     {
+      render::descriptorSetUpdate(context, shader->getDescriptorSetLayout(), &descriptorSet_[i]);
     }
 
-    updateDescriptorSet_ = false;
+    updateDescriptorSet_[i] = false;
   }
 
-  return descriptorSet_;
+  return descriptorSet_[i];
 }

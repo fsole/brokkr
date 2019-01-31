@@ -46,8 +46,12 @@ public:
   framework_test_t()
   :application_t("Framework test", 1200u, 800u, 3u),
    cameraController_(maths::vec3(0.0f, 4.0f, 12.0f), maths::vec2(0.1f, 0.0f), 1.0f, 0.01f),
-   lightIntensity_(1.0f),
-   currentLightIntensity_(1.0f)
+   bloomEnabled_(true),
+   bloomTreshold_(1.0f),
+   blurSigma_(3.0f),
+   lightIntensity_(7.0f),
+   currentLightIntensity_(1.0f),
+   exposure_(1.5f)
   {
     renderTarget_ = renderer_.renderTargetCreate(1200u, 800u, VK_FORMAT_R32G32B32A32_SFLOAT, true);
     frameBuffer_ = renderer_.frameBufferCreate(&renderTarget_, 1u);
@@ -96,6 +100,18 @@ public:
     transform = maths::createTransform(maths::vec3(0.0f, -1.0f, 0.0f), maths::vec3(20.0f, 20.0f, 20.0f), maths::quaternionFromAxisAngle(maths::vec3(1, 0, 0), maths::degreeToRadian(90.0f)) );
     renderer_.actorCreate("plane", plane, material2, transform);
     
+
+    //Bloom resources
+    brightColorsRenderTarget_ = renderer_.renderTargetCreate(1200u, 800u, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+    brightColorsFBO_ = renderer_.frameBufferCreate(&brightColorsRenderTarget_, 1u);
+    bloomRenderTarget_ = renderer_.renderTargetCreate(1200u, 800u, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+    bloomFBO_ = renderer_.frameBufferCreate(&bloomRenderTarget_, 1u);
+    shader_handle_t bloomShader = renderer_.shaderCreate("../framework-test/bloom.shader");
+    bloomMaterial_ = renderer_.materialCreate(bloomShader);
+    shader_handle_t blendShader = renderer_.shaderCreate("../framework-test/blend.shader");
+    blendMaterial_ = renderer_.materialCreate(blendShader);
+
+
     //create camera
     camera_ = renderer_.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, 1200.0f / 800.0f, 0.1f, 100.0f));
     cameraController_.setCameraHandle(camera_, &renderer_);
@@ -194,18 +210,57 @@ public:
     actor_t* visibleActors = nullptr;
     int count = renderer_.getVisibleActors(camera_, &visibleActors);
     
-    command_buffer_t cmdBuffer(&renderer_, frameBuffer_);
-    cmdBuffer.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-    cmdBuffer.render(visibleActors, count, "OpaquePass");
-    cmdBuffer.submit();
-    cmdBuffer.release();
+    command_buffer_t renderScene(&renderer_, frameBuffer_);
+    renderScene.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+    renderScene.render(visibleActors, count, "OpaquePass");
+    renderScene.submit();
+    renderScene.release();
 
-    //Copy offscreen render target to the back buffer    
-    cmdBuffer = command_buffer_t(&renderer_);
-    cmdBuffer.clearRenderTargets(maths::vec4(0.0f, 1.0f, 0.0f, 1.0f));
-    cmdBuffer.blit(renderTarget_ /*, material*/);
-    cmdBuffer.submit();
-    cmdBuffer.release();
+
+    material_t* blendMaterial = renderer_.getMaterial(blendMaterial_);
+    blendMaterial->setProperty("globals.exposure", exposure_);
+
+    if (bloomEnabled_)
+    {
+      material_t* bloomMaterial = renderer_.getMaterial(bloomMaterial_);
+      bloomMaterial->setProperty("globals.bloomTreshold", bloomTreshold_);
+      bloomMaterial->setProperty("globals.blurSigma", blurSigma_);
+      maths::vec4 imageSize(1200.0f, 800.0f, 1.0f / 1200.0f, 1.0f / 800.0f);
+      bloomMaterial->setProperty("globals.imageSize", &imageSize);
+      
+      //Extract bright colors
+      command_buffer_t extractBrightPixels = command_buffer_t(&renderer_, brightColorsFBO_, &renderScene);
+      extractBrightPixels.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+      extractBrightPixels.blit(renderTarget_ , bloomMaterial_, "extractBrightColors" );
+      extractBrightPixels.submit();
+      extractBrightPixels.release();
+
+      
+      //Blur  
+      command_buffer_t blur = command_buffer_t(&renderer_, bloomFBO_, &extractBrightPixels);
+      blur.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+      blur.blit(brightColorsRenderTarget_, bloomMaterial_, "blur");
+      blur.submit();
+      blur.release();
+
+      //Blend blurred bloom with scene
+      material_t* blendMaterial = renderer_.getMaterial(blendMaterial_); 
+      blendMaterial->setTexture("bloomBlur", renderer_.getRenderTarget(bloomRenderTarget_)->getColorBuffer());
+      command_buffer_t blitToBackbuffer = command_buffer_t(&renderer_, bkk::core::NULL_HANDLE, &blur);
+      blitToBackbuffer.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+      blitToBackbuffer.blit(renderTarget_, blendMaterial_, "blend" );
+      blitToBackbuffer.submit();
+      blitToBackbuffer.release();      
+    }
+    else
+    {
+      //Copy scene render to the back buffer
+      command_buffer_t blitToBackbuffer = command_buffer_t(&renderer_);
+      blitToBackbuffer.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+      blitToBackbuffer.blit(renderTarget_, blendMaterial_);
+      blitToBackbuffer.submit();
+      blitToBackbuffer.release();
+    }
 
     presentFrame();
   }
@@ -213,7 +268,17 @@ public:
   void buildGuiFrame()
   {
     ImGui::Begin("Controls");
-    ImGui::SliderFloat("Light Intensity", &lightIntensity_, 0.0f, 10.0f);
+
+      ImGui::LabelText("", "General Settings");
+      ImGui::SliderFloat("Light Intensity", &lightIntensity_, 0.0f, 10.0f);
+      ImGui::SliderFloat("Exposure", &exposure_, 0.0f, 10.0f);
+
+      ImGui::Separator();
+
+      ImGui::LabelText("", "Bloom Settings");
+      ImGui::Checkbox("Enable", &bloomEnabled_);
+      ImGui::SliderFloat("Bloom Treshold", &bloomTreshold_, 0.0f, 10.0f);
+      ImGui::SliderFloat("Blur sigma", &blurSigma_, 0.0f, 10.0f);
     ImGui::End();
   }
 
@@ -221,12 +286,25 @@ private:
   frame_buffer_handle_t frameBuffer_;
   render_target_handle_t renderTarget_;  
   render::gpu_buffer_t lightBuffer_;
+    
+
+  bool bloomEnabled_;
+  material_handle_t bloomMaterial_;
+  material_handle_t blendMaterial_;
+  frame_buffer_handle_t bloomFBO_;
+  render_target_handle_t bloomRenderTarget_;
+  frame_buffer_handle_t brightColorsRenderTarget_;
+  render_target_handle_t brightColorsFBO_;
+  float bloomTreshold_;
+  float blurSigma_;
+
 
   camera_handle_t camera_;
   free_camera_t cameraController_;
 
   float lightIntensity_;
   float currentLightIntensity_;
+  float exposure_;
 };
 
 int main()

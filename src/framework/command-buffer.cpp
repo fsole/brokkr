@@ -115,7 +115,7 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
         render::descriptorSetBind(commandBuffer_, pipeline.layout_, 1, &actors[i].descriptorSet_, 1u);
 
         //Material descriptor set
-        render::descriptor_set_t materialDescriptorSet = material->getDescriptorSet();
+        render::descriptor_set_t materialDescriptorSet = material->getDescriptorSet(passName);
         render::descriptorSetBind(commandBuffer_, pipeline.layout_, 2, &materialDescriptorSet, 1u);
 
         //Draw call
@@ -128,7 +128,7 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
   render::commandBufferEnd(commandBuffer_);
 }
 
-void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle_t materialHandle)
+void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle_t materialHandle, const char* pass)
 {
   material_t* material = renderer_->getTextureBlitMaterial();
   if (materialHandle != NULL_HANDLE)
@@ -138,15 +138,21 @@ void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle
 
   if (!material) return;
 
-  material->setTexture("MainTexture", renderer_->getRenderTarget(renderTarget)->getColorBuffer());
+  
+  render::texture_t texture = renderer_->getRenderTarget(renderTarget)->getColorBuffer();  
+  //render::textureChangeLayoutNow(renderer_->getContext(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &texture);
+  material->setTexture("MainTexture", texture);
 
   camera_t* camera = renderer_->getActiveCamera();
   actor_t* actor = renderer_->getActor( renderer_->getRootActor() );
   mesh::mesh_t* mesh = renderer_->getMesh(actor->getMesh() );
 
-  core::render::graphics_pipeline_t pipeline = material->getPipeline("blit", frameBuffer_, renderer_);
+  const char* passName = "blit";
+  if (pass != nullptr)
+    passName = pass;
 
-  render::descriptor_set_t materialDescriptorSet = material->getDescriptorSet();
+  core::render::graphics_pipeline_t pipeline = material->getPipeline(passName, frameBuffer_, renderer_);  
+  render::descriptor_set_t materialDescriptorSet = material->getDescriptorSet(passName);
 
   beginCommandBuffer();
 
