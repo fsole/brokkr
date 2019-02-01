@@ -22,12 +22,12 @@
 * SOFTWARE.
 */
 
+#include "core/mesh.h"
+#include "core/maths.h"
+
 #include "framework/application.h"
 #include "framework/camera.h"
 #include "framework/command-buffer.h"
-
-#include "core/mesh.h"
-#include "core/maths.h"
 
 using namespace bkk::core;
 using namespace bkk::framework;
@@ -50,11 +50,12 @@ public:
    bloomTreshold_(1.0f),
    blurSigma_(3.0f),
    lightIntensity_(7.0f),
-   currentLightIntensity_(1.0f),
    exposure_(1.5f)
   {
-    renderTarget_ = renderer_.renderTargetCreate(1200u, 800u, VK_FORMAT_R32G32B32A32_SFLOAT, true);
-    frameBuffer_ = renderer_.frameBufferCreate(&renderTarget_, 1u);
+    maths::vec4 imageSize(1200.0f, 800.0f, 1.0f/1200.0f, 1.0f/800.0f);    
+
+    sceneRT_ = renderer_.renderTargetCreate((uint32_t)imageSize.x, (uint32_t)imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, true);
+    sceneFBO_ = renderer_.frameBufferCreate(&sceneRT_, 1u);
 
     //create light buffer
     lightBuffer_ = createLightBuffer();
@@ -102,18 +103,18 @@ public:
     
 
     //Bloom resources
-    brightColorsRenderTarget_ = renderer_.renderTargetCreate(1200u, 800u, VK_FORMAT_R32G32B32A32_SFLOAT, false);
-    brightColorsFBO_ = renderer_.frameBufferCreate(&brightColorsRenderTarget_, 1u);
-    bloomRenderTarget_ = renderer_.renderTargetCreate(1200u, 800u, VK_FORMAT_R32G32B32A32_SFLOAT, false);
-    bloomFBO_ = renderer_.frameBufferCreate(&bloomRenderTarget_, 1u);
+    brightPixelsRT_ = renderer_.renderTargetCreate((uint32_t)imageSize.x, (uint32_t)imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+    brightPixelsFBO_ = renderer_.frameBufferCreate(&brightPixelsRT_, 1u);
+    bloomRT_ = renderer_.renderTargetCreate((uint32_t)imageSize.x, (uint32_t)imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+    bloomFBO_ = renderer_.frameBufferCreate(&bloomRT_, 1u);
     shader_handle_t bloomShader = renderer_.shaderCreate("../framework-test/bloom.shader");
     bloomMaterial_ = renderer_.materialCreate(bloomShader);
+    renderer_.getMaterial(bloomMaterial_)->setProperty("globals.imageSize", &imageSize);
     shader_handle_t blendShader = renderer_.shaderCreate("../framework-test/blend.shader");
     blendMaterial_ = renderer_.materialCreate(blendShader);
 
-
     //create camera
-    camera_ = renderer_.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, 1200.0f / 800.0f, 0.1f, 100.0f));
+    camera_ = renderer_.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x/imageSize.y, 0.1f, 100.0f));
     cameraController_.setCameraHandle(camera_, &renderer_);
   }
   
@@ -136,9 +137,8 @@ public:
       nullptr, sizeof(light_t)*lightCount + sizeof(maths::vec4), nullptr,
       &lightBuffer );
     
-    
     render::gpuBufferUpdate(context, &lightCount, 0u, sizeof(int), &lightBuffer);
-    render::gpuBufferUpdate(context, &currentLightIntensity_, sizeof(int), sizeof(float), &lightBuffer);
+    render::gpuBufferUpdate(context, &lightIntensity_, sizeof(int), sizeof(float), &lightBuffer);
     render::gpuBufferUpdate(context, lights.data(), sizeof(maths::vec4), lightCount * sizeof(light_t), &lightBuffer);
 
     return lightBuffer;
@@ -153,28 +153,24 @@ public:
       {
         case window::key_e::KEY_UP:
         case 'w':
-        {
           cameraController_.Move(0.0f, -delta);
           break;
-        }
+
         case window::key_e::KEY_DOWN:
         case 's':
-        {
           cameraController_.Move(0.0f, delta);
           break;
-        }
+
         case window::key_e::KEY_LEFT:
         case 'a':
-        {
           cameraController_.Move(-delta, 0.0f);
           break;
-        }
+
         case window::key_e::KEY_RIGHT:
         case 'd':
-        {
           cameraController_.Move(delta, 0.0f);
           break;
-        }
+
         default:
           break;
       }
@@ -184,9 +180,7 @@ public:
   void onMouseMove(const maths::vec2& mousePos, const maths::vec2 &mouseDeltaPos)
   {
     if (getMousePressedButton() == window::MOUSE_RIGHT)
-    {
-      cameraController_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
-    }
+      cameraController_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);    
   }
 
   void onQuit() 
@@ -196,68 +190,53 @@ public:
 
   void render()
   {
-    if (currentLightIntensity_ != lightIntensity_)
-    {
-      currentLightIntensity_ = lightIntensity_;
-      render::gpuBufferUpdate(getRenderContext(), &currentLightIntensity_, sizeof(int), sizeof(float), &lightBuffer_);
-    }
-
     beginFrame();
 
+    //Render scene
     renderer_.setupCamera(camera_);
-
-    //Render opaque objects to an offscreen render target
     actor_t* visibleActors = nullptr;
-    int count = renderer_.getVisibleActors(camera_, &visibleActors);
-    
-    command_buffer_t renderScene(&renderer_, frameBuffer_);
+    int count = renderer_.getVisibleActors(camera_, &visibleActors);    
+    command_buffer_t renderScene(&renderer_, sceneFBO_);
     renderScene.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderScene.render(visibleActors, count, "OpaquePass");
     renderScene.submit();
     renderScene.release();
 
-
-    material_t* blendMaterial = renderer_.getMaterial(blendMaterial_);
-    blendMaterial->setProperty("globals.exposure", exposure_);
-
     if (bloomEnabled_)
     {
       material_t* bloomMaterial = renderer_.getMaterial(bloomMaterial_);
       bloomMaterial->setProperty("globals.bloomTreshold", bloomTreshold_);
-      bloomMaterial->setProperty("globals.blurSigma", blurSigma_);
-      maths::vec4 imageSize(1200.0f, 800.0f, 1.0f / 1200.0f, 1.0f / 800.0f);
-      bloomMaterial->setProperty("globals.imageSize", &imageSize);
+      bloomMaterial->setProperty("globals.blurSigma", blurSigma_);      
       
-      //Extract bright colors
-      command_buffer_t extractBrightPixels = command_buffer_t(&renderer_, brightColorsFBO_, &renderScene);
+      //Extract bright pixels
+      command_buffer_t extractBrightPixels = command_buffer_t(&renderer_, brightPixelsFBO_, &renderScene);
       extractBrightPixels.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-      extractBrightPixels.blit(renderTarget_ , bloomMaterial_, "extractBrightColors" );
+      extractBrightPixels.blit(sceneRT_ , bloomMaterial_, "extractBrightPixels" );
       extractBrightPixels.submit();
       extractBrightPixels.release();
-
       
-      //Blur  
+      //Blur bright pixels render target
       command_buffer_t blur = command_buffer_t(&renderer_, bloomFBO_, &extractBrightPixels);
       blur.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-      blur.blit(brightColorsRenderTarget_, bloomMaterial_, "blur");
+      blur.blit(brightPixelsRT_, bloomMaterial_, "blur");
       blur.submit();
       blur.release();
 
-      //Blend blurred bloom with scene
+      //Blend blurred bloom and scene render targets
       material_t* blendMaterial = renderer_.getMaterial(blendMaterial_); 
-      blendMaterial->setTexture("bloomBlur", renderer_.getRenderTarget(bloomRenderTarget_)->getColorBuffer());
+      blendMaterial->setTexture("bloomBlur", renderer_.getRenderTarget(bloomRT_)->getColorBuffer());
       command_buffer_t blitToBackbuffer = command_buffer_t(&renderer_, bkk::core::NULL_HANDLE, &blur);
       blitToBackbuffer.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-      blitToBackbuffer.blit(renderTarget_, blendMaterial_, "blend" );
+      blitToBackbuffer.blit(sceneRT_, blendMaterial_, "blend" );
       blitToBackbuffer.submit();
       blitToBackbuffer.release();      
     }
     else
     {
-      //Copy scene render to the back buffer
+      //Copy scene render target to the back buffer
       command_buffer_t blitToBackbuffer = command_buffer_t(&renderer_);
       blitToBackbuffer.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-      blitToBackbuffer.blit(renderTarget_, blendMaterial_);
+      blitToBackbuffer.blit(sceneRT_, blendMaterial_);
       blitToBackbuffer.submit();
       blitToBackbuffer.release();
     }
@@ -268,42 +247,42 @@ public:
   void buildGuiFrame()
   {
     ImGui::Begin("Controls");
+    ImGui::LabelText("", "General Settings");
+    ImGui::SliderFloat("Light Intensity", &lightIntensity_, 0.0f, 10.0f);
+    ImGui::SliderFloat("Exposure", &exposure_, 0.0f, 10.0f);
 
-      ImGui::LabelText("", "General Settings");
-      ImGui::SliderFloat("Light Intensity", &lightIntensity_, 0.0f, 10.0f);
-      ImGui::SliderFloat("Exposure", &exposure_, 0.0f, 10.0f);
+    ImGui::Separator();
 
-      ImGui::Separator();
-
-      ImGui::LabelText("", "Bloom Settings");
-      ImGui::Checkbox("Enable", &bloomEnabled_);
-      ImGui::SliderFloat("Bloom Treshold", &bloomTreshold_, 0.0f, 10.0f);
-      ImGui::SliderFloat("Blur sigma", &blurSigma_, 0.0f, 10.0f);
+    ImGui::LabelText("", "Bloom Settings");
+    ImGui::Checkbox("Enable", &bloomEnabled_);
+    ImGui::SliderFloat("Bloom Treshold", &bloomTreshold_, 0.0f, 10.0f);
+    ImGui::SliderFloat("Blur sigma", &blurSigma_, 0.0f, 10.0f);
     ImGui::End();
+
+    //Set properties
+    renderer_.getMaterial(blendMaterial_)->setProperty("globals.exposure", exposure_);
+    render::gpuBufferUpdate(getRenderContext(), &lightIntensity_, sizeof(int), sizeof(float), &lightBuffer_);
   }
 
 private:
-  frame_buffer_handle_t frameBuffer_;
-  render_target_handle_t renderTarget_;  
+  frame_buffer_handle_t sceneFBO_;
+  render_target_handle_t sceneRT_;  
   render::gpu_buffer_t lightBuffer_;
-    
 
   bool bloomEnabled_;
   material_handle_t bloomMaterial_;
   material_handle_t blendMaterial_;
   frame_buffer_handle_t bloomFBO_;
-  render_target_handle_t bloomRenderTarget_;
-  frame_buffer_handle_t brightColorsRenderTarget_;
-  render_target_handle_t brightColorsFBO_;
+  render_target_handle_t bloomRT_;
+  frame_buffer_handle_t brightPixelsRT_;
+  render_target_handle_t brightPixelsFBO_;
   float bloomTreshold_;
   float blurSigma_;
-
 
   camera_handle_t camera_;
   free_camera_t cameraController_;
 
   float lightIntensity_;
-  float currentLightIntensity_;
   float exposure_;
 };
 

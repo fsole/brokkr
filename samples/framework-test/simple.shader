@@ -79,7 +79,6 @@
 				}
 				
 				color = vec4( c, 1.0);
-				//color = vec4( pow(c,vec3(1.0 / 2.2)), 1.0);
 			}			
 		</FragmentShader>
 	

@@ -13,7 +13,7 @@
 	</Resources>
 	
 	
-	<Pass Name="extractBrightColors">
+	<Pass Name="extractBrightPixels">
 		<ZWrite Value="Off" />
 		<ZTest Value="Off" />
 		
