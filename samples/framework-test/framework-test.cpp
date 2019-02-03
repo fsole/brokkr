@@ -112,6 +112,8 @@ public:
     renderer_.getMaterial(bloomMaterial_)->setProperty("globals.imageSize", &imageSize);
     shader_handle_t blendShader = renderer_.shaderCreate("../framework-test/blend.shader");
     blendMaterial_ = renderer_.materialCreate(blendShader);
+    material_t* blendMaterial = renderer_.getMaterial(blendMaterial_);
+    blendMaterial->setTexture("bloomBlur", renderer_.getRenderTarget(bloomRT_)->getColorBuffer());
 
     //create camera
     camera_ = renderer_.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x/imageSize.y, 0.1f, 100.0f));
@@ -223,8 +225,6 @@ public:
       blur.release();
 
       //Blend blurred bloom and scene render targets
-      material_t* blendMaterial = renderer_.getMaterial(blendMaterial_); 
-      blendMaterial->setTexture("bloomBlur", renderer_.getRenderTarget(bloomRT_)->getColorBuffer());
       command_buffer_t blitToBackbuffer = command_buffer_t(&renderer_, bkk::core::NULL_HANDLE, &blur);
       blitToBackbuffer.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blitToBackbuffer.blit(sceneRT_, blendMaterial_, "blend" );
