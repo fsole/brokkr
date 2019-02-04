@@ -2404,6 +2404,20 @@ void render::frameBufferCreate(const context_t& context, uint32_t width, uint32_
 
   vkCreateFramebuffer(context.device_, &framebufferCreateInfo, nullptr, &frameBuffer->handle_);
 
+  //No clear render pass
+  render::render_pass_t::subpass_t noclearSubpass;
+  std::vector<render_pass_t::attachment_t> noclearAttachments(renderPass.attachmentCount_);
+  for (uint32_t i(0); i < renderPass.attachmentCount_; ++i)
+  {
+    noclearAttachments[i] = renderPass.attachment_[i];
+    noclearAttachments[i].loadOp_ = VK_ATTACHMENT_LOAD_OP_LOAD;
+
+    if(noclearAttachments[i].format_ == context.swapChain_.depthStencil_.format_ )
+      noclearSubpass.depthStencilAttachmentIndex_ = i;
+    else
+      noclearSubpass.colorAttachmentIndex_.push_back(i);
+  }
+  render::renderPassCreate(context, noclearAttachments.data(), (uint32_t)noclearAttachments.size(), &noclearSubpass, 1u, nullptr, 0u, &frameBuffer->renderPassNoClear_);
   frameBuffer->renderPass_ = renderPass;
   frameBuffer->width_ = width;
   frameBuffer->height_ = height;
@@ -2413,6 +2427,7 @@ void render::frameBufferCreate(const context_t& context, uint32_t width, uint32_
 void render::frameBufferDestroy(const context_t& context, frame_buffer_t* frameBuffer)
 {
   vkDestroyFramebuffer(context.device_, frameBuffer->handle_, nullptr);
+  renderPassDestroy(context, &frameBuffer->renderPassNoClear_);
 }
 
 
@@ -2482,8 +2497,11 @@ void render::commandBufferRenderPassBegin(const context_t& context, const frame_
   renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 
   renderPassBeginInfo.renderArea.extent = { frameBuffer->width_ , frameBuffer->height_ };
-  renderPassBeginInfo.renderPass = frameBuffer->renderPass_.handle_;
 
+  
+  renderPassBeginInfo.renderPass = frameBuffer->renderPass_.handle_;
+  if (clearValues == nullptr)
+    renderPassBeginInfo.renderPass = frameBuffer->renderPassNoClear_.handle_;
   renderPassBeginInfo.pClearValues = clearValues;
   renderPassBeginInfo.clearValueCount = clearValuesCount;
 

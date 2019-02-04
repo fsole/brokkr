@@ -138,10 +138,12 @@ void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle
 
   if (!material) return;
 
-  
-  render::texture_t texture = renderer_->getRenderTarget(renderTarget)->getColorBuffer();  
-  //render::textureChangeLayoutNow(renderer_->getContext(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &texture);
-  material->setTexture("MainTexture", texture);
+  if (renderTarget != core::NULL_HANDLE)
+  {
+    render::texture_t texture = renderer_->getRenderTarget(renderTarget)->getColorBuffer();
+    //render::textureChangeLayoutNow(renderer_->getContext(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &texture);
+    material->setTexture("MainTexture", texture);
+  }
 
   camera_t* camera = renderer_->getActiveCamera();
   actor_t* actor = renderer_->getActor( renderer_->getRootActor() );

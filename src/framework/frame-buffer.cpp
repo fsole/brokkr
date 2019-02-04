@@ -24,7 +24,7 @@ frame_buffer_t::frame_buffer_t(render_target_handle_t* renderTargets, uint32_t t
   renderTargets_ = new render_target_handle_t[targetCount];
   memcpy(renderTargets_, renderTargets, sizeof(render_target_handle_t)*targetCount);
 
-  std::vector<render::render_pass_t::attachment_t> attachments(targetCount);  
+  std::vector<render::render_pass_t::attachment_t> attachments(targetCount);
   std::vector<VkImageView> imageViews(targetCount);  
   render::render_pass_t::subpass_t subpass;
   width_ = height_ = 0;
@@ -45,9 +45,7 @@ frame_buffer_t::frame_buffer_t(render_target_handle_t* renderTargets, uint32_t t
     attachments[i].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
     attachments[i].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[i].samples_ = VK_SAMPLE_COUNT_1_BIT;
-
     subpass.colorAttachmentIndex_.push_back(i);
-
     imageViews[i] = target->getColorBuffer().imageView_;
     if (target->hasDepthBuffer())
     {
@@ -60,6 +58,7 @@ frame_buffer_t::frame_buffer_t(render_target_handle_t* renderTargets, uint32_t t
       depthAttachment.loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
       depthAttachment.samples_ = VK_SAMPLE_COUNT_1_BIT;
       attachments.push_back(depthAttachment);
+
       subpass.depthStencilAttachmentIndex_ = targetCount;
       imageViews.push_back(depthBuffer.imageView_);
     }
@@ -69,7 +68,7 @@ frame_buffer_t::frame_buffer_t(render_target_handle_t* renderTargets, uint32_t t
   frameBuffer_ = {};
 
   render::context_t& context = renderer->getContext();
-  render::renderPassCreate(context, attachments.data(), (uint32_t)attachments.size(), &subpass, 1u, nullptr, 0u, &renderPass_);
+  render::renderPassCreate(context, attachments.data(), (uint32_t)attachments.size(), &subpass, 1u, nullptr, 0u, &renderPass_);  
   render::frameBufferCreate(context, width_, height_, renderPass_, imageViews.data(), &frameBuffer_);
 }
 

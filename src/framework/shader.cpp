@@ -85,8 +85,16 @@ static void deserializeBufferDescription(pugi::xml_node resourceNode, uint32_t b
 static void deserializeTextureDescription(pugi::xml_node resourceNode, uint32_t binding, texture_desc_t* textureDesc)
 {
   textureDesc->name_ = resourceNode.attribute("Name").value();
-  textureDesc->type_ = texture_desc_t::TEXTURE_2D;
   textureDesc->binding_ = binding;
+
+  if (strcmp(resourceNode.attribute("Type").value(), "texture2D") == 0)
+  {
+    textureDesc->type_ = texture_desc_t::TEXTURE_2D;
+  }
+  else if (strcmp(resourceNode.attribute("Type").value(), "textureCube") == 0)
+  {
+    textureDesc->type_ = texture_desc_t::TEXTURE_CUBE;
+  }
 }
 
 static void fieldDescriptionToGLSL(const buffer_desc_t& bufferDesc, const buffer_desc_t::field_desc_t& fieldDesc, std::string& code )
@@ -306,7 +314,16 @@ static void generateGlslHeader(const std::vector<texture_desc_t>& textures,
   {
     generatedCode += "layout(set=2, binding=";
     generatedCode += intToString(textures[i].binding_);
-    generatedCode += ") uniform sampler2D ";
+
+    if (textures[i].type_ == texture_desc_t::TEXTURE_2D)
+    {
+      generatedCode += ") uniform sampler2D ";
+    }
+    else if (textures[i].type_ == texture_desc_t::TEXTURE_CUBE)
+    {
+      generatedCode += ") uniform samplerCube ";
+    }
+
     generatedCode += textures[i].name_;
     generatedCode += ";\n";
   }
@@ -446,7 +463,8 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
           deserializeBufferDescription(resourceNode, binding, &bufferDesc);
           buffers_.push_back(bufferDesc);
         }
-        else if (strcmp(resourceTypeAttr, "texture2D") == 0)
+        else if (strcmp(resourceTypeAttr, "texture2D")   == 0 || 
+                 strcmp(resourceTypeAttr, "textureCube") == 0 )
         {
           texture_desc_t textureDesc;
           deserializeTextureDescription(resourceNode, binding, &textureDesc);

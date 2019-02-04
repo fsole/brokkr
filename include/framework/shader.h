@@ -25,6 +25,7 @@ namespace bkk
       enum type_e {
         TEXTURE_1D,
         TEXTURE_2D,
+        TEXTURE_CUBE,
         TEXTURE_ARRAY,
         TYPE_COUNT
       };

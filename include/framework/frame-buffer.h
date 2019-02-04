@@ -25,10 +25,12 @@ namespace bkk
         uint32_t getHeight() const { return height_; }
         uint32_t getTargetCount() const { return targetCount_; }
         core::render::render_pass_t getRenderPass() { return renderPass_; }
+        core::render::render_pass_t getRenderPassNoClear() { return renderPassNoClear_; }
         core::render::frame_buffer_t getFrameBuffer() { return frameBuffer_; }
 
       private:
         core::render::render_pass_t renderPass_;
+        core::render::render_pass_t renderPassNoClear_;
         core::render::frame_buffer_t frameBuffer_;
 
         uint32_t width_;

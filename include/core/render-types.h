@@ -409,6 +409,7 @@ namespace bkk
         uint32_t height_;
 
         render_pass_t renderPass_;
+        render_pass_t renderPassNoClear_;
       };
 
       struct combined_image_sampler_count { combined_image_sampler_count(uint32_t count) :data_(count) {} uint32_t data_; };
