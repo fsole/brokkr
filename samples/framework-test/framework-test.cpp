@@ -49,24 +49,26 @@ public:
    cameraController_(maths::vec3(0.0f, 4.0f, 12.0f), maths::vec2(0.1f, 0.0f), 1.0f, 0.01f),
    bloomEnabled_(true),
    bloomTreshold_(1.0f),
-   lightIntensity_(7.0f),
+   lightIntensity_(1.0f),
    exposure_(1.5f)
   {
     maths::uvec2 imageSize(1200u, 800u);
 
+    //create scene framebuffer
     sceneRT_ = renderer_.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, true);
     sceneFBO_ = renderer_.frameBufferCreate(&sceneRT_, 1u);
 
     //create light buffer
     lightBuffer_ = createLightBuffer();
 
-    //create shaders
-    shader_handle_t shader = renderer_.shaderCreate("../framework-test/simple.shader");
-
-    //skybox cubemap
+    //Load environment map
     image::image2D_t cubemapImage = {};
     image::load("../resources/Circus_Backstage_3k.hdr", true, &cubemapImage);
     render::textureCubemapCreateFromEquirectangularImage(getRenderContext(), cubemapImage, 2046u, true, &skybox_);
+    render::diffuseConvolution(getRenderContext(), skybox_, 64u, &irradianceMap_);
+    render::specularConvolution(getRenderContext(), skybox_, 256u, 4u, &specularMap_);
+    render::brdfConvolution(getRenderContext(), 512u, &brdfLut_);
+
     shader_handle_t skyboxShader = renderer_.shaderCreate("../../shaders/sky-box.shader");
     skyboxMaterial_ = renderer_.materialCreate(skyboxShader);
     renderer_.getMaterial(skyboxMaterial_)->setTexture("CubeMap", skybox_);
@@ -78,25 +80,38 @@ public:
     mesh_handle_t plane = renderer_.addMesh(mesh::unitQuad(getRenderContext()));
 
     //create materials
+    shader_handle_t shader = renderer_.shaderCreate("../framework-test/pbr.shader");
     material_handle_t material0 = renderer_.materialCreate(shader);
     material_t* materialPtr = renderer_.getMaterial(material0);
-    materialPtr->setProperty("globals.diffuseColor", maths::vec4(1.0f, 0.0f, 0.0f, 1.0f));
-    materialPtr->setProperty("globals.specularColor", maths::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-    materialPtr->setProperty("globals.shininess", 100.0f);
+    materialPtr->setProperty("globals.albedo", maths::vec3(0.1f, 0.1f, 0.1f));
+    materialPtr->setProperty("globals.F0", maths::vec3(0.9f, 0.9f, 0.9f));
+    materialPtr->setProperty("globals.roughness", 0.15f);
+    materialPtr->setProperty("globals.metallic", 0.8f);
+    materialPtr->setTexture("irradianceMap", irradianceMap_);
+    materialPtr->setTexture("specularMap", specularMap_);
+    materialPtr->setTexture("brdfLUT", brdfLut_);
     materialPtr->setBuffer("lights", lightBuffer_);
 
     material_handle_t material1 = renderer_.materialCreate(shader);
     materialPtr = renderer_.getMaterial(material1);
-    materialPtr->setProperty("globals.diffuseColor", maths::vec4(0.0f, 0.0f, 1.0f, 1.0f));
-    materialPtr->setProperty("globals.specularColor", maths::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-    materialPtr->setProperty("globals.shininess", 100.0f);
+    materialPtr->setProperty("globals.albedo", maths::vec3(0.5f, 0.5f, 0.5f));
+    materialPtr->setProperty("globals.F0", maths::vec3(0.6f, 0.6f, 0.6f));
+    materialPtr->setProperty("globals.roughness", 0.3f);
+    materialPtr->setProperty("globals.metallic", 0.3f);
+    materialPtr->setTexture("irradianceMap", irradianceMap_);
+    materialPtr->setTexture("specularMap", specularMap_);
+    materialPtr->setTexture("brdfLUT", brdfLut_);
     materialPtr->setBuffer("lights", lightBuffer_);
 
     material_handle_t material2 = renderer_.materialCreate(shader);
     materialPtr = renderer_.getMaterial(material2);
-    materialPtr->setProperty("globals.diffuseColor", maths::vec4(0.5f, 0.5f, 0.5f, 1.0f));
-    materialPtr->setProperty("globals.specularColor", maths::vec4(1.0f, 1.0f, 1.0f, 1.0f));
-    materialPtr->setProperty("globals.shininess", 100.0f);
+    materialPtr->setProperty("globals.albedo", maths::vec3(0.1f, 0.1f, 0.1f));
+    materialPtr->setProperty("globals.F0", maths::vec3(0.0f, 0.0f, 0.0f));
+    materialPtr->setProperty("globals.roughness", 1.0f);
+    materialPtr->setProperty("globals.metallic", 0.0f);
+    materialPtr->setTexture("irradianceMap", irradianceMap_);
+    materialPtr->setTexture("specularMap", specularMap_);
+    materialPtr->setTexture("brdfLUT", brdfLut_);
     materialPtr->setBuffer("lights", lightBuffer_);
 
     //create actors
@@ -109,7 +124,6 @@ public:
     transform = maths::createTransform(maths::vec3(0.0f, -1.0f, 0.0f), maths::vec3(20.0f, 20.0f, 20.0f), maths::quaternionFromAxisAngle(maths::vec3(1, 0, 0), maths::degreeToRadian(90.0f)) );
     renderer_.actorCreate("plane", plane, material2, transform);
     
-
     //Bloom resources
     brightPixelsRT_ = renderer_.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
     brightPixelsFBO_ = renderer_.frameBufferCreate(&brightPixelsRT_, 1u);
@@ -198,6 +212,9 @@ public:
   {
     render::gpuBufferDestroy(getRenderContext(), nullptr, &lightBuffer_);
     render::textureDestroy(getRenderContext(), &skybox_);
+    render::textureDestroy(getRenderContext(), &irradianceMap_);
+    render::textureDestroy(getRenderContext(), &specularMap_);
+    render::textureDestroy(getRenderContext(), &brdfLut_);
   }
 
   void render()
@@ -292,6 +309,9 @@ private:
   render::gpu_buffer_t lightBuffer_;
   material_handle_t skyboxMaterial_;
   render::texture_t skybox_;
+  render::texture_t irradianceMap_;
+  render::texture_t specularMap_;
+  render::texture_t brdfLut_;
 
   bool bloomEnabled_;
   material_handle_t bloomMaterial_;
