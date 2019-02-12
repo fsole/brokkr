@@ -34,9 +34,9 @@ namespace bkk
 {
   namespace core
   {
-    struct transform_manager_t
+    class transform_manager_t
     {
-
+    public:
       handle_t createTransform(const maths::mat4& transform);
       bool destroyTransform(handle_t id);
 
@@ -55,12 +55,13 @@ namespace bkk
       //Sorts transform by hierarchy level
       void sortTransforms();
 
-      packed_freelist_t<maths::mat4> transform_;    ///< Local transforms
-      std::vector<handle_t> parent_;  ///< Parent of each transform
-      std::vector<maths::mat4> world_;     ///< World transforms
+      packed_freelist_t<maths::mat4> transform_;
+      std::vector<handle_t> parent_;
+      std::vector<maths::mat4> world_;
 
-      bool hierarchy_changed_;                    ///< Flag to indicates that the hierarchy has changed since the last update
+      bool hierarchy_changed_;
     };
-  }//core namespace
-}//bkk namespace
+
+  }//core
+}//bkk
 #endif  //  TRANSFORM_MANAGER_H

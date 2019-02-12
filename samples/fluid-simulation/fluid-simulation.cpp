@@ -380,45 +380,6 @@ class fluid_simulation_sample_t : public framework::application_t
 {
 public:
 
-  struct particle_system_t
-  {
-    f32 deltaTime;
-    s32 particlesToEmit;
-    f32 gravity;
-    f32 particleMaxAge;
-    vec3 emissionVolume;
-    u32 maxParticleCount;
-    vec4 emissionDirection;  //Direction (in local space) and cone angle
-    vec2 scale;
-    vec2 initialVelocity;
-    vec4 boundaries[6];    
-    f32 viscosityCoefficient;
-    f32 pressureCoefficient;
-    f32 smoothingRadius;
-    f32 referenceDensity;
-    vec2 particleMassRange;
-    f32 padding;
-  };
-
-  struct particle_t
-  {
-    vec3 position;
-    f32 scale;
-    vec4 color;
-    vec3 angle;
-    f32 padding;
-  };
-
-  struct particle_state_t
-  {
-    vec3 velocity;
-    f32 age;
-    f32 density;
-    f32 pressure;
-    f32 mass;
-    f32 padding;
-  };
-
   fluid_simulation_sample_t()
     :application_t("SPH Fluid Simulation", 1200u, 800u, 3u),
     camera_(vec3(0.0f, -40.0f, 0.0f), 35.0f, vec2(0.0f, 0.0f), 0.01f),
@@ -454,7 +415,7 @@ public:
     mat4 matrices[2];
     matrices[0] = modelTx_ * camera_.view_;
     matrices[1] = matrices[0] * projectionTx_;
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
       (void*)&matrices, sizeof(matrices),
       nullptr, &globalUnifomBuffer_);
@@ -469,7 +430,7 @@ public:
       particlesState[i].density = 0.0f;
     }
 
-    u32 usage = render::gpu_buffer_t::usage::STORAGE_BUFFER;
+    u32 usage = render::gpu_buffer_t::usage_e::STORAGE_BUFFER;
     render::gpuBufferCreate(context, usage,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
       (void*)particles.data(), sizeof(particle_t)*particleSystem_.maxParticleCount,
@@ -486,8 +447,8 @@ public:
       nullptr, &particleGlobalsBuffer_);
 
     //Create pipeline and descriptor set layouts
-    render::descriptor_binding_t bindings[2] = { { render::descriptor_t::type::UNIFORM_BUFFER, 0u, render::descriptor_t::stage::VERTEX },
-                                                 { render::descriptor_t::type::STORAGE_BUFFER, 1u, render::descriptor_t::stage::VERTEX } };
+    render::descriptor_binding_t bindings[2] = { { render::descriptor_t::type_e::UNIFORM_BUFFER, 0u, render::descriptor_t::stage_e::VERTEX },
+                                                 { render::descriptor_t::type_e::STORAGE_BUFFER, 1u, render::descriptor_t::stage_e::VERTEX } };
 
     render::descriptorSetLayoutCreate(context, bindings, 2u, &descriptorSetLayout_);
     render::pipelineLayoutCreate(context, &descriptorSetLayout_, 1u, nullptr, 0u, &pipelineLayout_);
@@ -507,18 +468,18 @@ public:
     render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
     render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
     render::graphics_pipeline_t::description_t pipelineDesc;
-    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-    pipelineDesc.blendState_.resize(1);
-    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-    pipelineDesc.cullMode_ = VK_CULL_MODE_NONE;
-    pipelineDesc.depthTestEnabled_ = true;
-    pipelineDesc.depthWriteEnabled_ = true;
-    pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
-    pipelineDesc.vertexShader_ = vertexShader_;
-    pipelineDesc.fragmentShader_ = fragmentShader_;
-    render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
+    pipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+    pipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+    pipelineDesc.blendState.resize(1);
+    pipelineDesc.blendState[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode = VK_CULL_MODE_NONE;
+    pipelineDesc.depthTestEnabled = true;
+    pipelineDesc.depthWriteEnabled = true;
+    pipelineDesc.depthTestFunction = VK_COMPARE_OP_LESS_OR_EQUAL;
+    pipelineDesc.vertexShader = vertexShader_;
+    pipelineDesc.fragmentShader = fragmentShader_;
+    render::graphicsPipelineCreate(context, context.swapChain.renderPass, 0u, mesh_.vertexFormat, pipelineLayout_, pipelineDesc, &pipeline_);
 
     initializeCompute();
   }
@@ -671,9 +632,9 @@ public:
     render::context_t& context = getRenderContext();
 
     //Create descriptor layout
-    render::descriptor_binding_t bindings[3] = { { render::descriptor_t::type::STORAGE_BUFFER, 0, render::descriptor_t::stage::COMPUTE },
-                                                 { render::descriptor_t::type::STORAGE_BUFFER, 1, render::descriptor_t::stage::COMPUTE },
-                                                 { render::descriptor_t::type::STORAGE_BUFFER, 2, render::descriptor_t::stage::COMPUTE } };
+    render::descriptor_binding_t bindings[3] = { { render::descriptor_t::type_e::STORAGE_BUFFER, 0, render::descriptor_t::stage_e::COMPUTE },
+                                                 { render::descriptor_t::type_e::STORAGE_BUFFER, 1, render::descriptor_t::stage_e::COMPUTE },
+                                                 { render::descriptor_t::type_e::STORAGE_BUFFER, 2, render::descriptor_t::stage_e::COMPUTE } };
 
     render::descriptorSetLayoutCreate(context, bindings, 3u, &computeDescriptorSetLayout_);
     render::pipelineLayoutCreate(context, &computeDescriptorSetLayout_, 1u, nullptr, 0u, &computePipelineLayout_);
@@ -721,6 +682,45 @@ public:
   }
 
 private:
+
+  struct particle_system_t
+  {
+    f32 deltaTime;
+    s32 particlesToEmit;
+    f32 gravity;
+    f32 particleMaxAge;
+    vec3 emissionVolume;
+    u32 maxParticleCount;
+    vec4 emissionDirection;  //Direction (in local space) and cone angle
+    vec2 scale;
+    vec2 initialVelocity;
+    vec4 boundaries[6];
+    f32 viscosityCoefficient;
+    f32 pressureCoefficient;
+    f32 smoothingRadius;
+    f32 referenceDensity;
+    vec2 particleMassRange;
+    f32 padding;
+  };
+
+  struct particle_t
+  {
+    vec3 position;
+    f32 scale;
+    vec4 color;
+    vec3 angle;
+    f32 padding;
+  };
+
+  struct particle_state_t
+  {
+    vec3 velocity;
+    f32 age;
+    f32 density;
+    f32 pressure;
+    f32 mass;
+    f32 padding;
+  };
 
   particle_system_t particleSystem_;
   render::descriptor_pool_t descriptorPool_;

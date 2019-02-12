@@ -55,8 +55,7 @@ namespace bkk
 
         core::maths::vec2 getMousePosition() { return mouseCurrentPos_; }
         s32 getMousePressedButton() { return mouseButtonPressed_; }
-
-
+        
         //Callbacks
         virtual void onQuit() {}
         virtual void onResize(u32 width, u32 height) {}
@@ -69,10 +68,8 @@ namespace bkk
         void beginFrame();
         void presentFrame();
         
-      protected:
-        framework::renderer_t renderer_;
-
     private:
+        framework::renderer_t renderer_;
         core::window::window_t window_;
         float timeDelta_;
         core::maths::vec2 mouseCurrentPos_;
@@ -84,7 +81,8 @@ namespace bkk
 
         application_t();
     };
-  }
-}
+
+  }//framework
+}//bkk
 
 #endif

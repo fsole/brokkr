@@ -109,14 +109,14 @@ public:
   {
     render::context_t& context = getRenderContext();
             
-    projectionTx_ = perspectiveProjectionMatrix(1.5f, getWindow().width_ / (float)getWindow().height_, 1.0f, 1000.0f);
+    projectionTx_ = perspectiveProjectionMatrix(1.5f, getWindow().width / (float)getWindow().height, 1.0f, 1000.0f);
     modelTx_ = createTransform(vec3(0.0, -17.0, 0.0), VEC3_ONE, QUAT_UNIT);
 
     //Create uniform buffer
     mat4 matrices[2];
     matrices[0] = modelTx_ * camera_.view_;
     matrices[1] = matrices[0] * projectionTx_;
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
                             render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                             (void*)&matrices, sizeof(matrices) ,
                             nullptr, &globalUnifomBuffer_);
@@ -139,9 +139,9 @@ public:
     }
 
     //Create pipeline and descriptor set layouts
-    render::descriptor_binding_t bindings[3] = { render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 0u, render::descriptor_t::stage::VERTEX },
-                                                 render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_BUFFER, 1u, render::descriptor_t::stage::VERTEX }, //Bones transforms
-                                                 render::descriptor_binding_t{ render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2u, render::descriptor_t::stage::FRAGMENT} 
+    render::descriptor_binding_t bindings[3] = { render::descriptor_binding_t{ render::descriptor_t::type_e::UNIFORM_BUFFER, 0u, render::descriptor_t::stage_e::VERTEX },
+                                                 render::descriptor_binding_t{ render::descriptor_t::type_e::STORAGE_BUFFER, 1u, render::descriptor_t::stage_e::VERTEX }, //Bones transforms
+                                                 render::descriptor_binding_t{ render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 2u, render::descriptor_t::stage_e::FRAGMENT}
                                                };
 
     render::descriptorSetLayoutCreate(context, bindings, 3u, &descriptorSetLayout_);
@@ -155,25 +155,25 @@ public:
       render::storage_image_count(0u),
       &descriptorPool_);
 
-    render::descriptor_t descriptors[3] = { render::getDescriptor(globalUnifomBuffer_), render::getDescriptor(animator_.buffer_), render::getDescriptor( texture_) };
+    render::descriptor_t descriptors[3] = { render::getDescriptor(globalUnifomBuffer_), render::getDescriptor(animator_.buffer), render::getDescriptor( texture_) };
     render::descriptorSetCreate(context, descriptorPool_, descriptorSetLayout_, descriptors, &descriptorSet_);
 
     //Create pipeline
     render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
     render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
     render::graphics_pipeline_t::description_t pipelineDesc;
-    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-    pipelineDesc.blendState_.resize(1);
-    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-    pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-    pipelineDesc.depthTestEnabled_ = true;
-    pipelineDesc.depthWriteEnabled_ = true;
-    pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
-    pipelineDesc.vertexShader_ = vertexShader_;
-    pipelineDesc.fragmentShader_ = fragmentShader_;
-    render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
+    pipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+    pipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+    pipelineDesc.blendState.resize(1);
+    pipelineDesc.blendState[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode = VK_CULL_MODE_BACK_BIT;
+    pipelineDesc.depthTestEnabled = true;
+    pipelineDesc.depthWriteEnabled = true;
+    pipelineDesc.depthTestFunction = VK_COMPARE_OP_LESS_OR_EQUAL;
+    pipelineDesc.vertexShader = vertexShader_;
+    pipelineDesc.fragmentShader = fragmentShader_;
+    render::graphicsPipelineCreate(context, context.swapChain.renderPass, 0u, mesh_.vertexFormat, pipelineLayout_, pipelineDesc, &pipeline_);
 
     buildCommandBuffers();
   }

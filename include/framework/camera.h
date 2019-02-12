@@ -33,12 +33,13 @@ namespace bkk
 {
   namespace framework
   {
-    struct actor_t;
+    class actor_t;
     class renderer_t;
     typedef core::handle_t camera_handle_t;
 
-    struct camera_t
+    class camera_t
     {
+    public:
       enum projection_mode_e
       {
         PERSPECTIVE_PROJECTION = 0,
@@ -52,15 +53,21 @@ namespace bkk
       void cull(actor_t* actors, uint32_t actorCount);
       void destroy(renderer_t* renderer);
 
-      
+      uint32_t getVisibleActors(actor_t** actors);
+      core::render::gpu_buffer_t getUniformBuffer() { return uniformBuffer_; }
+      core::render::descriptor_set_t getDescriptorSet() { return descriptorSet_; }
+      void setWorldToViewMatrix(core::maths::mat4& m);
+      void setViewToWorldMatrix(core::maths::mat4& m);
+
+    private:
       struct uniforms_t
       {
         core::maths::mat4 worldToView_;
         core::maths::mat4 viewToWorld_;
         core::maths::mat4 projection_;
         core::maths::mat4 projectionInverse_;
-      };
-      uniforms_t uniforms_;
+      }uniforms_;
+
       core::render::gpu_buffer_t uniformBuffer_ = {};
       core::render::descriptor_set_t descriptorSet_ = {};
 
@@ -70,7 +77,6 @@ namespace bkk
       float nearPlane_;
       float farPlane_;
       
-
       uint32_t visibleActorsCount_ = 0u;
       actor_t* visibleActors_ = nullptr;
     };
@@ -91,7 +97,6 @@ namespace bkk
       f32 rotationSensitivity_;
     };
 
-
     struct free_camera_t
     {
       free_camera_t();
@@ -111,11 +116,10 @@ namespace bkk
 
       camera_handle_t cameraHandle_;
       renderer_t* renderer_;
-
     };
-  }
 
-}
+  }//framework
+}//bkk
 
 
 #endif

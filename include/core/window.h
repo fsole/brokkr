@@ -108,67 +108,67 @@ namespace bkk
 
       struct event_t
       {
-        event_t(event_type_e type) :type_(type) {}
-        event_type_e type_;
+        event_t(event_type_e type):type(type) {}
+        event_type_e type;
       };
 
       struct event_unknow_t : public event_t
       {
-        event_unknow_t() :event_t(EVENT_UNKNOW) {}
+        event_unknow_t():event_t(EVENT_UNKNOW) {}
       };
 
       struct event_quit_t : public event_t
       {
-        event_quit_t() :event_t(EVENT_QUIT) {}
+        event_quit_t():event_t(EVENT_QUIT) {}
       };
 
       struct event_resize_t : public event_t
       {
-        event_resize_t() :event_t(EVENT_RESIZE) {};
-        uint32_t width_;
-        uint32_t height_;
+        event_resize_t():event_t(EVENT_RESIZE) {};
+        uint32_t width;
+        uint32_t height;
       };
 
       struct event_key_t : public event_t
       {
-        event_key_t() :event_t(EVENT_KEY) {};
-        key_e keyCode_;
-        bool pressed_;
+        event_key_t():event_t(EVENT_KEY) {};
+        key_e keyCode;
+        bool pressed;
       };
 
       struct event_mouse_move_t : public event_t
       {
-        event_mouse_move_t() :event_t(EVENT_MOUSE_MOVE) {};
-        uint32_t x_;
-        uint32_t y_;
+        event_mouse_move_t():event_t(EVENT_MOUSE_MOVE) {};
+        uint32_t x;
+        uint32_t y;
       };
 
       struct event_mouse_button_t : public event_t
       {
         event_mouse_button_t() :event_t(EVENT_MOUSE_BUTTON) {};
         event_mouse_button_t(mouse_button_e button, uint32_t x, uint32_t y, bool pressed)
-          :event_t(EVENT_MOUSE_BUTTON),
-          button_(button),
-          x_(x),
-          y_(y),
-          pressed_(pressed) {};
+        :event_t(EVENT_MOUSE_BUTTON),
+         button(button),
+         x(x),
+         y(y),
+         pressed(pressed) {};
 
-        mouse_button_e button_;
-        uint32_t x_;
-        uint32_t y_;
-        bool pressed_;
+        mouse_button_e button;
+        uint32_t x;
+        uint32_t y;
+        bool pressed;
       };
 
       struct window_t
       {
-        uint32_t width_;
-        uint32_t height_;
-        char title_[128];
+        uint32_t width;
+        uint32_t height;
+        char title[128];
 
 #ifdef WIN32
-        HINSTANCE instance_;
-        HWND handle_;
-        event_t* activeEvent_;
+        HINSTANCE instance;
+        HWND handle;
+        event_t* activeEvent;
 #else
         xcb_connection_t* connection_ = nullptr;
         xcb_screen_t* screen_ = nullptr;
@@ -177,12 +177,12 @@ namespace bkk
 #endif
 
         //Events
-        event_quit_t quitEvent_;
-        event_resize_t resizeEvent_;
-        event_key_t keyEvent_;
-        event_mouse_move_t mouseMoveEvent_;
-        event_mouse_button_t mouseButtonEvent_;
-        event_unknow_t unknowEvent_;
+        event_quit_t quitEvent;
+        event_resize_t resizeEvent;
+        event_key_t keyEvent;
+        event_mouse_move_t mouseMoveEvent;
+        event_mouse_button_t mouseButtonEvent;
+        event_unknow_t unknowEvent;
       };
 
       void create(const char* title, unsigned int width, unsigned int height, window_t* window);
@@ -190,7 +190,7 @@ namespace bkk
       event_t* getNextEvent(window_t* window);
       void destroy(window_t* window);
 
-    } //window namespace 
-  }//core namespace
-}//bkk namespace
+    } //window 
+  }//core
+}//bkk
 #endif // WINDOW_H

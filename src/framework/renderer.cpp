@@ -47,7 +47,7 @@ renderer_t::renderer_t()
 
 renderer_t::~renderer_t()
 {
-  if (context_.instance_ != VK_NULL_HANDLE)
+  if (context_.instance != VK_NULL_HANDLE)
   {
     actor_t* actors;
     uint32_t count = actors_.getData(&actors);
@@ -110,7 +110,7 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
 {
   render::contextCreate(title, "", window, imageCount, &context_);
 
-  render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
+  render::descriptor_binding_t binding = { render::descriptor_t::type_e::UNIFORM_BUFFER, 0, render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT };
   render::descriptorSetLayoutCreate(context_, &binding, 1u, &globalsDescriptorSetLayout_);
   render::descriptorSetLayoutCreate(context_, &binding, 1u, &objectDescriptorSetLayout_);
 
@@ -253,8 +253,7 @@ int renderer_t::getVisibleActors(camera_handle_t cameraHandle, actor_t** actors)
   if (!camera)
     return 0;
 
-  *actors = camera->visibleActors_;
-  return camera->visibleActorsCount_;
+  return camera->getVisibleActors(actors);
 }
 
 void renderer_t::presentFrame()
@@ -276,8 +275,8 @@ void renderer_t::update()
   uint32_t actorCount = actors_.getData(&actors);
   for (u32 i(0); i < actorCount; ++i)
   {
-    render::gpuBufferUpdate(context_, transformManager_.getWorldMatrix(actors[i].transform_), 
-                                  0, sizeof(maths::mat4), &actors[i].uniformBuffer_);
+    render::gpuBufferUpdate(context_, transformManager_.getWorldMatrix(actors[i].getTransform()), 
+                                  0, sizeof(maths::mat4), &actors[i].getUniformBuffer());
   }
 
   buildPresentationCommandBuffers();
@@ -285,11 +284,11 @@ void renderer_t::update()
 
 void renderer_t::createTextureBlitResources()
 {
-  render_target_handle_t colorBufferHandle = renderTargetCreate(context_.swapChain_.imageWidth_, context_.swapChain_.imageHeight_, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+  render_target_handle_t colorBufferHandle = renderTargetCreate(context_.swapChain.imageWidth, context_.swapChain.imageHeight, VK_FORMAT_R32G32B32A32_SFLOAT, false);
   backBuffer_ = frameBufferCreate(&colorBufferHandle, 1u);
 
   fullScreenQuad_ = mesh::fullScreenQuad(context_);
-  render::descriptor_binding_t binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
+  render::descriptor_binding_t binding = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage_e::FRAGMENT };
   render::descriptorSetLayoutCreate(context_, &binding, 1u, &textureBlitDescriptorSetLayout_);
 
   render::descriptor_t descriptor = render::getDescriptor(renderTargets_.get(colorBufferHandle)->getColorBuffer());
@@ -301,17 +300,17 @@ void renderer_t::createTextureBlitResources()
 
   //Create pipeline
   render::graphics_pipeline_t::description_t pipelineDesc = {};
-  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context_.swapChain_.imageWidth_, (float)context_.swapChain_.imageHeight_, 0.0f, 1.0f };
-  pipelineDesc.scissorRect_ = { { 0,0 },{ context_.swapChain_.imageWidth_,context_.swapChain_.imageHeight_ } };
-  pipelineDesc.blendState_.resize(1);
-  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-  pipelineDesc.depthTestEnabled_ = false;
-  pipelineDesc.depthWriteEnabled_ = false;
-  pipelineDesc.vertexShader_ = textureBlitVertexShader_;
-  pipelineDesc.fragmentShader_ = textureBlitFragmentShader_;
-  render::graphicsPipelineCreate(context_, context_.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_, textureBlitPipelineLayout_, pipelineDesc, &presentationPipeline_);
+  pipelineDesc.viewPort = { 0.0f, 0.0f, (float)context_.swapChain.imageWidth, (float)context_.swapChain.imageHeight, 0.0f, 1.0f };
+  pipelineDesc.scissorRect = { { 0,0 },{ context_.swapChain.imageWidth,context_.swapChain.imageHeight } };
+  pipelineDesc.blendState.resize(1);
+  pipelineDesc.blendState[0].colorWriteMask = 0xF;
+  pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+  pipelineDesc.cullMode = VK_CULL_MODE_BACK_BIT;
+  pipelineDesc.depthTestEnabled = false;
+  pipelineDesc.depthWriteEnabled = false;
+  pipelineDesc.vertexShader = textureBlitVertexShader_;
+  pipelineDesc.fragmentShader = textureBlitFragmentShader_;
+  render::graphicsPipelineCreate(context_, context_.swapChain.renderPass, 0u, fullScreenQuad_.vertexFormat, textureBlitPipelineLayout_, pipelineDesc, &presentationPipeline_);
 
   renderComplete_ = render::semaphoreCreate(context_);
 }

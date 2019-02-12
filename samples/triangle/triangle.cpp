@@ -70,14 +70,14 @@ bkk::core::mesh::mesh_t createTriangleGeometry(const bkk::core::render::context_
   static const uint32_t indices[3] = {0,1,2};
 
   static bkk::core::render::vertex_attribute_t attributes[2];
-  attributes[0].format_ = bkk::core::render::vertex_attribute_t::format::VEC3;
-  attributes[0].offset_ = 0;
-  attributes[0].stride_ = sizeof(Vertex);
-  attributes[0].instanced_ = false;
-  attributes[1].format_ = bkk::core::render::vertex_attribute_t::format::VEC2;;
-  attributes[1].offset_ = offsetof(Vertex, uv);
-  attributes[1].stride_ = sizeof(Vertex);
-  attributes[1].instanced_ = false;
+  attributes[0].format = bkk::core::render::vertex_attribute_t::format_e::VEC3;
+  attributes[0].offset = 0;
+  attributes[0].stride = sizeof(Vertex);
+  attributes[0].instanced = false;
+  attributes[1].format = bkk::core::render::vertex_attribute_t::format_e::VEC2;;
+  attributes[1].offset = offsetof(Vertex, uv);
+  attributes[1].stride = sizeof(Vertex);
+  attributes[1].instanced = false;
 
   bkk::core::mesh::mesh_t mesh;
   bkk::core::mesh::create( context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &mesh );
@@ -121,19 +121,19 @@ int main()
   
   //Create pipeline
   bkk::core::render::graphics_pipeline_t::description_t pipelineDesc = {};
-  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-  pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-  pipelineDesc.blendState_.resize(1);
-  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-  pipelineDesc.depthTestEnabled_ = false;
-  pipelineDesc.depthWriteEnabled_ = false;
-  pipelineDesc.vertexShader_ = vertexShader;
-  pipelineDesc.fragmentShader_ = fragmentShader;
+  pipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+  pipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+  pipelineDesc.blendState.resize(1);
+  pipelineDesc.blendState[0].colorWriteMask = 0xF;
+  pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+  pipelineDesc.cullMode = VK_CULL_MODE_BACK_BIT;
+  pipelineDesc.depthTestEnabled = false;
+  pipelineDesc.depthWriteEnabled = false;
+  pipelineDesc.vertexShader = vertexShader;
+  pipelineDesc.fragmentShader = fragmentShader;
 
   bkk::core::render::graphics_pipeline_t pipeline;
-  bkk::core::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
+  bkk::core::render::graphicsPipelineCreate(context, context.swapChain.renderPass, 0u, mesh.vertexFormat, pipelineLayout, pipelineDesc, &pipeline);
 
   //Build command buffers
   buildCommandBuffers(context, mesh, pipeline);
@@ -144,14 +144,14 @@ int main()
     bkk::core::window::event_t* event = nullptr;
     while( (event = bkk::core::window::getNextEvent( &window )) )
     {
-      if( event->type_ == bkk::core::window::EVENT_QUIT )
+      if( event->type == bkk::core::window::EVENT_QUIT )
       {
         quit = true;
       }
-      else if( event->type_ == bkk::core::window::EVENT_RESIZE )
+      else if( event->type == bkk::core::window::EVENT_RESIZE )
       {
         bkk::core::window::event_resize_t* resizeEvent = (bkk::core::window::event_resize_t*)event;
-        bkk::core::render::swapchainResize( &context, resizeEvent->width_, resizeEvent->height_ );
+        bkk::core::render::swapchainResize( &context, resizeEvent->width, resizeEvent->height );
         buildCommandBuffers(context, mesh, pipeline);
       }
     }

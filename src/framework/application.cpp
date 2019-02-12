@@ -40,7 +40,7 @@ struct application_t::frame_counter_t
   void init(core::window::window_t* window, uint32_t displayInterval = 1000u)
   {
     window_ = window;
-    memcpy( windowTitle_, window->title_, strlen(window->title_) );
+    memcpy( windowTitle_, window->title, strlen(window->title) );
     timePrev_ = core::timer::getCurrent();
     displayInterval_ = displayInterval;
 
@@ -112,7 +112,7 @@ void application_t::loop()
     core::window::event_t* event = nullptr;
     while ((event = core::window::getNextEvent(&window_)))
     {
-      switch (event->type_)
+      switch (event->type)
       {
       case core::window::EVENT_QUIT:
       {
@@ -122,26 +122,26 @@ void application_t::loop()
       case core::window::EVENT_RESIZE:
       {
         core::window::event_resize_t* resizeEvent = (core::window::event_resize_t*)event;
-        core::render::swapchainResize(&renderer_.getContext(), resizeEvent->width_, resizeEvent->height_);
-        onResize(resizeEvent->width_, resizeEvent->height_);
+        core::render::swapchainResize(&renderer_.getContext(), resizeEvent->width, resizeEvent->height);
+        onResize(resizeEvent->width, resizeEvent->height);
         break;
       }
       case core::window::EVENT_KEY:
       {
         core::window::event_key_t* keyEvent = (core::window::event_key_t*)event;
-        onKeyEvent(keyEvent->keyCode_, keyEvent->pressed_);
+        onKeyEvent(keyEvent->keyCode, keyEvent->pressed);
         break;
       }
       case core::window::EVENT_MOUSE_BUTTON:
       {
         core::window::event_mouse_button_t* buttonEvent = (core::window::event_mouse_button_t*)event;
 
-        mouseButtonPressed_ = buttonEvent->pressed_ ? buttonEvent->button_ : -1;
+        mouseButtonPressed_ = buttonEvent->pressed ? buttonEvent->button : -1;
         core::maths::vec2 prevPos = mouseCurrentPos_;
-        mouseCurrentPos_ = core::maths::vec2((float)buttonEvent->x_, (float)buttonEvent->y_);
-        onMouseButton(buttonEvent->button_, buttonEvent->pressed_, mouseCurrentPos_, mousePrevPos_);
+        mouseCurrentPos_ = core::maths::vec2((float)buttonEvent->x, (float)buttonEvent->y);
+        onMouseButton(buttonEvent->button, buttonEvent->pressed, mouseCurrentPos_, mousePrevPos_);
 
-        framework::gui::updateMouseButton(buttonEvent->button_, buttonEvent->pressed_);
+        framework::gui::updateMouseButton(buttonEvent->button, buttonEvent->pressed);
         framework::gui::updateMousePosition(mouseCurrentPos_.x, mouseCurrentPos_.y);
 
         mousePrevPos_ = prevPos;
@@ -151,7 +151,7 @@ void application_t::loop()
       {
         core::window::event_mouse_move_t* moveEvent = (core::window::event_mouse_move_t*)event;
         core::maths::vec2 prevPos = mouseCurrentPos_;
-        mouseCurrentPos_ = core::maths::vec2((float)moveEvent->x_, (float)moveEvent->y_);
+        mouseCurrentPos_ = core::maths::vec2((float)moveEvent->x, (float)moveEvent->y);
         onMouseMove(mouseCurrentPos_, mouseCurrentPos_ - mousePrevPos_ );
 
         framework::gui::updateMousePosition(mouseCurrentPos_.x, mouseCurrentPos_.y);
@@ -193,8 +193,8 @@ renderer_t& application_t::getRenderer() { return renderer_;  }
 core::render::context_t& application_t::getRenderContext() { return renderer_.getContext(); }
 core::window::window_t& application_t::getWindow() { return window_; }
 f32 application_t::getTimeDelta() { return timeDelta_; }
-core::maths::uvec2 application_t::getWindowSize() { return core::maths::uvec2(window_.width_, window_.height_); }
-f32 application_t::getAspectRatio() { return (window_.width_ / (float)window_.height_); }
+core::maths::uvec2 application_t::getWindowSize() { return core::maths::uvec2(window_.width, window_.height); }
+f32 application_t::getAspectRatio() { return (window_.width / (float)window_.height); }
 
 
   

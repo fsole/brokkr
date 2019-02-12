@@ -11,7 +11,6 @@ namespace bkk
   namespace framework
   {
     class renderer_t;
-
     typedef bkk::core::handle_t render_target_handle_t;
 
     class render_target_t
@@ -24,8 +23,7 @@ namespace bkk
                       renderer_t* renderer);
 
       void destroy(renderer_t* renderer);
-
-      
+            
       core::render::texture_t getColorBuffer() const { return target_; }
       core::render::depth_stencil_buffer_t getDepthBuffer() const { return depthStencilBuffer_; }
       bool hasDepthBuffer() const { return hasDepthBuffer_; }
@@ -44,8 +42,8 @@ namespace bkk
       core::render::texture_t target_;
       core::render::depth_stencil_buffer_t depthStencilBuffer_;      
     };
-  }
 
-}
+  }//framework
+}//bkk
 
 #endif

@@ -55,9 +55,9 @@ namespace bkk
       void presentFrame(context_t* context, VkSemaphore* waitSemaphore = nullptr, uint32_t waitSemaphoreCount = 0u);
 
       //Shaders
-      bool shaderCreateFromSPIRV(const context_t& context, shader_t::type type, const char* file, shader_t* shader);
-      bool shaderCreateFromGLSL(const context_t& context, shader_t::type type, const char* file, shader_t* shader);
-      bool shaderCreateFromGLSLSource(const context_t& context, shader_t::type type, const char* glslSource, shader_t* shader);
+      bool shaderCreateFromSPIRV(const context_t& context, shader_t::type_e type, const char* file, shader_t* shader);
+      bool shaderCreateFromGLSL(const context_t& context, shader_t::type_e type, const char* file, shader_t* shader);
+      bool shaderCreateFromGLSLSource(const context_t& context, shader_t::type_e type, const char* glslSource, shader_t* shader);
       void shaderDestroy(const context_t& context, shader_t* shader);
 
       //GPU memory
@@ -150,7 +150,7 @@ namespace bkk
       //@TODO Allow the user to specify command buffer pool from which command buffers are allocated (Command buffers are allocated from global command buffer pool from the context)
       void commandBufferCreate(const context_t& context, VkCommandBufferLevel level,
         VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t waitSemaphoreCount,
-        VkSemaphore* signalSemaphore, uint32_t signalSemaphoreCount, command_buffer_t::type type,
+        VkSemaphore* signalSemaphore, uint32_t signalSemaphoreCount, command_buffer_t::type_e type,
         command_buffer_t* commandBuffer);
 
       void commandBufferDestroy(const context_t& context, command_buffer_t* commandBuffer);
@@ -189,7 +189,7 @@ namespace bkk
       void brdfConvolution(const context_t& context, uint32_t size, texture_t* brdfConvolution);
       void waitForAllCommandBuffersToFinish(const context_t& context);
 
-    } //render namespace
-  }//core namespace
-}//bkk namespace
+    } //render
+  }//core
+}//bkk
 #endif // RENDER_H

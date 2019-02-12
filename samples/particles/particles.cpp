@@ -247,63 +247,29 @@ class particles_sample_t : public framework::application_t
 {
 public:
 
-  struct particle_system_t
-  {
-    f32 deltaTime_;
-    s32 particlesToEmit_;
-    f32 gravity_;
-    f32 particleMaxAge_;
-    vec3 emissionVolume_;
-    u32 maxParticleCount_;
-    vec4 emissionDirection_;  //Direction (in local space) and cone angle
-    vec2 scale_;
-    vec2 initialVelocity_;
-    vec3 angularVelocity_;
-    f32 padding_;
-  };
-
-  struct particle_t
-  {
-    vec3 position;
-    f32 scale;    
-    vec4 color;
-    vec3 angle;
-    f32 padding;
-  };
-
-  struct particle_state_t
-  {
-    vec4 velocity;
-    vec4 angularSpeed;
-    float age;
-    vec3 padding;
-  };
-
   particles_sample_t()
   :application_t("Particles", 1200u, 800u, 3u),
    camera_(vec3(0.0f,20.0f,0.0f), 50.0f, vec2(0.0f, 0.0f), 0.01f),
    emissionRate_(10000)
   {
-    particleSystem_.maxParticleCount_ = 75000;
-    particleSystem_.particleMaxAge_ = 6.0f;
-    particleSystem_.emissionVolume_ = vec3(0.0f, 0.0f, 0.0f);
-    particleSystem_.gravity_ = 9.8f;
-    particleSystem_.emissionDirection_ = vec4(0.0f,1.0f,0.0f,0.25f );
-    particleSystem_.scale_ = vec2(0.5, 1.0);
-    particleSystem_.initialVelocity_ = vec2(30.0f, 30.0f);
-    particleSystem_.angularVelocity_ = vec3(0.1f, 0.1f, 0.1f);
+    particleSystem_.maxParticleCount = 75000;
+    particleSystem_.particleMaxAge = 6.0f;
+    particleSystem_.emissionVolume = vec3(0.0f, 0.0f, 0.0f);
+    particleSystem_.gravity = 9.8f;
+    particleSystem_.emissionDirection = vec4(0.0f,1.0f,0.0f,0.25f );
+    particleSystem_.scale = vec2(0.5, 1.0);
+    particleSystem_.initialVelocity = vec2(30.0f, 30.0f);
+    particleSystem_.angularVelocity = vec3(0.1f, 0.1f, 0.1f);
     
-
     render::context_t& context = getRenderContext();
-
-    projectionTx_ = perspectiveProjectionMatrix(1.5f, getWindow().width_ / (float)getWindow().height_, 1.0f, 1000.0f);
+    projectionTx_ = perspectiveProjectionMatrix(1.5f, getWindow().width / (float)getWindow().height, 1.0f, 1000.0f);
     modelTx_ = createTransform(vec3(0.0, 0.0, 0.0), VEC3_ONE, QUAT_UNIT);
 
     //Create uniform buffer
     mat4 matrices[2];
     matrices[0] = modelTx_ * camera_.view_;
     matrices[1] = matrices[0] * projectionTx_;
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
       (void*)&matrices, sizeof(matrices),
       nullptr, &globalUnifomBuffer_);
@@ -316,23 +282,23 @@ public:
     image::unload(&image);
 
     //Create particle buffers
-    std::vector<particle_t> particles(particleSystem_.maxParticleCount_);
-    std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
-    for (u32 i(0); i < particleSystem_.maxParticleCount_; ++i)
+    std::vector<particle_t> particles(particleSystem_.maxParticleCount);
+    std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount);
+    for (u32 i(0); i < particleSystem_.maxParticleCount; ++i)
     {
       particles[i].scale = 0.0f;
       particlesState[i].age = -1.0f;
     }
 
-    u32 usage = render::gpu_buffer_t::usage::STORAGE_BUFFER;
+    u32 usage = render::gpu_buffer_t::usage_e::STORAGE_BUFFER;
     render::gpuBufferCreate(context, usage,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
-      (void*)particles.data(), sizeof(particle_t)*particleSystem_.maxParticleCount_,
+      (void*)particles.data(), sizeof(particle_t)*particleSystem_.maxParticleCount,
       nullptr, &particleBuffer_);
 
     render::gpuBufferCreate(context, usage,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
-      (void*)particlesState.data(), sizeof(particle_state_t)*particleSystem_.maxParticleCount_,
+      (void*)particlesState.data(), sizeof(particle_state_t)*particleSystem_.maxParticleCount,
       nullptr, &particleStateBuffer_);
 
     render::gpuBufferCreate(context, usage,
@@ -341,9 +307,9 @@ public:
       nullptr, &particleGlobalsBuffer_);
     
     //Create pipeline and descriptor set layouts
-    render::descriptor_binding_t bindings[3] = { { render::descriptor_t::type::UNIFORM_BUFFER, 0u, render::descriptor_t::stage::VERTEX },
-                                                 { render::descriptor_t::type::STORAGE_BUFFER, 1u, render::descriptor_t::stage::VERTEX },
-                                                 { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2u, render::descriptor_t::stage::FRAGMENT } };
+    render::descriptor_binding_t bindings[3] = { { render::descriptor_t::type_e::UNIFORM_BUFFER, 0u, render::descriptor_t::stage_e::VERTEX },
+                                                 { render::descriptor_t::type_e::STORAGE_BUFFER, 1u, render::descriptor_t::stage_e::VERTEX },
+                                                 { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 2u, render::descriptor_t::stage_e::FRAGMENT } };
 
     render::descriptorSetLayoutCreate(context, bindings, 3u, &descriptorSetLayout_);
     render::pipelineLayoutCreate(context, &descriptorSetLayout_, 1u, nullptr, 0u, &pipelineLayout_);
@@ -363,18 +329,18 @@ public:
     render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gVertexShaderSource, &vertexShader_);
     render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gFragmentShaderSource, &fragmentShader_);
     render::graphics_pipeline_t::description_t pipelineDesc;
-    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-    pipelineDesc.blendState_.resize(1);
-    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-    pipelineDesc.cullMode_ = VK_CULL_MODE_NONE;
-    pipelineDesc.depthTestEnabled_ = true;
-    pipelineDesc.depthWriteEnabled_ = true;
-    pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
-    pipelineDesc.vertexShader_ = vertexShader_;
-    pipelineDesc.fragmentShader_ = fragmentShader_;
-    render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
+    pipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+    pipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+    pipelineDesc.blendState.resize(1);
+    pipelineDesc.blendState[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode = VK_CULL_MODE_NONE;
+    pipelineDesc.depthTestEnabled = true;
+    pipelineDesc.depthWriteEnabled = true;
+    pipelineDesc.depthTestFunction = VK_COMPARE_OP_LESS_OR_EQUAL;
+    pipelineDesc.vertexShader = vertexShader_;
+    pipelineDesc.fragmentShader = fragmentShader_;
+    render::graphicsPipelineCreate(context, context.swapChain.renderPass, 0u, mesh_.vertexFormat, pipelineLayout_, pipelineDesc, &pipeline_);
 
     buildCommandBuffers();
     initializeCompute();
@@ -422,19 +388,19 @@ public:
     render::gpuBufferUpdate(context, (void*)&matrices, 0, sizeof(matrices), &globalUnifomBuffer_);
     render::presentFrame(&context);
 
-    particleSystem_.deltaTime_ = minValue(0.033f, getTimeDelta() / 1000.0f);
+    particleSystem_.deltaTime = minValue(0.033f, getTimeDelta() / 1000.0f);
     static float particlesToEmit = 0.0f;
-    particleSystem_.particlesToEmit_ = 0;
-    particlesToEmit += emissionRate_ * particleSystem_.deltaTime_;
+    particleSystem_.particlesToEmit = 0;
+    particlesToEmit += emissionRate_ * particleSystem_.deltaTime;
     if (particlesToEmit > 1.0f)
     {
-      particleSystem_.particlesToEmit_ = (s32)particlesToEmit;
+      particleSystem_.particlesToEmit = (s32)particlesToEmit;
       particlesToEmit = 0.0f;
     }
 
     render::gpuBufferUpdate(context, (void*)&particleSystem_, 0u, 8u, &particleGlobalsBuffer_);
     render::commandBufferSubmit(context, computeCommandBuffer_);
-    //vkQueueWaitIdle(context.computeQueue_.handle_);
+    //vkQueueWaitIdle(context.computeQueue_.handle);
   }
 
   void onResize(u32 width, u32 height)
@@ -466,12 +432,12 @@ public:
       {
         render::context_t& context = getRenderContext();
         render::contextFlush(context);
-        std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount_);
-        for (u32 i(0); i < particleSystem_.maxParticleCount_; ++i)
+        std::vector<particle_state_t> particlesState(particleSystem_.maxParticleCount);
+        for (u32 i(0); i < particleSystem_.maxParticleCount; ++i)
         {
           particlesState[i].age = -1.0f;
         }
-        render::gpuBufferUpdate(context, particlesState.data(), 0u, sizeof(particle_state_t)* particleSystem_.maxParticleCount_, &particleStateBuffer_);
+        render::gpuBufferUpdate(context, particlesState.data(), 0u, sizeof(particle_state_t)* particleSystem_.maxParticleCount, &particleStateBuffer_);
         break;
       }
       default:
@@ -503,7 +469,7 @@ public:
       render::beginPresentationCommandBuffer(context, i, clearValues);
       render::graphicsPipelineBind(commandBuffers[i], pipeline_);
       render::descriptorSetBind(commandBuffers[i], pipelineLayout_, 0, &descriptorSet_, 1u);
-      mesh::drawInstanced(commandBuffers[i], particleSystem_.maxParticleCount_, nullptr, 0u, mesh_);
+      mesh::drawInstanced(commandBuffers[i], particleSystem_.maxParticleCount, nullptr, 0u, mesh_);
       render::endPresentationCommandBuffer(context, i);
     }
   }
@@ -513,9 +479,9 @@ public:
     render::context_t& context = getRenderContext();
 
     //Create descriptor layout
-    render::descriptor_binding_t bindings[3] = { { render::descriptor_t::type::STORAGE_BUFFER, 0, render::descriptor_t::stage::COMPUTE },
-                                                 { render::descriptor_t::type::STORAGE_BUFFER, 1, render::descriptor_t::stage::COMPUTE },
-                                                 { render::descriptor_t::type::STORAGE_BUFFER, 2, render::descriptor_t::stage::COMPUTE } };
+    render::descriptor_binding_t bindings[3] = { { render::descriptor_t::type_e::STORAGE_BUFFER, 0, render::descriptor_t::stage_e::COMPUTE },
+                                                 { render::descriptor_t::type_e::STORAGE_BUFFER, 1, render::descriptor_t::stage_e::COMPUTE },
+                                                 { render::descriptor_t::type_e::STORAGE_BUFFER, 2, render::descriptor_t::stage_e::COMPUTE } };
 
     render::descriptorSetLayoutCreate(context, bindings, 3u, &computeDescriptorSetLayout_);
     render::pipelineLayoutCreate(context, &computeDescriptorSetLayout_, 1u, nullptr, 0u, &computePipelineLayout_);
@@ -533,12 +499,44 @@ public:
     render::commandBufferBegin(context, computeCommandBuffer_);
     render::computePipelineBind(computeCommandBuffer_, computePipeline_);
     render::descriptorSetBind(computeCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);
-    u32 groupSizeX = (particleSystem_.maxParticleCount_ + 63) / 64;
+    u32 groupSizeX = (particleSystem_.maxParticleCount + 63) / 64;
     render::computeDispatch(computeCommandBuffer_, groupSizeX, 1, 1);
     render::commandBufferEnd(computeCommandBuffer_);
   }
 
 private:
+
+  struct particle_system_t
+  {
+    f32 deltaTime;
+    s32 particlesToEmit;
+    f32 gravity;
+    f32 particleMaxAge;
+    vec3 emissionVolume;
+    u32 maxParticleCount;
+    vec4 emissionDirection;  //Direction (in local space) and cone angle
+    vec2 scale;
+    vec2 initialVelocity;
+    vec3 angularVelocity;
+    f32 padding;
+  };
+
+  struct particle_t
+  {
+    vec3 position;
+    f32 scale;
+    vec4 color;
+    vec3 angle;
+    f32 padding;
+  };
+
+  struct particle_state_t
+  {
+    vec4 velocity;
+    vec4 angularSpeed;
+    float age;
+    vec3 padding;
+  };
 
   particle_system_t particleSystem_;
   

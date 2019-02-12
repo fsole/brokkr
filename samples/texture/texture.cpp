@@ -119,7 +119,7 @@ int main()
 
   //Create descriptor layout
   bkk::core::render::descriptor_set_layout_t descriptorSetLayout;
-  bkk::core::render::descriptor_binding_t binding = { bkk::core::render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, bkk::core::render::descriptor_t::stage::FRAGMENT };
+  bkk::core::render::descriptor_binding_t binding = { bkk::core::render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 0, bkk::core::render::descriptor_t::stage_e::FRAGMENT };
   bkk::core::render::descriptorSetLayoutCreate(context, &binding, 1u, &descriptorSetLayout);
 
   //Create pipeline layout
@@ -138,19 +138,19 @@ int main()
 
   //Create pipeline
   bkk::core::render::graphics_pipeline_t::description_t pipelineDesc = {};
-  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-  pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-  pipelineDesc.blendState_.resize(1);
-  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-  pipelineDesc.depthTestEnabled_ = false;
-  pipelineDesc.depthWriteEnabled_ = false;
-  pipelineDesc.vertexShader_ = vertexShader;
-  pipelineDesc.fragmentShader_ = fragmentShader;
+  pipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+  pipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+  pipelineDesc.blendState.resize(1);
+  pipelineDesc.blendState[0].colorWriteMask = 0xF;
+  pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+  pipelineDesc.cullMode = VK_CULL_MODE_BACK_BIT;
+  pipelineDesc.depthTestEnabled = false;
+  pipelineDesc.depthWriteEnabled = false;
+  pipelineDesc.vertexShader = vertexShader;
+  pipelineDesc.fragmentShader = fragmentShader;
 
   bkk::core::render::graphics_pipeline_t pipeline;
-  bkk::core::render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, mesh.vertexFormat_, pipelineLayout, pipelineDesc, &pipeline);
+  bkk::core::render::graphicsPipelineCreate(context, context.swapChain.renderPass, 0u, mesh.vertexFormat, pipelineLayout, pipelineDesc, &pipeline);
 
   //Build command buffers
   buildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
@@ -161,14 +161,14 @@ int main()
     bkk::core::window::event_t* event = nullptr;
     while ((event = bkk::core::window::getNextEvent(&window)))
     {
-      if (event->type_ == bkk::core::window::EVENT_QUIT)
+      if (event->type == bkk::core::window::EVENT_QUIT)
       {
         quit = true;
       }
-      else if (event->type_ == bkk::core::window::EVENT_RESIZE)
+      else if (event->type == bkk::core::window::EVENT_RESIZE)
       {
         bkk::core::window::event_resize_t* resizeEvent = (bkk::core::window::event_resize_t*)event;
-        swapchainResize(&context, resizeEvent->width_, resizeEvent->height_);
+        swapchainResize(&context, resizeEvent->width, resizeEvent->height);
         buildCommandBuffers(context, mesh, &descriptorSet, &pipelineLayout, &pipeline);
       }
     }

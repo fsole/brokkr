@@ -32,12 +32,9 @@ namespace bkk
   namespace core
   {
     template <typename T>
-    struct dynamic_array_t
+    class dynamic_array_t
     {
-      uint32_t size_;
-      uint32_t capacity_;
-      T* data_;
-
+    public:
       dynamic_array_t()
         :size_(0u),
         capacity_(0u),
@@ -223,8 +220,12 @@ namespace bkk
         }
       }
 
+      uint32_t size_;
+      uint32_t capacity_;
+      T* data_;
+
     };
-  }
-}
+  }//core
+}//bkk
 
 #endif

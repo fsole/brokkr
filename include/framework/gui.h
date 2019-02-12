@@ -44,8 +44,9 @@ namespace bkk
       void updateMousePosition(float x, float y);
       void updateMouseButton(uint32_t button, bool pressed);
     }
-  }
-}
+
+  }//framework
+}//bkk
 
 #endif
 

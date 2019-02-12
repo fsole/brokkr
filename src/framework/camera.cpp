@@ -58,10 +58,10 @@ void camera_t::update(renderer_t* renderer)
   maths::invertMatrix(uniforms_.viewToWorld_, uniforms_.worldToView_);
 
   render::context_t& context = renderer->getContext();
-  if (uniformBuffer_.handle_ == VK_NULL_HANDLE)
+  if (uniformBuffer_.handle == VK_NULL_HANDLE)
   {
     //Create buffer
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
       (void*)&uniforms_, sizeof(uniforms_),
       nullptr, &uniformBuffer_);
 
@@ -95,11 +95,26 @@ void camera_t::cull(actor_t* actors, uint32_t actorCount)
 void camera_t::destroy(renderer_t* renderer)
 {
   render::context_t& context = renderer->getContext();
-  if (uniformBuffer_.handle_ != VK_NULL_HANDLE)
+  if (uniformBuffer_.handle != VK_NULL_HANDLE)
   {
     render::gpuBufferDestroy(context, nullptr, &uniformBuffer_);
     render::descriptorSetDestroy(context, &descriptorSet_);
   }
+}
+
+uint32_t camera_t::getVisibleActors(actor_t** actors)
+{
+  *actors = visibleActors_;
+  return visibleActorsCount_;
+}
+
+void camera_t::setWorldToViewMatrix(maths::mat4& m)
+{
+  uniforms_.worldToView_ = m;
+}
+void camera_t::setViewToWorldMatrix(maths::mat4& m)
+{
+  uniforms_.viewToWorld_ = m;
 }
 
 orbiting_camera_t::orbiting_camera_t()
@@ -198,8 +213,8 @@ void free_camera_t::Update()
     camera_t* camera = renderer_->getCamera(cameraHandle_);
     if (camera)
     {
-      camera->uniforms_.viewToWorld_ = tx_;
-      camera->uniforms_.worldToView_ = view_;
+      camera->setViewToWorldMatrix( tx_ );
+      camera->setWorldToViewMatrix( view_ );
     }
   }
 }

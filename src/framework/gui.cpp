@@ -106,7 +106,7 @@ static void createFontsTexture(const render::context_t& context)
 
 
   render::texture2DCreate(context, &image, 1u, render::texture_sampler_t(), &gGuiContext.fontTexture_);
-  io.Fonts->TexID = (void *)(intptr_t)gGuiContext.fontTexture_.image_;
+  io.Fonts->TexID = (void *)(intptr_t)gGuiContext.fontTexture_.image;
 }
 
 void gui::init(const render::context_t& context)
@@ -125,7 +125,7 @@ void gui::init(const render::context_t& context)
       render::storage_image_count(10u),
       &gGuiContext.descriptorPool_);
 
-    render::descriptor_binding_t binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
+    render::descriptor_binding_t binding = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
     render::descriptorSetLayoutCreate(context, &binding, 1u, &gGuiContext.descriptorSetLayout_);
 
     render::descriptor_t descriptor = render::getDescriptor(gGuiContext.fontTexture_);
@@ -140,31 +140,31 @@ void gui::init(const render::context_t& context)
     //Create vertex format (vec2, vec2, vec4)
     uint32_t vertexSize = 2 * sizeof(maths::vec2) + sizeof(maths::vec4);
     render::vertex_attribute_t attributes[3] = {
-      { render::vertex_attribute_t::format::VEC2, IM_OFFSETOF(ImDrawVert, pos), sizeof(ImDrawVert), false },
-      { render::vertex_attribute_t::format::VEC2, IM_OFFSETOF(ImDrawVert, uv),  sizeof(ImDrawVert), false },
-      { render::vertex_attribute_t::format::COLOR,IM_OFFSETOF(ImDrawVert, col), sizeof(ImDrawVert), false } };
+      { render::vertex_attribute_t::format_e::VEC2, IM_OFFSETOF(ImDrawVert, pos), sizeof(ImDrawVert), false },
+      { render::vertex_attribute_t::format_e::VEC2, IM_OFFSETOF(ImDrawVert, uv),  sizeof(ImDrawVert), false },
+      { render::vertex_attribute_t::format_e::COLOR,IM_OFFSETOF(ImDrawVert, col), sizeof(ImDrawVert), false } };
     render::vertexFormatCreate(attributes, 3u, &gGuiContext.vertexFormat_);
 
 
     render::graphics_pipeline_t::description_t pipelineDesc = {};
-    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-    pipelineDesc.blendState_.resize(1);
-    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[0].blendEnable = VK_TRUE;
-    pipelineDesc.blendState_[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    pipelineDesc.blendState_[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    pipelineDesc.blendState_[0].colorBlendOp = VK_BLEND_OP_ADD;
-    pipelineDesc.blendState_[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    pipelineDesc.blendState_[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    pipelineDesc.blendState_[0].alphaBlendOp = VK_BLEND_OP_ADD;
-    pipelineDesc.blendState_[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    pipelineDesc.cullMode_ = VK_CULL_MODE_NONE;
-    pipelineDesc.depthTestEnabled_ = false;
-    pipelineDesc.depthWriteEnabled_ = false;
-    pipelineDesc.vertexShader_ = gGuiContext.vertexShader_;
-    pipelineDesc.fragmentShader_ = gGuiContext.fragmentShader_;
-    render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, gGuiContext.vertexFormat_, gGuiContext.pipelineLayout_, pipelineDesc, &gGuiContext.pipeline_);
+    pipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+    pipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+    pipelineDesc.blendState.resize(1);
+    pipelineDesc.blendState[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState[0].blendEnable = VK_TRUE;
+    pipelineDesc.blendState[0].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    pipelineDesc.blendState[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    pipelineDesc.blendState[0].colorBlendOp = VK_BLEND_OP_ADD;
+    pipelineDesc.blendState[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    pipelineDesc.blendState[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    pipelineDesc.blendState[0].alphaBlendOp = VK_BLEND_OP_ADD;
+    pipelineDesc.blendState[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    pipelineDesc.cullMode = VK_CULL_MODE_NONE;
+    pipelineDesc.depthTestEnabled = false;
+    pipelineDesc.depthWriteEnabled = false;
+    pipelineDesc.vertexShader = gGuiContext.vertexShader_;
+    pipelineDesc.fragmentShader = gGuiContext.fragmentShader_;
+    render::graphicsPipelineCreate(context, context.swapChain.renderPass, 0u, gGuiContext.vertexFormat_, gGuiContext.pipelineLayout_, pipelineDesc, &gGuiContext.pipeline_);
 
     gGuiInitialized = true;
   }
@@ -195,7 +195,7 @@ void gui::beginFrame(const render::context_t& context)
 {
   ImGuiIO& io = ImGui::GetIO();
   IM_ASSERT(io.Fonts->IsBuilt());
-  io.DisplaySize = ImVec2((float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_);
+  io.DisplaySize = ImVec2((float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight);
   io.DisplayFramebufferScale = ImVec2(1, 1);
   ImGui::NewFrame();
 }
@@ -215,19 +215,19 @@ void gui::draw(const render::context_t& context, render::command_buffer_t comman
   if (vertex_size == 0 || index_size == 0)
     return;
 
-  if(gGuiContext.vertexBuffer_.memory_.size_ < vertex_size)
+  if(gGuiContext.vertexBuffer_.memory.size < vertex_size)
   {
     render::contextFlush(context);
-    if (gGuiContext.vertexBuffer_.handle_ != VK_NULL_HANDLE)
+    if (gGuiContext.vertexBuffer_.handle != VK_NULL_HANDLE)
       render::gpuBufferDestroy(context, nullptr, &gGuiContext.vertexBuffer_);
 
     render::gpuBufferCreate(context, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, nullptr, vertex_size, nullptr, &gGuiContext.vertexBuffer_);
   }
 
-  if( gGuiContext.indexBuffer_.memory_.size_ < index_size)
+  if( gGuiContext.indexBuffer_.memory.size < index_size)
   {
     render::contextFlush(context);
-    if (gGuiContext.indexBuffer_.handle_ != VK_NULL_HANDLE)
+    if (gGuiContext.indexBuffer_.handle != VK_NULL_HANDLE)
       render::gpuBufferDestroy(context, nullptr, &gGuiContext.indexBuffer_);
 
     render::gpuBufferCreate(context, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, nullptr, index_size, nullptr, &gGuiContext.indexBuffer_);
@@ -247,19 +247,19 @@ void gui::draw(const render::context_t& context, render::command_buffer_t comman
   //Flush buffers
   VkMappedMemoryRange range[2] = {};
   range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-  range[0].memory = gGuiContext.vertexBuffer_.memory_.handle_;
+  range[0].memory = gGuiContext.vertexBuffer_.memory.handle;
   range[0].size = VK_WHOLE_SIZE;
   range[1].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-  range[1].memory = gGuiContext.indexBuffer_.memory_.handle_;
+  range[1].memory = gGuiContext.indexBuffer_.memory.handle;
   range[1].size = VK_WHOLE_SIZE;
-  vkFlushMappedMemoryRanges(context.device_, 2u, range);
+  vkFlushMappedMemoryRanges(context.device, 2u, range);
   render::gpuBufferUnmap(context, gGuiContext.vertexBuffer_);
   render::gpuBufferUnmap(context, gGuiContext.indexBuffer_);
   
-  VkBuffer vertex_buffers[3] = { gGuiContext.vertexBuffer_.handle_,gGuiContext.vertexBuffer_.handle_,gGuiContext.vertexBuffer_.handle_ };
+  VkBuffer vertex_buffers[3] = { gGuiContext.vertexBuffer_.handle,gGuiContext.vertexBuffer_.handle,gGuiContext.vertexBuffer_.handle };
   VkDeviceSize vertex_offsets[3] = {};
-  vkCmdBindVertexBuffers(commandBuffer.handle_, 0, 3, vertex_buffers, vertex_offsets);
-  vkCmdBindIndexBuffer(commandBuffer.handle_, gGuiContext.indexBuffer_.handle_, 0, VK_INDEX_TYPE_UINT16);
+  vkCmdBindVertexBuffers(commandBuffer.handle, 0, 3, vertex_buffers, vertex_offsets);
+  vkCmdBindIndexBuffer(commandBuffer.handle, gGuiContext.indexBuffer_.handle, 0, VK_INDEX_TYPE_UINT16);
 
   gGuiContext.scaleAndOffset_.x = 2.0f / draw_data->DisplaySize.x;
   gGuiContext.scaleAndOffset_.y = 2.0f / draw_data->DisplaySize.y;
@@ -292,10 +292,10 @@ void gui::draw(const render::context_t& context, render::command_buffer_t comman
         scissor.offset.y = (int32_t)(pcmd->ClipRect.y - display_pos.y) > 0 ? (int32_t)(pcmd->ClipRect.y - display_pos.y) : 0;
         scissor.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
         scissor.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y + 1); // FIXME: Why +1 here?
-        vkCmdSetScissor(commandBuffer.handle_, 0, 1, &scissor);
+        vkCmdSetScissor(commandBuffer.handle, 0, 1, &scissor);
 
         // Draw
-        vkCmdDrawIndexed(commandBuffer.handle_, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
+        vkCmdDrawIndexed(commandBuffer.handle, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
       }
       indexOffset += pcmd->ElemCount;
     }

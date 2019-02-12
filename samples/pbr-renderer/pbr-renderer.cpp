@@ -387,52 +387,6 @@ static const char* gPresentationFragmentShaderSource = R"(
 
 struct pbr_renderer_t : public framework::application_t
 {
-  struct light_t
-  {
-    struct uniforms_t
-    {
-      maths::vec4 position_;
-      maths::vec3 color_;
-      float radius_;
-    };
-
-    uniforms_t uniforms_;
-    render::gpu_buffer_t ubo_;
-    render::descriptor_set_t descriptorSet_;
-  };
-
-  struct material_t
-  {
-    struct uniforms_t
-    {
-      vec3 albedo_;
-      float metallic_;
-      vec3 F0_;
-      float roughness_;
-    };
-
-    uniforms_t uniforms_;
-    render::gpu_buffer_t ubo_;
-    render::descriptor_set_t descriptorSet_;
-  };
-
-  struct object_t
-  {
-    core::handle_t mesh_;
-    core::handle_t material_;
-    core::handle_t transform_;
-    render::gpu_buffer_t ubo_;
-    render::descriptor_set_t descriptorSet_;
-  };
-
-  struct scene_uniforms_t
-  {
-    mat4 viewMatrix_;
-    mat4 projectionMatrix_;
-    mat4 projectionInverseMatrix_;
-    vec4 imageSize_;
-  };
-
   pbr_renderer_t()
     :application_t("PBR Renderer", 1200u, 800u, 3u),
     camera_(vec3(0.0f, 9.0f, 5.0f), vec2(0.6f, 0.0f), 1.0f, 0.01f)
@@ -453,8 +407,8 @@ struct pbr_renderer_t : public framework::application_t
 
     //Create vertex format (position + normal)
     uint32_t vertexSize = 2 * sizeof(maths::vec3);
-    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format::VEC3, 0, vertexSize, false },
-                                                 { render::vertex_attribute_t::format::VEC3, sizeof(maths::vec3), vertexSize, false } };
+    render::vertex_attribute_t attributes[2] = { { render::vertex_attribute_t::format_e::VEC3, 0, vertexSize, false },
+                                                 { render::vertex_attribute_t::format_e::VEC3, sizeof(maths::vec3), vertexSize, false } };
     render::vertexFormatCreate(attributes, 2u, &vertexFormat_);
 
     //Load full-screen quad and sphere meshes
@@ -466,10 +420,10 @@ struct pbr_renderer_t : public framework::application_t
     invertMatrix(sceneUniforms_.projectionMatrix_, sceneUniforms_.projectionInverseMatrix_);
     sceneUniforms_.viewMatrix_ = camera_.view_;
     sceneUniforms_.imageSize_ = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER, (void*)&sceneUniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER, (void*)&sceneUniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
 
     //Create global descriptor set (Scene uniforms)   
-    render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
+    render::descriptor_binding_t binding = { render::descriptor_t::type_e::UNIFORM_BUFFER, 0, render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT };
     render::descriptorSetLayoutCreate(context, &binding, 1u, &globalsDescriptorSetLayout_);
     render::descriptor_t descriptor = render::getDescriptor(globalsUbo_);
     render::descriptorSetCreate(context, descriptorPool_, globalsDescriptorSetLayout_, &descriptor, &globalsDescriptorSet_);
@@ -497,10 +451,10 @@ struct pbr_renderer_t : public framework::application_t
 
     //Presentation descriptor set layout and pipeline layout
     render::descriptor_binding_t presentationBindings[4] = {
-      { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX },
-      { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 1, render::descriptor_t::stage::FRAGMENT },
-      { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2, render::descriptor_t::stage::FRAGMENT },
-      { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 3, render::descriptor_t::stage::FRAGMENT }
+      { render::descriptor_t::type_e::UNIFORM_BUFFER, 0, render::descriptor_t::stage_e::VERTEX },
+      { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 1, render::descriptor_t::stage_e::FRAGMENT },
+      { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 2, render::descriptor_t::stage_e::FRAGMENT },
+      { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 3, render::descriptor_t::stage_e::FRAGMENT }
     };
     render::descriptorSetLayoutCreate(context, presentationBindings, 4u, &presentationDescriptorSetLayout_);
     render::pipelineLayoutCreate(context, &presentationDescriptorSetLayout_, 1u, nullptr, 0u, &presentationPipelineLayout_);
@@ -519,17 +473,17 @@ struct pbr_renderer_t : public framework::application_t
     render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gPresentationVertexShaderSource, &presentationVertexShader_);
     render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gPresentationFragmentShaderSource, &presentationFragmentShader_);
     render::graphics_pipeline_t::description_t pipelineDesc = {};
-    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-    pipelineDesc.blendState_.resize(1);
-    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-    pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-    pipelineDesc.depthTestEnabled_ = false;
-    pipelineDesc.depthWriteEnabled_ = false;
-    pipelineDesc.vertexShader_ = presentationVertexShader_;
-    pipelineDesc.fragmentShader_ = presentationFragmentShader_;
-    render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullScreenQuad_.vertexFormat_,
+    pipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+    pipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+    pipelineDesc.blendState.resize(1);
+    pipelineDesc.blendState[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode = VK_CULL_MODE_BACK_BIT;
+    pipelineDesc.depthTestEnabled = false;
+    pipelineDesc.depthWriteEnabled = false;
+    pipelineDesc.vertexShader = presentationVertexShader_;
+    pipelineDesc.fragmentShader = presentationFragmentShader_;
+    render::graphicsPipelineCreate(context, context.swapChain.renderPass, 0u, fullScreenQuad_.vertexFormat,
                                         presentationPipelineLayout_, pipelineDesc, &presentationPipeline_);
 
     initializeOffscreenPass(context, size);
@@ -553,7 +507,7 @@ struct pbr_renderer_t : public framework::application_t
     material.uniforms_.metallic_ = metallic;
     material.uniforms_.F0_ = F0;
     material.uniforms_.roughness_ = roughness;
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
                             &material.uniforms_, sizeof(material_t::uniforms_t),
                             &allocator_, &material.ubo_);
 
@@ -570,7 +524,7 @@ struct pbr_renderer_t : public framework::application_t
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
                             nullptr, sizeof(mat4),
                             &allocator_, &ubo);
 
@@ -596,7 +550,7 @@ struct pbr_renderer_t : public framework::application_t
     light.uniforms_.radius_ = radius;
 
     //Create uniform buffer and descriptor set
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
       &light.uniforms_, sizeof(light_t::uniforms_t),
       &allocator_, &light.ubo_);
 
@@ -778,7 +732,7 @@ struct pbr_renderer_t : public framework::application_t
     render::gpuBufferDestroy(context, &allocator_, &globalsUbo_);
     render::gpuAllocatorDestroy(context, &allocator_);
     render::descriptorPoolDestroy(context, &descriptorPool_);
-    vkDestroySemaphore(context.device_, renderComplete_, nullptr);
+    vkDestroySemaphore(context.device, renderComplete_, nullptr);
   }
 
 private:
@@ -792,51 +746,51 @@ private:
     //Create offscreen render pass (GBuffer + light subpasses)
     renderPass_ = {};
     render::render_pass_t::attachment_t attachments[5];
-    attachments[0].format_ = gBufferRT0_.format_;
-    attachments[0].initialLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[0].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[0].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
-    attachments[0].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachments[0].samples_ = VK_SAMPLE_COUNT_1_BIT;
+    attachments[0].format = gBufferRT0_.format;
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
 
-    attachments[1].format_ = gBufferRT1_.format_;
-    attachments[1].initialLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[1].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[1].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
-    attachments[1].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachments[1].samples_ = VK_SAMPLE_COUNT_1_BIT;
+    attachments[1].format = gBufferRT1_.format;
+    attachments[1].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[1].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
 
-    attachments[2].format_ = gBufferRT2_.format_;
-    attachments[2].initialLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[2].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[2].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
-    attachments[2].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachments[2].samples_ = VK_SAMPLE_COUNT_1_BIT;
+    attachments[2].format = gBufferRT2_.format;
+    attachments[2].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[2].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[2].samples = VK_SAMPLE_COUNT_1_BIT;
 
-    attachments[3].format_ = finalImage_.format_;
-    attachments[3].initialLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[3].finallLayout_ = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[3].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
-    attachments[3].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachments[3].samples_ = VK_SAMPLE_COUNT_1_BIT;
+    attachments[3].format = finalImage_.format;
+    attachments[3].initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[3].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[3].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[3].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[3].samples = VK_SAMPLE_COUNT_1_BIT;
 
-    attachments[4].format_ = depthStencilBuffer_.format_;
-    attachments[4].initialLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    attachments[4].finallLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    attachments[4].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
-    attachments[4].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachments[4].samples_ = VK_SAMPLE_COUNT_1_BIT;
+    attachments[4].format = depthStencilBuffer_.format;
+    attachments[4].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    attachments[4].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    attachments[4].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[4].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[4].samples = VK_SAMPLE_COUNT_1_BIT;
 
     render::render_pass_t::subpass_t subpasses[2];
-    subpasses[0].colorAttachmentIndex_.push_back(0);
-    subpasses[0].colorAttachmentIndex_.push_back(1);
-    subpasses[0].colorAttachmentIndex_.push_back(2);
-    subpasses[0].depthStencilAttachmentIndex_ = 4;
+    subpasses[0].colorAttachmentIndex.push_back(0);
+    subpasses[0].colorAttachmentIndex.push_back(1);
+    subpasses[0].colorAttachmentIndex.push_back(2);
+    subpasses[0].depthStencilAttachmentIndex = 4;
 
-    subpasses[1].inputAttachmentIndex_.push_back(0);
-    subpasses[1].inputAttachmentIndex_.push_back(1);
-    subpasses[1].inputAttachmentIndex_.push_back(2);
-    subpasses[1].colorAttachmentIndex_.push_back(3);
+    subpasses[1].inputAttachmentIndex.push_back(0);
+    subpasses[1].inputAttachmentIndex.push_back(1);
+    subpasses[1].inputAttachmentIndex.push_back(2);
+    subpasses[1].colorAttachmentIndex.push_back(3);
 
     //Dependency chain for layout transitions
     render::render_pass_t::subpass_dependency_t dependency;
@@ -850,14 +804,14 @@ private:
     render::renderPassCreate(context, attachments, 5u, subpasses, 2u, &dependency, 1u, &renderPass_);
 
     //Create frame buffer
-    VkImageView fbAttachment[5] = { gBufferRT0_.imageView_, gBufferRT1_.imageView_, gBufferRT2_.imageView_, finalImage_.imageView_, depthStencilBuffer_.imageView_ };
+    VkImageView fbAttachment[5] = { gBufferRT0_.imageView, gBufferRT1_.imageView, gBufferRT2_.imageView, finalImage_.imageView, depthStencilBuffer_.imageView };
     render::frameBufferCreate(context, size.x, size.y, renderPass_, fbAttachment, &frameBuffer_);
 
     //Create descriptorSets layouts
-    render::descriptor_binding_t binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0u, render::descriptor_t::stage::VERTEX };
+    render::descriptor_binding_t binding = { render::descriptor_t::type_e::UNIFORM_BUFFER, 0u, render::descriptor_t::stage_e::VERTEX };
     render::descriptorSetLayoutCreate(context, &binding, 1u, &objectDescriptorSetLayout_);
 
-    binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0u, render::descriptor_t::stage::FRAGMENT };
+    binding = { render::descriptor_t::type_e::UNIFORM_BUFFER, 0u, render::descriptor_t::stage_e::FRAGMENT };
     render::descriptorSetLayoutCreate(context, &binding, 1u, &materialDescriptorSetLayout_);
 
     //Create gBuffer pipeline layout
@@ -868,35 +822,35 @@ private:
     render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gGeometryPassVertexShaderSource, &gBufferVertexShader_);
     render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gGeometryPassFragmentShaderSource, &gBufferFragmentShader_);
     render::graphics_pipeline_t::description_t pipelineDesc = {};
-    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-    pipelineDesc.blendState_.resize(3);
-    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-    pipelineDesc.blendState_[1].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[1].blendEnable = VK_FALSE;
-    pipelineDesc.blendState_[2].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[2].blendEnable = VK_FALSE;
-    pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-    pipelineDesc.depthTestEnabled_ = true;
-    pipelineDesc.depthWriteEnabled_ = true;
-    pipelineDesc.depthTestFunction_ = VK_COMPARE_OP_LESS_OR_EQUAL;
-    pipelineDesc.vertexShader_ = gBufferVertexShader_;
-    pipelineDesc.fragmentShader_ = gBufferFragmentShader_;
-    render::graphicsPipelineCreate(context, renderPass_.handle_, 0u, vertexFormat_, gBufferPipelineLayout_, pipelineDesc, &gBufferPipeline_);
+    pipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+    pipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+    pipelineDesc.blendState.resize(3);
+    pipelineDesc.blendState[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+    pipelineDesc.blendState[1].colorWriteMask = 0xF;
+    pipelineDesc.blendState[1].blendEnable = VK_FALSE;
+    pipelineDesc.blendState[2].colorWriteMask = 0xF;
+    pipelineDesc.blendState[2].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode = VK_CULL_MODE_BACK_BIT;
+    pipelineDesc.depthTestEnabled = true;
+    pipelineDesc.depthWriteEnabled = true;
+    pipelineDesc.depthTestFunction = VK_COMPARE_OP_LESS_OR_EQUAL;
+    pipelineDesc.vertexShader = gBufferVertexShader_;
+    pipelineDesc.fragmentShader = gBufferFragmentShader_;
+    render::graphicsPipelineCreate(context, renderPass_.handle, 0u, vertexFormat_, gBufferPipelineLayout_, pipelineDesc, &gBufferPipeline_);
 
     //Create light pass descriptorSet layouts
     render::descriptor_binding_t bindings[6];
-    bindings[0] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
-    bindings[1] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 1, render::descriptor_t::stage::FRAGMENT };
-    bindings[2] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 2, render::descriptor_t::stage::FRAGMENT };
-    bindings[3] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 3, render::descriptor_t::stage::FRAGMENT };
-    bindings[4] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 4, render::descriptor_t::stage::FRAGMENT };
-    bindings[5] = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 5, render::descriptor_t::stage::FRAGMENT };
+    bindings[0] = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage_e::FRAGMENT };
+    bindings[1] = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 1, render::descriptor_t::stage_e::FRAGMENT };
+    bindings[2] = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 2, render::descriptor_t::stage_e::FRAGMENT };
+    bindings[3] = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 3, render::descriptor_t::stage_e::FRAGMENT };
+    bindings[4] = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 4, render::descriptor_t::stage_e::FRAGMENT };
+    bindings[5] = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 5, render::descriptor_t::stage_e::FRAGMENT };
     render::descriptorSetLayoutCreate(context, bindings, 3u, &lightPassTexturesDescriptorSetLayout_);
     render::descriptorSetLayoutCreate(context, bindings, 6u, &ambientLightPassTexturesDescriptorSetLayout_);
 
-    binding = { render::descriptor_t::type::UNIFORM_BUFFER, 0, render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT };
+    binding = { render::descriptor_t::type_e::UNIFORM_BUFFER, 0, render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT };
     render::descriptorSetLayoutCreate(context, &binding, 1u, &lightDescriptorSetLayout_);
 
     //Create descriptor sets for light pass (GBuffer textures)
@@ -921,53 +875,53 @@ private:
     render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gLightPassVertexShaderSource, &lightVertexShader_);
     render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gLightPassFragmentShaderSource, &lightFragmentShader_);
     render::graphics_pipeline_t::description_t lightPipelineDesc = {};
-    lightPipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    lightPipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-    lightPipelineDesc.blendState_.resize(1);
-    lightPipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    lightPipelineDesc.blendState_[0].blendEnable = VK_TRUE;
-    lightPipelineDesc.blendState_[0].colorBlendOp = VK_BLEND_OP_ADD;
-    lightPipelineDesc.blendState_[0].alphaBlendOp = VK_BLEND_OP_ADD;
-    lightPipelineDesc.blendState_[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    lightPipelineDesc.blendState_[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    lightPipelineDesc.blendState_[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    lightPipelineDesc.blendState_[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    lightPipelineDesc.cullMode_ = VK_CULL_MODE_FRONT_BIT;
-    lightPipelineDesc.depthTestEnabled_ = false;
-    lightPipelineDesc.depthWriteEnabled_ = false;
-    lightPipelineDesc.vertexShader_ = lightVertexShader_;
-    lightPipelineDesc.fragmentShader_ = lightFragmentShader_;
-    render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, sphereMesh_.vertexFormat_, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
+    lightPipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+    lightPipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+    lightPipelineDesc.blendState.resize(1);
+    lightPipelineDesc.blendState[0].colorWriteMask = 0xF;
+    lightPipelineDesc.blendState[0].blendEnable = VK_TRUE;
+    lightPipelineDesc.blendState[0].colorBlendOp = VK_BLEND_OP_ADD;
+    lightPipelineDesc.blendState[0].alphaBlendOp = VK_BLEND_OP_ADD;
+    lightPipelineDesc.blendState[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    lightPipelineDesc.blendState[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    lightPipelineDesc.blendState[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    lightPipelineDesc.blendState[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    lightPipelineDesc.cullMode = VK_CULL_MODE_FRONT_BIT;
+    lightPipelineDesc.depthTestEnabled = false;
+    lightPipelineDesc.depthWriteEnabled = false;
+    lightPipelineDesc.vertexShader = lightVertexShader_;
+    lightPipelineDesc.fragmentShader = lightFragmentShader_;
+    render::graphicsPipelineCreate(context, renderPass_.handle, 1u, sphereMesh_.vertexFormat, lightPipelineLayout_, lightPipelineDesc, &lightPipeline_);
 
 
     //Create ambient light pass pipeline
     render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, gAmbientLightVertexShaderSource, &ambientLightVertexShader_);
     render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, gAmbientLightFragmentShaderSource, &ambientLightFragmentShader_);
     render::graphics_pipeline_t::description_t ambientLightPipelineDesc = {};
-    ambientLightPipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    ambientLightPipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-    ambientLightPipelineDesc.blendState_.resize(1);
-    ambientLightPipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    ambientLightPipelineDesc.blendState_[0].blendEnable = VK_TRUE;
-    ambientLightPipelineDesc.blendState_[0].colorBlendOp = VK_BLEND_OP_ADD;
-    ambientLightPipelineDesc.blendState_[0].alphaBlendOp = VK_BLEND_OP_ADD;
-    ambientLightPipelineDesc.blendState_[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    ambientLightPipelineDesc.blendState_[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    ambientLightPipelineDesc.blendState_[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    ambientLightPipelineDesc.blendState_[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    ambientLightPipelineDesc.cullMode_ = VK_CULL_MODE_NONE;
-    ambientLightPipelineDesc.depthTestEnabled_ = false;
-    ambientLightPipelineDesc.depthWriteEnabled_ = false;
-    ambientLightPipelineDesc.vertexShader_ = ambientLightVertexShader_;
-    ambientLightPipelineDesc.fragmentShader_ = ambientLightFragmentShader_;
-    render::graphicsPipelineCreate(context, renderPass_.handle_, 1u, fullScreenQuad_.vertexFormat_, ambientLightPipelineLayout_, ambientLightPipelineDesc, &ambientLightPipeline_);
+    ambientLightPipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+    ambientLightPipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+    ambientLightPipelineDesc.blendState.resize(1);
+    ambientLightPipelineDesc.blendState[0].colorWriteMask = 0xF;
+    ambientLightPipelineDesc.blendState[0].blendEnable = VK_TRUE;
+    ambientLightPipelineDesc.blendState[0].colorBlendOp = VK_BLEND_OP_ADD;
+    ambientLightPipelineDesc.blendState[0].alphaBlendOp = VK_BLEND_OP_ADD;
+    ambientLightPipelineDesc.blendState[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    ambientLightPipelineDesc.blendState[0].dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    ambientLightPipelineDesc.blendState[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    ambientLightPipelineDesc.blendState[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    ambientLightPipelineDesc.cullMode = VK_CULL_MODE_NONE;
+    ambientLightPipelineDesc.depthTestEnabled = false;
+    ambientLightPipelineDesc.depthWriteEnabled = false;
+    ambientLightPipelineDesc.vertexShader = ambientLightVertexShader_;
+    ambientLightPipelineDesc.fragmentShader = ambientLightFragmentShader_;
+    render::graphicsPipelineCreate(context, renderPass_.handle, 1u, fullScreenQuad_.vertexFormat, ambientLightPipelineLayout_, ambientLightPipelineDesc, &ambientLightPipeline_);
   }
 
   void buildAndSubmitCommandBuffer()
   {
     render::context_t& context = getRenderContext();
 
-    if (commandBuffer_.handle_ == VK_NULL_HANDLE)
+    if (commandBuffer_.handle == VK_NULL_HANDLE)
     {
       render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &renderComplete_, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer_);
     }
@@ -1042,6 +996,52 @@ private:
   }
 
 private:
+
+  struct light_t
+  {
+    struct uniforms_t
+    {
+      maths::vec4 position_;
+      maths::vec3 color_;
+      float radius_;
+    };
+
+    uniforms_t uniforms_;
+    render::gpu_buffer_t ubo_;
+    render::descriptor_set_t descriptorSet_;
+  };
+
+  struct material_t
+  {
+    struct uniforms_t
+    {
+      vec3 albedo_;
+      float metallic_;
+      vec3 F0_;
+      float roughness_;
+    };
+
+    uniforms_t uniforms_;
+    render::gpu_buffer_t ubo_;
+    render::descriptor_set_t descriptorSet_;
+  };
+
+  struct object_t
+  {
+    core::handle_t mesh_;
+    core::handle_t material_;
+    core::handle_t transform_;
+    render::gpu_buffer_t ubo_;
+    render::descriptor_set_t descriptorSet_;
+  };
+  struct scene_uniforms_t
+  {
+    mat4 viewMatrix_;
+    mat4 projectionMatrix_;
+    mat4 projectionInverseMatrix_;
+    vec4 imageSize_;
+  };
+
   ///Member variables
   transform_manager_t transformManager_;
   render::gpu_memory_allocator_t allocator_;

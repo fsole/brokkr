@@ -21,7 +21,7 @@ actor_t::actor_t(const char* name, mesh_handle_t mesh, transform_handle_t transf
   core::render::context_t& context = renderer->getContext();
 
   core::render::gpuBufferCreate(context,
-    core::render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+    core::render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
     nullptr, sizeof(core::maths::mat4),
     nullptr, &uniformBuffer_);
 
@@ -36,20 +36,4 @@ void actor_t::destroy(renderer_t* renderer)
   render::context_t& context = renderer->getContext();
   render::descriptorSetDestroy(context, &descriptorSet_);
   render::gpuBufferDestroy(context, nullptr, &uniformBuffer_);
-}
-
-mesh_handle_t actor_t::getMesh() {
-  return mesh_;
-}
-
-transform_handle_t actor_t::getTransform() {
-  return transform_;
-}
-
-material_handle_t actor_t::getMaterial() {
-  return material_;
-}
-
-const char* actor_t::getName() { 
-  return name_.c_str(); 
 }

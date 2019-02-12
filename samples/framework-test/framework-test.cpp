@@ -35,14 +35,6 @@ using namespace bkk::framework;
 
 class framework_test_t : public application_t
 {
-private:
-  struct light_t
-  {
-    maths::vec4 position;
-    maths::vec3 color;
-    float radius;
-  };
-
 public:
   framework_test_t()
   :application_t("Framework test", 1200u, 800u, 3u),
@@ -53,10 +45,11 @@ public:
    exposure_(1.5f)
   {
     maths::uvec2 imageSize(1200u, 800u);
+    renderer_t& renderer = getRenderer();
 
     //create scene framebuffer
-    sceneRT_ = renderer_.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, true);
-    sceneFBO_ = renderer_.frameBufferCreate(&sceneRT_, 1u);
+    sceneRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, true);
+    sceneFBO_ = renderer.frameBufferCreate(&sceneRT_, 1u);
 
     //create light buffer
     lightBuffer_ = createLightBuffer();
@@ -69,20 +62,20 @@ public:
     render::specularConvolution(getRenderContext(), skybox_, 256u, 4u, &specularMap_);
     render::brdfConvolution(getRenderContext(), 512u, &brdfLut_);
 
-    shader_handle_t skyboxShader = renderer_.shaderCreate("../../shaders/sky-box.shader");
-    skyboxMaterial_ = renderer_.materialCreate(skyboxShader);
-    renderer_.getMaterial(skyboxMaterial_)->setTexture("CubeMap", skybox_);
+    shader_handle_t skyboxShader = renderer.shaderCreate("../../shaders/sky-box.shader");
+    skyboxMaterial_ = renderer.materialCreate(skyboxShader);
+    renderer.getMaterial(skyboxMaterial_)->setTexture("CubeMap", skybox_);
 
     //create meshes
     mesh::mesh_t teapotMesh;
     mesh::createFromFile(getRenderContext(), "../resources/teapot.obj", mesh::EXPORT_ALL, nullptr, 0, &teapotMesh);
-    mesh_handle_t teapot = renderer_.addMesh(teapotMesh);
-    mesh_handle_t plane = renderer_.addMesh(mesh::unitQuad(getRenderContext()));
+    mesh_handle_t teapot = renderer.addMesh(teapotMesh);
+    mesh_handle_t plane = renderer.addMesh(mesh::unitQuad(getRenderContext()));
 
     //create materials
-    shader_handle_t shader = renderer_.shaderCreate("../framework-test/pbr.shader");
-    material_handle_t material0 = renderer_.materialCreate(shader);
-    material_t* materialPtr = renderer_.getMaterial(material0);
+    shader_handle_t shader = renderer.shaderCreate("../framework-test/pbr.shader");
+    material_handle_t material0 = renderer.materialCreate(shader);
+    material_t* materialPtr = renderer.getMaterial(material0);
     materialPtr->setProperty("globals.albedo", maths::vec3(0.1f, 0.1f, 0.1f));
     materialPtr->setProperty("globals.F0", maths::vec3(0.9f, 0.9f, 0.9f));
     materialPtr->setProperty("globals.roughness", 0.15f);
@@ -92,8 +85,8 @@ public:
     materialPtr->setTexture("brdfLUT", brdfLut_);
     materialPtr->setBuffer("lights", lightBuffer_);
 
-    material_handle_t material1 = renderer_.materialCreate(shader);
-    materialPtr = renderer_.getMaterial(material1);
+    material_handle_t material1 = renderer.materialCreate(shader);
+    materialPtr = renderer.getMaterial(material1);
     materialPtr->setProperty("globals.albedo", maths::vec3(0.5f, 0.5f, 0.5f));
     materialPtr->setProperty("globals.F0", maths::vec3(0.6f, 0.6f, 0.6f));
     materialPtr->setProperty("globals.roughness", 0.3f);
@@ -103,8 +96,8 @@ public:
     materialPtr->setTexture("brdfLUT", brdfLut_);
     materialPtr->setBuffer("lights", lightBuffer_);
 
-    material_handle_t material2 = renderer_.materialCreate(shader);
-    materialPtr = renderer_.getMaterial(material2);
+    material_handle_t material2 = renderer.materialCreate(shader);
+    materialPtr = renderer.getMaterial(material2);
     materialPtr->setProperty("globals.albedo", maths::vec3(0.1f, 0.1f, 0.1f));
     materialPtr->setProperty("globals.F0", maths::vec3(0.0f, 0.0f, 0.0f));
     materialPtr->setProperty("globals.roughness", 1.0f);
@@ -116,31 +109,31 @@ public:
 
     //create actors
     maths::mat4 transform = maths::createTransform(maths::vec3(-5.0f, -1.0f, 0.0f), maths::VEC3_ONE, maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), maths::degreeToRadian(30.0f)));
-    renderer_.actorCreate("teapot0", teapot, material0, transform);
+    renderer.actorCreate("teapot0", teapot, material0, transform);
 
     transform = maths::createTransform(maths::vec3(5.0f, -1.0f, 0.0f), maths::VEC3_ONE, maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), maths::degreeToRadian(150.0f)));
-    renderer_.actorCreate("teapot1", teapot, material1, transform);
+    renderer.actorCreate("teapot1", teapot, material1, transform);
     
     transform = maths::createTransform(maths::vec3(0.0f, -1.0f, 0.0f), maths::vec3(20.0f, 20.0f, 20.0f), maths::quaternionFromAxisAngle(maths::vec3(1, 0, 0), maths::degreeToRadian(90.0f)) );
-    renderer_.actorCreate("plane", plane, material2, transform);
+    renderer.actorCreate("plane", plane, material2, transform);
     
     //Bloom resources
-    brightPixelsRT_ = renderer_.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
-    brightPixelsFBO_ = renderer_.frameBufferCreate(&brightPixelsRT_, 1u);
-    blurVerticalRT_ = renderer_.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
-    blurVerticalFBO_ = renderer_.frameBufferCreate(&blurVerticalRT_, 1u);
-    bloomRT_ = renderer_.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
-    bloomFBO_ = renderer_.frameBufferCreate(&bloomRT_, 1u);
-    shader_handle_t bloomShader = renderer_.shaderCreate("../framework-test/bloom.shader");
-    bloomMaterial_ = renderer_.materialCreate(bloomShader);
-    shader_handle_t blendShader = renderer_.shaderCreate("../framework-test/blend.shader");
-    blendMaterial_ = renderer_.materialCreate(blendShader);
-    material_t* blendMaterial = renderer_.getMaterial(blendMaterial_);
-    blendMaterial->setTexture("bloomBlur", renderer_.getRenderTarget(bloomRT_)->getColorBuffer());
+    brightPixelsRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+    brightPixelsFBO_ = renderer.frameBufferCreate(&brightPixelsRT_, 1u);
+    blurVerticalRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+    blurVerticalFBO_ = renderer.frameBufferCreate(&blurVerticalRT_, 1u);
+    bloomRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+    bloomFBO_ = renderer.frameBufferCreate(&bloomRT_, 1u);
+    shader_handle_t bloomShader = renderer.shaderCreate("../framework-test/bloom.shader");
+    bloomMaterial_ = renderer.materialCreate(bloomShader);
+    shader_handle_t blendShader = renderer.shaderCreate("../framework-test/blend.shader");
+    blendMaterial_ = renderer.materialCreate(blendShader);
+    material_t* blendMaterial = renderer.getMaterial(blendMaterial_);
+    blendMaterial->setTexture("bloomBlur", renderer.getRenderTarget(bloomRT_)->getColorBuffer());
 
     //create camera
-    camera_ = renderer_.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x/(float)imageSize.y, 0.1f, 100.0f));
-    cameraController_.setCameraHandle(camera_, &renderer_);
+    camera_ = renderer.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x/(float)imageSize.y, 0.1f, 100.0f));
+    cameraController_.setCameraHandle(camera_, &renderer);
   }
   
   render::gpu_buffer_t createLightBuffer()
@@ -157,7 +150,7 @@ public:
     //Create buffer
     render::gpu_buffer_t lightBuffer = {};
     render::context_t& context = getRenderContext();
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::STORAGE_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, 
       nullptr, sizeof(light_t)*lightCount + sizeof(maths::vec4), nullptr,
       &lightBuffer );
@@ -221,51 +214,53 @@ public:
   {
     beginFrame();
 
-    //Render scene
-    renderer_.setupCamera(camera_);
-    actor_t* visibleActors = nullptr;
-    int count = renderer_.getVisibleActors(camera_, &visibleActors);
+    renderer_t& renderer = getRenderer();
 
-    command_buffer_t renderSceneCmd(&renderer_, sceneFBO_);
+    //Render scene
+    renderer.setupCamera(camera_);
+    actor_t* visibleActors = nullptr;
+    int count = renderer.getVisibleActors(camera_, &visibleActors);
+
+    command_buffer_t renderSceneCmd(&renderer, sceneFBO_);
     renderSceneCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
     renderSceneCmd.submit();
     renderSceneCmd.release();
     
     //Render skybox
-    command_buffer_t renderSkyboxCmd = command_buffer_t(&renderer_, sceneFBO_, &renderSceneCmd);    
+    command_buffer_t renderSkyboxCmd = command_buffer_t(&renderer, sceneFBO_, &renderSceneCmd);    
     renderSkyboxCmd.blit(bkk::core::NULL_HANDLE, skyboxMaterial_ );
     renderSkyboxCmd.submit();
     renderSkyboxCmd.release();
     
     if (bloomEnabled_)
     {
-      material_t* bloomMaterial = renderer_.getMaterial(bloomMaterial_);
+      material_t* bloomMaterial = renderer.getMaterial(bloomMaterial_);
       bloomMaterial->setProperty("globals.bloomTreshold", bloomTreshold_);
       
       //Extract bright pixels from scene render target
-      command_buffer_t extractBrightPixelsCmd = command_buffer_t(&renderer_, brightPixelsFBO_, &renderSkyboxCmd);
+      command_buffer_t extractBrightPixelsCmd = command_buffer_t(&renderer, brightPixelsFBO_, &renderSkyboxCmd);
       extractBrightPixelsCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       extractBrightPixelsCmd.blit(sceneRT_ , bloomMaterial_, "extractBrightPixels" );
       extractBrightPixelsCmd.submit();
       extractBrightPixelsCmd.release();
       
       //Blur vertical pass
-      command_buffer_t blurVerticalCmd = command_buffer_t(&renderer_, blurVerticalFBO_, &extractBrightPixelsCmd);
+      command_buffer_t blurVerticalCmd = command_buffer_t(&renderer, blurVerticalFBO_, &extractBrightPixelsCmd);
       blurVerticalCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blurVerticalCmd.blit(brightPixelsRT_, bloomMaterial_, "blurVertical");
       blurVerticalCmd.submit();
       blurVerticalCmd.release();
 
       //Blur horizontal pass
-      command_buffer_t blurHorizontalCmd = command_buffer_t(&renderer_, bloomFBO_, &blurVerticalCmd);
+      command_buffer_t blurHorizontalCmd = command_buffer_t(&renderer, bloomFBO_, &blurVerticalCmd);
       blurHorizontalCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blurHorizontalCmd.blit(blurVerticalRT_, bloomMaterial_, "blurHorizontal");
       blurHorizontalCmd.submit();
       blurHorizontalCmd.release();
 
       //Blend bloom and scene render targets
-      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer_, bkk::core::NULL_HANDLE, &blurHorizontalCmd);
+      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer, bkk::core::NULL_HANDLE, &blurHorizontalCmd);
       blitToBackbufferCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blitToBackbufferCmd.blit(sceneRT_, blendMaterial_, "blend" );
       blitToBackbufferCmd.submit();
@@ -274,7 +269,7 @@ public:
     else
     {
       //Copy scene render target to the back buffer
-      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer_);
+      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
       blitToBackbufferCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blitToBackbufferCmd.blit(sceneRT_, blendMaterial_);
       blitToBackbufferCmd.submit();
@@ -299,11 +294,18 @@ public:
     ImGui::End();
 
     //Set properties
-    renderer_.getMaterial(blendMaterial_)->setProperty("globals.exposure", exposure_);
+    getRenderer().getMaterial(blendMaterial_)->setProperty("globals.exposure", exposure_);
     render::gpuBufferUpdate(getRenderContext(), &lightIntensity_, sizeof(int), sizeof(float), &lightBuffer_);
   }
 
 private:
+  struct light_t
+  {
+    maths::vec4 position;
+    maths::vec3 color;
+    float radius;
+  };
+
   frame_buffer_handle_t sceneFBO_;
   render_target_handle_t sceneRT_;  
   render::gpu_buffer_t lightBuffer_;

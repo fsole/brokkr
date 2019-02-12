@@ -39,7 +39,7 @@ static const char* getFileExtension(const char *filename)
 
 bool image::load( const char* path, bool flipVertical, image2D_t* image )
 {
-  if( image->data_ != nullptr )
+  if( image->data != nullptr )
   {
     unload(image);
   }
@@ -66,31 +66,31 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
     return false;
   }
 
-  image->width_ = width;
-  image->height_ = height;
-  image->componentCount_ = componentCount;
-  image->componentSize_ = componentSize;
-  image->dataSize_ = width * height * componentCount * componentSize;
-  image->data_ = data;
+  image->width = width;
+  image->height = height;
+  image->componentCount = componentCount;
+  image->componentSize = componentSize;
+  image->dataSize = width * height * componentCount * componentSize;
+  image->data = data;
 
  //Add missing channels, otherwise Vulkan validation layers will complain
   if( componentCount < 4 )
   {    
-    image->componentCount_ = 4;
-    image->dataSize_ = width * height * 4 * componentSize;
-    image->data_ = (uint8_t*)malloc(image->dataSize_);
+    image->componentCount = 4;
+    image->dataSize = width * height * 4 * componentSize;
+    image->data = (uint8_t*)malloc(image->dataSize);
 
     if (componentSize == 1)
     {
       for (int i(0); i < width*height; ++i)
       { 
         for (int component(0); component<4; ++component)
-          image->data_[4*i + component] = component < componentCount ? data[componentCount*i + component] : 0u;
+          image->data[4*i + component] = component < componentCount ? data[componentCount*i + component] : 0u;
       }
     }
     else if (componentSize == 4)
     {
-      float* imageDataPtr = (float*)image->data_;
+      float* imageDataPtr = (float*)image->data;
       float* dataPtr = (float*)data;
       for (int i(0); i < width*height; ++i)
       {
@@ -107,7 +107,7 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
 
 void image::unload( image2D_t* image )
 {
-  free( image->data_ );
-  image->data_ = nullptr;
-  image->width_ = image->height_ = image->componentCount_ = image->dataSize_ = 0u;
+  free( image->data );
+  image->data = nullptr;
+  image->width = image->height = image->componentCount = image->dataSize = 0u;
 }

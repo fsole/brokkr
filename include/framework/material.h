@@ -31,16 +31,13 @@ namespace bkk
         bool setProperty(const char* property, const core::maths::mat4& value);
         bool setProperty(const char* property, void* value);
         
-        
         bool setBuffer(const char* property, core::render::gpu_buffer_t buffer);
         bool setTexture(const char* property, core::render::texture_t texture );
         
-
         void destroy(renderer_t* renderer);
 
         core::render::graphics_pipeline_t getPipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer);
         core::render::descriptor_set_t getDescriptorSet(const char* pass = nullptr);
-
 
       private:
         renderer_t* renderer_;
@@ -56,7 +53,8 @@ namespace bkk
         std::vector<core::render::descriptor_set_t> descriptorSet_;
         std::vector<bool> updateDescriptorSet_;
     };
-  }
-}
+
+  }//framework
+}//bkk
 
 #endif

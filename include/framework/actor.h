@@ -15,8 +15,9 @@ namespace bkk
 
     class renderer_t;
 
-    struct actor_t
+    class actor_t
     {   
+    public:
       actor_t();
 
       actor_t(const char* name, 
@@ -24,13 +25,16 @@ namespace bkk
               renderer_t* renderer);
       
       void destroy(renderer_t* renderer);
-      mesh_handle_t getMesh();
-      transform_handle_t getTransform();
-      material_handle_t getMaterial();
-      const char* getName();
-      
-      std::string name_;
 
+      mesh_handle_t getMesh() { return mesh_; }
+      transform_handle_t getTransform() { return transform_; }
+      material_handle_t getMaterial() { return material_; }
+      const char* getName() { return name_.c_str();  }
+      core::render::gpu_buffer_t getUniformBuffer() { return uniformBuffer_; }
+      core::render::descriptor_set_t getDescriptorSet() { return descriptorSet_; }
+
+    private:
+      std::string name_;
       mesh_handle_t mesh_;
       transform_handle_t transform_;
       material_handle_t material_;
@@ -38,7 +42,8 @@ namespace bkk
       core::render::gpu_buffer_t uniformBuffer_;
       core::render::descriptor_set_t descriptorSet_;
     };
-  }
-}
+
+  }//framework
+}//bkk
 
 #endif

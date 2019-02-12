@@ -74,44 +74,45 @@ namespace bkk
     
     class shader_t
     {
-      public:
-        shader_t();
-        shader_t(const char* file, renderer_t* renderer);
-        ~shader_t();
+    public:
+      shader_t();
+      shader_t(const char* file, renderer_t* renderer);
+      ~shader_t();
       
-        bool initializeFromFile(const char* file, renderer_t* renderer);
-        void destroy(renderer_t* renderer);
+      bool initializeFromFile(const char* file, renderer_t* renderer);
+      void destroy(renderer_t* renderer);
 
-        core::render::graphics_pipeline_t getPipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer);
-        core::render::graphics_pipeline_t getPipeline(uint32_t pass, frame_buffer_handle_t, renderer_t* renderer);
+      core::render::graphics_pipeline_t getPipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer);
+      core::render::graphics_pipeline_t getPipeline(uint32_t pass, frame_buffer_handle_t, renderer_t* renderer);
         
-        core::render::descriptor_set_layout_t getDescriptorSetLayout();
-        const std::vector<texture_desc_t>& getTextureDescriptions() const;
-        const std::vector<buffer_desc_t>& getBufferDescriptions() const;
+      core::render::descriptor_set_layout_t getDescriptorSetLayout();
+      const std::vector<texture_desc_t>& getTextureDescriptions() const;
+      const std::vector<buffer_desc_t>& getBufferDescriptions() const;
 
-        uint32_t getPassCount() const{return (uint32_t)pass_.size();}
-        uint32_t getPassIndexFromName(const char* pass) const;
+      uint32_t getPassCount() const{return (uint32_t)pass_.size();}
+      uint32_t getPassIndexFromName(const char* pass) const;
 
-      private:
-        std::string name_;
+    private:
+      std::string name_;
 
-        std::vector<texture_desc_t> textures_;
-        std::vector<buffer_desc_t> buffers_;
-        core::render::descriptor_set_layout_t descriptorSetLayout_;
+      std::vector<texture_desc_t> textures_;
+      std::vector<buffer_desc_t> buffers_;
+      core::render::descriptor_set_layout_t descriptorSetLayout_;
 
-        //Pass data
-        std::vector<uint64_t> pass_;
-        std::vector<core::render::shader_t> vertexShaders_;
-        std::vector<core::render::shader_t> fragmentShaders_;
-        std::vector<core::render::vertex_format_t> vertexFormats_;
-        std::vector<core::render::pipeline_layout_t> pipelineLayouts_;
-        std::vector<core::render::graphics_pipeline_t::description_t> graphicsPipelineDescriptions_;
-        //std::vector<core::render::shader_t> computeShaders_;
-        //std::vector<core::render::compute_pipeline_t> computePipelines_;
+      //Pass data
+      std::vector<uint64_t> pass_;
+      std::vector<core::render::shader_t> vertexShaders_;
+      std::vector<core::render::shader_t> fragmentShaders_;
+      std::vector<core::render::vertex_format_t> vertexFormats_;
+      std::vector<core::render::pipeline_layout_t> pipelineLayouts_;
+      std::vector<core::render::graphics_pipeline_t::description_t> graphicsPipelineDescriptions_;
+      //std::vector<core::render::shader_t> computeShaders_;
+      //std::vector<core::render::compute_pipeline_t> computePipelines_;
 
-        core::hash_table_t<frame_buffer_handle_t, std::vector<core::render::graphics_pipeline_t> > graphicsPipelines_;
+      core::hash_table_t<frame_buffer_handle_t, std::vector<core::render::graphics_pipeline_t> > graphicsPipelines_;
     };
-  }
-}
+
+  }//framework
+}//bkk
 
 #endif

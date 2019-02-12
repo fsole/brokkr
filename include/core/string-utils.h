@@ -33,10 +33,10 @@ namespace bkk
       uint64_t hash = 5381ul;
       uint32_t c;
 
-      while (c = *str++)
-        hash = ((hash << 5) + hash) + c;
+      while (c = *str++)  hash = ((hash << 5) + hash) + c;
 
       return hash;
     }
-  }
-}
+
+  }//core
+}//bkk

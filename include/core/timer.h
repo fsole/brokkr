@@ -45,7 +45,8 @@ namespace bkk
       {
         return (float)std::chrono::duration<double, std::milli>(tEnd - tStart).count();
       }
-    }//namespace timer
-  }
-}//namespace bkk
+
+    }//timer
+  }//core
+}//bkk
 #endif  /*  TIMER_H  */

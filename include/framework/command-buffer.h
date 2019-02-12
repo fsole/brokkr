@@ -12,7 +12,7 @@ namespace bkk
   namespace framework
   {
     class renderer_t;
-    struct actor_t;
+    class actor_t;
 
     class command_buffer_t
     {
@@ -52,7 +52,8 @@ namespace bkk
         bool clear_;
         bool released_;
     };
-  }
-}
+
+  }//framework
+}//bkk
 
 #endif

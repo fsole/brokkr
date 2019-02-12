@@ -68,46 +68,7 @@ static const char* gFragmentShaderSource = R"(
 class path_tracing_sample_t : public framework::application_t
 {
 public:
-  struct camera_t
-  {
-    maths::mat4 tx;
-    f32 verticalFov;
-    f32 focalDistance;
-    f32 aperture;
-    f32 padding;
-  };
-
-  struct material_t
-  {
-    maths::vec3 albedo;
-    float metalness;
-    maths::vec3 F0;
-    float roughness;
-  };
-
-  struct sphere_t
-  {
-    maths::vec3 origin;
-    float radius;
-    material_t material;
-  };
-
-  struct scene_t
-  {
-    u32 sphereCount;
-    u32 padding[3];
-    sphere_t sphere[200];    
-  };
-
-  struct buffer_data_t
-  {
-    u32 sampleCount;
-    u32 maxBounces;
-    maths::uvec2 imageSize;
-    camera_t camera;
-    scene_t scene;
-  };
-
+  
   path_tracing_sample_t( u32 width, u32 height )
   :application_t("Path tracing", width, height, 3u ),
   imageSize_(width, height)
@@ -131,7 +92,6 @@ public:
     render::shaderDestroy(context, &fragmentShader_);
     render::shaderDestroy(context, &computeShader_);
 
-    
     render::descriptorSetDestroy(context, &descriptorSet_);
     render::descriptorSetLayoutDestroy(context, &descriptorSetLayout_);    
     render::pipelineLayoutDestroy(context, &pipelineLayout_);
@@ -158,7 +118,7 @@ public:
       ++sampleCount_;
 
       render::commandBufferSubmit(context, computeCommandBuffer_);
-      vkQueueWaitIdle(context.computeQueue_.handle_);
+      vkQueueWaitIdle(context.computeQueue.handle);
     }
   }
 
@@ -217,6 +177,46 @@ public:
   }
 
 private:
+
+  struct camera_t
+  {
+    maths::mat4 tx;
+    f32 verticalFov;
+    f32 focalDistance;
+    f32 aperture;
+    f32 padding;
+  };
+
+  struct material_t
+  {
+    maths::vec3 albedo;
+    float metalness;
+    maths::vec3 F0;
+    float roughness;
+  };
+
+  struct sphere_t
+  {
+    maths::vec3 origin;
+    float radius;
+    material_t material;
+  };
+
+  struct scene_t
+  {
+    u32 sphereCount;
+    u32 padding[3];
+    sphere_t sphere[200];
+  };
+
+  struct buffer_data_t
+  {
+    u32 sampleCount;
+    u32 maxBounces;
+    maths::uvec2 imageSize;
+    camera_t camera;
+    scene_t scene;
+  };
 
   void generateScene(u32 sphereCount, const maths::vec3& extents, scene_t* scene)
   {
@@ -309,7 +309,7 @@ private:
     generateScene(150u, vec3(25.0f, 0.0f, 25.0f), &data.scene);
 
     //Create scene buffer
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage::STORAGE_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
       (void*)&data, sizeof(buffer_data_t),
       nullptr, &sceneBuffer_);
@@ -322,7 +322,7 @@ private:
     render::context_t& context = getRenderContext();
 
     //Create descriptor layout
-    render::descriptor_binding_t binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
+    render::descriptor_binding_t binding = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage_e::FRAGMENT };
     render::descriptorSetLayoutCreate(context, &binding, 1u, &descriptorSetLayout_);
 
     //Create pipeline layout  
@@ -346,17 +346,17 @@ private:
 
     //Create graphics pipeline
     render::graphics_pipeline_t::description_t pipelineDesc = {};
-    pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)context.swapChain_.imageWidth_, (float)context.swapChain_.imageHeight_, 0.0f, 1.0f };
-    pipelineDesc.scissorRect_ = { { 0,0 },{ context.swapChain_.imageWidth_,context.swapChain_.imageHeight_ } };
-    pipelineDesc.blendState_.resize(1);
-    pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-    pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-    pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-    pipelineDesc.depthTestEnabled_ = false;
-    pipelineDesc.depthWriteEnabled_ = false;
-    pipelineDesc.vertexShader_ = vertexShader_;
-    pipelineDesc.fragmentShader_ = fragmentShader_;
-    render::graphicsPipelineCreate(context, context.swapChain_.renderPass_, 0u, fullscreenQuadmesh_.vertexFormat_, pipelineLayout_, pipelineDesc, &pipeline_);
+    pipelineDesc.viewPort = { 0.0f, 0.0f, (float)context.swapChain.imageWidth, (float)context.swapChain.imageHeight, 0.0f, 1.0f };
+    pipelineDesc.scissorRect = { { 0,0 },{ context.swapChain.imageWidth,context.swapChain.imageHeight } };
+    pipelineDesc.blendState.resize(1);
+    pipelineDesc.blendState[0].colorWriteMask = 0xF;
+    pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+    pipelineDesc.cullMode = VK_CULL_MODE_BACK_BIT;
+    pipelineDesc.depthTestEnabled = false;
+    pipelineDesc.depthWriteEnabled = false;
+    pipelineDesc.vertexShader = vertexShader_;
+    pipelineDesc.fragmentShader = fragmentShader_;
+    render::graphicsPipelineCreate(context, context.swapChain.renderPass, 0u, fullscreenQuadmesh_.vertexFormat, pipelineLayout_, pipelineDesc, &pipeline_);
   }
 
   void createComputePipeline()
@@ -364,8 +364,8 @@ private:
     render::context_t& context = getRenderContext();
 
     //Create descriptor layout
-    render::descriptor_binding_t bindings[2] = { { render::descriptor_t::type::STORAGE_IMAGE,  0, render::descriptor_t::stage::COMPUTE },
-                                                 { render::descriptor_t::type::STORAGE_BUFFER, 1, render::descriptor_t::stage::COMPUTE } };
+    render::descriptor_binding_t bindings[2] = { { render::descriptor_t::type_e::STORAGE_IMAGE,  0, render::descriptor_t::stage_e::COMPUTE },
+                                                 { render::descriptor_t::type_e::STORAGE_BUFFER, 1, render::descriptor_t::stage_e::COMPUTE } };
 
     render::descriptorSetLayoutCreate(context, bindings, 2u, &computeDescriptorSetLayout_);
 

@@ -36,18 +36,19 @@ namespace bkk
     {
       struct image2D_t
       {
-        uint32_t width_;
-        uint32_t height_;
-        uint32_t componentCount_;
-        uint32_t componentSize_;
-        uint32_t dataSize_;
-        uint8_t* data_;
+        uint32_t width;
+        uint32_t height;
+        uint32_t componentCount;
+        uint32_t componentSize;
+        uint32_t dataSize;
+        uint8_t* data;
       };
 
       bool load(const char* path, bool flipVertical, image2D_t* image);
       void unload(image2D_t* image);
-    } //image namespace
-  }//core namespace
-}//bkk namespace
+
+    } //image
+  }//core
+}//bkk
 
 #endif /* IMAGE_H */

@@ -1061,7 +1061,7 @@ namespace bkk
       typedef Matrix<f32, 3u, 3u> mat3;
       typedef Matrix<f32, 4u, 4u> mat4;
 
-    } //math namespace
-  } //core namespace
-}//bkk namespace
+    }//math
+  } //core
+}//bkk
 #endif  /*  MATH_H */

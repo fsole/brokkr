@@ -39,8 +39,9 @@ namespace bkk
 
         render_target_handle_t* renderTargets_;
       };
-  }
-}
+
+  }//framework
+}//bkk
 
 
 #endif

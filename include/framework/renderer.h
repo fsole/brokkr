@@ -81,8 +81,7 @@ namespace bkk
       private:
         void createTextureBlitResources();
         void buildPresentationCommandBuffers();
-
-
+        
         core::render::context_t context_;
 
         core::packed_freelist_t<actor_t> actors_;
@@ -119,6 +118,7 @@ namespace bkk
         //Command buffers to be released on the next frame
         std::vector<command_buffer_t> releasedCommandBuffers_;
     };
-  }
-}
+
+  }//framework
+}//bkk
 #endif

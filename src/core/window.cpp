@@ -97,60 +97,60 @@ static long __stdcall WindowProcedure(HWND hWnd, unsigned int msg, WPARAM wp, LP
   {
     case WM_DESTROY:
     {
-      window->activeEvent_ = &window->quitEvent_;
+      window->activeEvent = &window->quitEvent;
       PostQuitMessage(0);
       return 0;
     }
     case WM_LBUTTONDOWN:
     case WM_LBUTTONUP:
     {
-      window->mouseButtonEvent_ = event_mouse_button_t(MOUSE_LEFT, LOWORD(lp), HIWORD(lp), (msg == WM_LBUTTONDOWN) );
-      window->activeEvent_ = &window->mouseButtonEvent_;
+      window->mouseButtonEvent = event_mouse_button_t(MOUSE_LEFT, LOWORD(lp), HIWORD(lp), (msg == WM_LBUTTONDOWN) );
+      window->activeEvent = &window->mouseButtonEvent;
       break;
     }
 
     case WM_RBUTTONDOWN:
     case WM_RBUTTONUP:
     {
-      window->mouseButtonEvent_ = event_mouse_button_t(MOUSE_RIGHT, LOWORD(lp), HIWORD(lp), (msg == WM_RBUTTONDOWN));
-      window->activeEvent_ = &window->mouseButtonEvent_;
+      window->mouseButtonEvent = event_mouse_button_t(MOUSE_RIGHT, LOWORD(lp), HIWORD(lp), (msg == WM_RBUTTONDOWN));
+      window->activeEvent = &window->mouseButtonEvent;
       break;
     }
 
     case WM_MBUTTONDOWN:
     case WM_MBUTTONUP:
     {
-      window->mouseButtonEvent_ = event_mouse_button_t(MOUSE_MIDDLE, LOWORD(lp), HIWORD(lp), (msg == WM_MBUTTONDOWN));
-      window->activeEvent_ = &window->mouseButtonEvent_;
+      window->mouseButtonEvent = event_mouse_button_t(MOUSE_MIDDLE, LOWORD(lp), HIWORD(lp), (msg == WM_MBUTTONDOWN));
+      window->activeEvent = &window->mouseButtonEvent;
       break;
     }
 
     case WM_MOUSEMOVE:
     {
-      window->mouseMoveEvent_.x_ = LOWORD(lp);
-      window->mouseMoveEvent_.y_ = HIWORD(lp);
-      window->activeEvent_ = &window->mouseMoveEvent_;
+      window->mouseMoveEvent.x = LOWORD(lp);
+      window->mouseMoveEvent.y = HIWORD(lp);
+      window->activeEvent = &window->mouseMoveEvent;
       break;
     }
     case WM_KEYDOWN:
     {
-      window->keyEvent_.keyCode_ = KeyFromKeyCode( wp );
-      window->keyEvent_.pressed_ = true;
-      window->activeEvent_ = &window->keyEvent_;
+      window->keyEvent.keyCode = KeyFromKeyCode( wp );
+      window->keyEvent.pressed = true;
+      window->activeEvent = &window->keyEvent;
       break;
     }
     case WM_KEYUP:
     {
-      window->keyEvent_.keyCode_ = KeyFromKeyCode(wp);;
-      window->keyEvent_.pressed_ = false;
-      window->activeEvent_ = &window->keyEvent_;
+      window->keyEvent.keyCode = KeyFromKeyCode(wp);;
+      window->keyEvent.pressed = false;
+      window->activeEvent = &window->keyEvent;
       break;
     }
     case WM_SIZE:
     {
-      window->resizeEvent_.width_ = LOWORD(lp);
-      window->resizeEvent_.height_ = HIWORD(lp);
-      window->activeEvent_ = &window->resizeEvent_;
+      window->resizeEvent.width = LOWORD(lp);
+      window->resizeEvent.height = HIWORD(lp);
+      window->activeEvent = &window->resizeEvent;
     }
     default:
       return (long)DefWindowProc(hWnd, msg, wp, lp);
@@ -163,11 +163,11 @@ void window::create(const char* title, unsigned int width, unsigned int height, 
 {
   *window = {};
 
-  window->instance_ = GetModuleHandle(0);
-  window->width_ = width;
-  window->height_ = height;
-  window->activeEvent_ = nullptr;
-  memcpy( window->title_, title, strlen(title));
+  window->instance = GetModuleHandle(0);
+  window->width = width;
+  window->height = height;
+  window->activeEvent = nullptr;
+  memcpy( window->title, title, strlen(title));
 
   WNDCLASSEX wndClass;
   wndClass.cbSize = sizeof(WNDCLASSEX);
@@ -175,7 +175,7 @@ void window::create(const char* title, unsigned int width, unsigned int height, 
   wndClass.lpfnWndProc = (WNDPROC)WindowProcedure;
   wndClass.cbClsExtra = 0;
   wndClass.cbWndExtra = 0;
-  wndClass.hInstance = window->instance_;
+  wndClass.hInstance = window->instance;
   wndClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
   wndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
   wndClass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
@@ -193,47 +193,47 @@ void window::create(const char* title, unsigned int width, unsigned int height, 
   windowRect.bottom = (long)height;
 
   AdjustWindowRectEx(&windowRect, dwStyle, FALSE, dwExStyle);
-  window->handle_ = CreateWindowEx(0, title, title,
+  window->handle = CreateWindowEx(0, title, title,
     dwStyle | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
     0, 0, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top,
-    NULL, NULL, window->instance_, NULL);
+    NULL, NULL, window->instance, NULL);
 
-  assert(window->handle_);
+  assert(window->handle);
 
-  SetWindowLongPtr(window->handle_, GWLP_USERDATA, (LONG_PTR)window);
+  SetWindowLongPtr(window->handle, GWLP_USERDATA, (LONG_PTR)window);
 
-  ShowWindow(window->handle_, SW_SHOW);
-  SetForegroundWindow(window->handle_);
-  SetFocus(window->handle_);
+  ShowWindow(window->handle, SW_SHOW);
+  SetForegroundWindow(window->handle);
+  SetFocus(window->handle);
 }
 
 event_t* window::getNextEvent(window_t* window)
 {
-  window->activeEvent_ = nullptr;
+  window->activeEvent = nullptr;
   MSG message;
   if (PeekMessage(&message, NULL, 0, 0, PM_REMOVE))
   {
-    if (message.hwnd == window->handle_)
+    if (message.hwnd == window->handle)
     {
       DispatchMessage(&message);
     }
   }
 
-  return window->activeEvent_;
+  return window->activeEvent;
 }
 
 void window::setTitle(const char* title, window_t* window )
 {
-  if (SetWindowText(window->handle_, title))
+  if (SetWindowText(window->handle, title))
   {
-    memcpy(window->title_, title, strlen(title));
+    memcpy(window->title, title, strlen(title));
   }
 }
 
 
 void window::destroy(window_t* window)
 {
-  DestroyWindow(window->handle_);
+  DestroyWindow(window->handle);
 }
 
 #else
@@ -288,7 +288,7 @@ void window::create(const char* title, unsigned int width, unsigned int height, 
 
   window->screen_ = iter.data;
   uint32_t value_mask, value_list[32];
-  window->handle_ = xcb_generate_id(window->connection_);
+  window->handle = xcb_generate_id(window->connection_);
 
   value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
   value_list[0] = window->screen_->black_pixel;
@@ -302,7 +302,7 @@ void window::create(const char* title, unsigned int width, unsigned int height, 
 
   xcb_create_window(window->connection_,
     XCB_COPY_FROM_PARENT,
-    window->handle_, window->screen_->root,
+    window->handle, window->screen_->root,
     0, 0, width, height, 0,
     XCB_WINDOW_CLASS_INPUT_OUTPUT,
     window->screen_->root_visual,
@@ -315,16 +315,16 @@ void window::create(const char* title, unsigned int width, unsigned int height, 
   window->atomWmDeleteWindow_ = xcb_intern_atom_reply(window->connection_, cookie2, 0);
 
   xcb_change_property(window->connection_, XCB_PROP_MODE_REPLACE,
-    window->handle_, (*reply).atom, 4, 32, 1,
+    window->handle, (*reply).atom, 4, 32, 1,
     &(*window->atomWmDeleteWindow_).atom);
 
   xcb_change_property(window->connection_, XCB_PROP_MODE_REPLACE,
-    window->handle_, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8,
+    window->handle, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8,
     strlen(title), title);
 
   free(reply);
 
-  xcb_map_window(window->connection_, window->handle_);
+  xcb_map_window(window->connection_, window->handle);
 }
 
 event_t* window::GetNextEvent(window_t* window)
@@ -420,8 +420,8 @@ event_t* window::GetNextEvent(window_t* window)
 void window::destroy(window_t* window)
 {
   free(window->atomWmDeleteWindow_);
-  xcb_unmap_window(window->connection_, window->handle_);
-  xcb_destroy_window(window->connection_, window->handle_);
+  xcb_unmap_window(window->connection_, window->handle);
+  xcb_destroy_window(window->connection_, window->handle);
   xcb_disconnect(window->connection_);
 }
 

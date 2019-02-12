@@ -40,29 +40,25 @@ namespace bkk
 
       bool operator==(const handle_t& handle) const
       {
-        return index_ == handle.index_ && generation_ == handle.generation_;
+        return (index_ == handle.index_) && (generation_ == handle.generation_);
       }
 
       bool operator!=(const handle_t& handle) const
       {
-        return index_ != handle.index_ || generation_ != handle.generation_;
+        return (index_ != handle.index_) || (generation_ != handle.generation_);
       }
-
     };
+
     static const handle_t NULL_HANDLE = { 65535u,65535u };
 
-    template <typename T> struct packed_freelist_iterator_t;
+    template <typename T> class packed_freelist_iterator_t;
 
     template <typename T>
-    struct packed_freelist_t
+    class packed_freelist_t
     {
+    public:
       packed_freelist_t() :headFreeList_(0u), elementCount_(0u) {}
 
-      /**
-       * @brief Adds a new element to the list
-       * @param[in] data The data element to be added
-       * @return A valid ID to the element
-       */
       handle_t add(const T& data)
       {
         assert(elementCount_ < 65535u);
@@ -97,11 +93,6 @@ namespace bkk
         return id;
       }
 
-      /**
-       * @brief Get element given its ID
-       * @param[in] id The ID of the element
-       * @return A pointer to the element if the ID is valid, nullptr otherwise
-       */
       T* get(handle_t id)
       {
         uint32_t index;
@@ -112,11 +103,6 @@ namespace bkk
         return nullptr;
       }
 
-      /**
-       * @brief Swaps two elements
-       * @param[in] id0 The id of the first element
-       * @param[in] id1 The id of the second element
-       */
       void swap(handle_t id0, handle_t id1)
       {
         uint32_t index0;
@@ -138,11 +124,6 @@ namespace bkk
         }
       }
 
-      /**
-       * @brief Removes an element given its ID
-       * @param[in] id The id of the element to remove
-       * @return True if the element has been removed, false if the element was not present
-       */
       bool remove(handle_t id)
       {
         uint32_t index;
@@ -167,22 +148,11 @@ namespace bkk
         return false;
       }
 
-      /**
-       * @brief Gets the id of an element given its index in the data vector
-       * @param[in] index The index of the element in the data vector
-       * @return The id of the element
-       */
       handle_t getIdFromIndex(uint32_t index) const
       {
         return id_[index];
       }
 
-      /**
-       * @brief Gets the index of an element given its ID
-       * @param[in] id The id of the element
-       * @param[out] index The index in the data vector
-       * @return true if id is valid, false otherwise
-       */
       bool getIndexFromId(handle_t id, uint32_t* index) const
       {
         if (id.index_ < freeList_.size() && id.generation_ == freeList_[id.index_].generation_)
@@ -194,19 +164,11 @@ namespace bkk
         return false;
       }
 
-      /**
-       * @brief Returns the number of elements in the vector
-       * @return The number of elements
-       */
       uint32_t getElementCount() const
       {
         return elementCount_;
       }
 
-      /**
-       * @brief Get the packed data vector
-       * @return A reference to the data vector
-       */
       uint32_t getData(T** data)
       {
         *data = data_.data();
@@ -215,33 +177,33 @@ namespace bkk
 
       packed_freelist_iterator_t<T> begin()
       {
-        packed_freelist_iterator_t<T> it;
-        it.packedFreelist_ = this;
-        it.index_ = 0;
-        return it;
+        return packed_freelist_iterator_t<T>(this, 0);
       }
 
       packed_freelist_iterator_t<T> end()
       {
-        packed_freelist_iterator_t<T> it;
-        it.packedFreelist_ = this;
-        it.index_ = getElementCount();
-        return it;
+        return packed_freelist_iterator_t<T>(this, getElementCount() );
       }
 
     private:
 
-      std::vector<handle_t> freeList_;  ///< Free list of IDs (vector with holes)
-      uint16_t headFreeList_;           ///< Head of the free list (fist free element in freeList_)
+      std::vector<handle_t> freeList_;  // Free list of IDs (vector with holes)
+      uint16_t headFreeList_;           // Head of the free list (fist free element in freeList_)
 
-      std::vector<T> data_;             ///< Packed data
-      std::vector<handle_t> id_;        ///< Id of each packed element (Needed to go from index to ID)
-      uint16_t elementCount_;           ///< Number of packed elements
+      std::vector<T> data_;             // Packed data
+      std::vector<handle_t> id_;        // Id of each packed element (Needed to go from index to ID)
+      uint16_t elementCount_;           // Number of packed elements
     };
 
     template <typename T>
-    struct packed_freelist_iterator_t
+    class packed_freelist_iterator_t
     {
+    public:
+      packed_freelist_iterator_t()
+      :packedFreelist_(nullptr), index_(0){}
+
+      packed_freelist_iterator_t(packed_freelist_t<T>* list, uint32_t index)
+      :packedFreelist_(list), index_(index){}
 
       bool operator==(const packed_freelist_iterator_t<T>& it)
       {
@@ -266,9 +228,10 @@ namespace bkk
         return data[index_];
       }
 
+    private:
       packed_freelist_t<T>* packedFreelist_;
       uint32_t index_;
     };
-  }
-}
+  }//core
+}//bkk
 #endif // PACKED_FREELIST_H

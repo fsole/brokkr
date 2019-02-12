@@ -39,28 +39,28 @@ frame_buffer_t::frame_buffer_t(render_target_handle_t* renderTargets, uint32_t t
       //error!
     }
 
-    attachments[i].format_ = target->getFormat();
-    attachments[i].initialLayout_ = initialLayouts != nullptr ? initialLayouts[i] : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[i].finallLayout_ = finalLayouts != nullptr ? finalLayouts[i] : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    attachments[i].storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
-    attachments[i].loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    attachments[i].samples_ = VK_SAMPLE_COUNT_1_BIT;
-    subpass.colorAttachmentIndex_.push_back(i);
-    imageViews[i] = target->getColorBuffer().imageView_;
+    attachments[i].format = target->getFormat();
+    attachments[i].initialLayout = initialLayouts != nullptr ? initialLayouts[i] : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[i].finalLayout = finalLayouts != nullptr ? finalLayouts[i] : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    attachments[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[i].samples = VK_SAMPLE_COUNT_1_BIT;
+    subpass.colorAttachmentIndex.push_back(i);
+    imageViews[i] = target->getColorBuffer().imageView;
     if (target->hasDepthBuffer())
     {
       core::render::depth_stencil_buffer_t depthBuffer = target->getDepthBuffer();
       render::render_pass_t::attachment_t depthAttachment;
-      depthAttachment.format_ = depthBuffer.format_;
-      depthAttachment.initialLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-      depthAttachment.finallLayout_ = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-      depthAttachment.storeOp_ = VK_ATTACHMENT_STORE_OP_STORE;
-      depthAttachment.loadOp_ = VK_ATTACHMENT_LOAD_OP_CLEAR;
-      depthAttachment.samples_ = VK_SAMPLE_COUNT_1_BIT;
+      depthAttachment.format = depthBuffer.format;
+      depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+      depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+      depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+      depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+      depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
       attachments.push_back(depthAttachment);
 
-      subpass.depthStencilAttachmentIndex_ = targetCount;
-      imageViews.push_back(depthBuffer.imageView_);
+      subpass.depthStencilAttachmentIndex = targetCount;
+      imageViews.push_back(depthBuffer.imageView);
     }
   }
   
@@ -76,10 +76,10 @@ void frame_buffer_t::destroy(renderer_t* renderer)
 {
   render::context_t& context = renderer->getContext();
 
-  if (renderPass_.handle_ != VK_NULL_HANDLE)
+  if (renderPass_.handle != VK_NULL_HANDLE)
     render::renderPassDestroy(context, &renderPass_);
 
-  if (frameBuffer_.handle_ != VK_NULL_HANDLE)
+  if (frameBuffer_.handle != VK_NULL_HANDLE)
     render::frameBufferDestroy(context, &frameBuffer_);
 
   if (renderTargets_ != nullptr)

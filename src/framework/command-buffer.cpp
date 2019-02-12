@@ -102,21 +102,21 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
     if (material && mesh )
     {
       core::render::graphics_pipeline_t pipeline = material->getPipeline(passName, frameBuffer_, renderer_);
-      if (pipeline.handle_ != VK_NULL_HANDLE)
+      if (pipeline.handle != VK_NULL_HANDLE)
       {
         //TODO: Order objects by material and bind pipeline and camera ubo only once for all objects
         //sharing the same material
         render::graphicsPipelineBind(commandBuffer_, pipeline );
 
         //Camera uniform buffer
-        render::descriptorSetBind(commandBuffer_, pipeline.layout_, 0, &camera->descriptorSet_, 1u);
+        render::descriptorSetBind(commandBuffer_, pipeline.layout, 0, &camera->getDescriptorSet(), 1u);
       
         //Object uniform buffer
-        render::descriptorSetBind(commandBuffer_, pipeline.layout_, 1, &actors[i].descriptorSet_, 1u);
+        render::descriptorSetBind(commandBuffer_, pipeline.layout, 1, &actors[i].getDescriptorSet(), 1u);
 
         //Material descriptor set
         render::descriptor_set_t materialDescriptorSet = material->getDescriptorSet(passName);
-        render::descriptorSetBind(commandBuffer_, pipeline.layout_, 2, &materialDescriptorSet, 1u);
+        render::descriptorSetBind(commandBuffer_, pipeline.layout, 2, &materialDescriptorSet, 1u);
 
         //Draw call
         core::mesh::draw(commandBuffer_, *mesh);
@@ -159,9 +159,9 @@ void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle
   beginCommandBuffer();
 
   render::graphicsPipelineBind(commandBuffer_, pipeline);
-  render::descriptorSetBind(commandBuffer_, pipeline.layout_, 0, &camera->descriptorSet_, 1u);
-  render::descriptorSetBind(commandBuffer_, pipeline.layout_, 1, &actor->descriptorSet_, 1u);
-  render::descriptorSetBind(commandBuffer_, pipeline.layout_, 2, &materialDescriptorSet, 1u);
+  render::descriptorSetBind(commandBuffer_, pipeline.layout, 0, &camera->getDescriptorSet(), 1u);
+  render::descriptorSetBind(commandBuffer_, pipeline.layout, 1, &actor->getDescriptorSet(), 1u);
+  render::descriptorSetBind(commandBuffer_, pipeline.layout, 2, &materialDescriptorSet, 1u);
 
   core::mesh::draw(commandBuffer_, *mesh);
 
@@ -186,7 +186,7 @@ void command_buffer_t::release()
 
 void command_buffer_t::cleanup()
 {
-  if (commandBuffer_.handle_ != VK_NULL_HANDLE)
+  if (commandBuffer_.handle != VK_NULL_HANDLE)
   {
     render::context_t& context = renderer_->getContext();
     core::render::commandBufferDestroy(context, &commandBuffer_);

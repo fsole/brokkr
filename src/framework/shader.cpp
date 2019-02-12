@@ -184,7 +184,7 @@ static render::vertex_format_t extractVertexFormatFromShader(std::string& code)
   {
     uint32_t offset;
     uint32_t size;
-    render::vertex_attribute_t::format format;
+    render::vertex_attribute_t::format_e format;
 
     bool operator<(const attribute_desc_t& a)
     {
@@ -203,17 +203,17 @@ static render::vertex_format_t extractVertexFormatFromShader(std::string& code)
       
       if (tokens[i + 1] == "vec2")
       {
-        attribute.format = render::vertex_attribute_t::format::VEC2;
+        attribute.format = render::vertex_attribute_t::format_e::VEC2;
         attribute.size = sizeof(float) * 2;
       }
       else if(tokens[i + 1] == "vec3")
       {
-        attribute.format = render::vertex_attribute_t::format::VEC3;
+        attribute.format = render::vertex_attribute_t::format_e::VEC3;
         attribute.size = sizeof(float) * 3;
       }
       else if (tokens[i + 1] == "vec4")
       {
-        attribute.format = render::vertex_attribute_t::format::VEC4;
+        attribute.format = render::vertex_attribute_t::format_e::VEC4;
         attribute.size = sizeof(float) * 4;
       }
 
@@ -229,10 +229,10 @@ static render::vertex_format_t extractVertexFormatFromShader(std::string& code)
   for (uint32_t i = 0; i < attributeDesc.size(); ++i)
   {
     render::vertex_attribute_t attribute = {};
-    attribute.offset_ = offset;
-    attribute.format_ = attributeDesc[i].format;
-    attribute.stride_ = vertexSize;
-    attribute.instanced_ = false;
+    attribute.offset = offset;
+    attribute.format = attributeDesc[i].format;
+    attribute.stride = vertexSize;
+    attribute.instanced = false;
 
     vertexAttributes.push_back(attribute);
     offset += attributeDesc[i].size;
@@ -399,25 +399,24 @@ void shader_t::destroy(renderer_t* renderer)
 {
   for (uint32_t i = 0; i < graphicsPipelineDescriptions_.size(); ++i)
   {
-    if (vertexShaders_[i].handle_ != VK_NULL_HANDLE)
+    if (vertexShaders_[i].handle != VK_NULL_HANDLE)
       render::shaderDestroy(renderer->getContext(), &vertexShaders_[i]);
 
-    if (fragmentShaders_[i].handle_ != VK_NULL_HANDLE)
+    if (fragmentShaders_[i].handle != VK_NULL_HANDLE)
       render::shaderDestroy(renderer->getContext(), &fragmentShaders_[i]);
 
     render::vertexFormatDestroy(&vertexFormats_[i]);
     render::pipelineLayoutDestroy(renderer->getContext(), &pipelineLayouts_[i]);
   }
 
-  for (uint32_t i(0); i < graphicsPipelines_.values_.size(); ++i)
+  std::vector< std::vector<core::render::graphics_pipeline_t> >& pipelines = graphicsPipelines_.data();
+  for (uint32_t i(0); i < pipelines.size(); ++i)
   {
-    for (uint32_t j(0); j < graphicsPipelines_.values_[i].size(); ++j)
-    {
-      render::graphicsPipelineDestroy(renderer->getContext(), &graphicsPipelines_.values_[i][j]);
-    }
+    for (uint32_t j(0); j < pipelines[i].size(); ++j)
+      render::graphicsPipelineDestroy(renderer->getContext(), &pipelines[i][j]);
   }
 
-  if (descriptorSetLayout_.handle_ != VK_NULL_HANDLE )
+  if (descriptorSetLayout_.handle != VK_NULL_HANDLE )
     render::descriptorSetLayoutDestroy(renderer->getContext(), &descriptorSetLayout_);
 
   textures_.clear();
@@ -492,24 +491,24 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
       switch (buffers_[i].type_)
       {
       case buffer_desc_t::UNIFORM_BUFFER:
-        binding.type_ = render::descriptor_t::type::UNIFORM_BUFFER;
+        binding.type = render::descriptor_t::type_e::UNIFORM_BUFFER;
         break;
       case buffer_desc_t::STORAGE_BUFFER:
-        binding.type_ = render::descriptor_t::type::STORAGE_BUFFER;
+        binding.type = render::descriptor_t::type_e::STORAGE_BUFFER;
         break;
       }
 
-      binding.binding_ = buffers_[i].binding_;
-      binding.stageFlags_ = render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT;
+      binding.binding = buffers_[i].binding_;
+      binding.stageFlags = render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT;
       bindingIndex++;
     }
 
     for (uint32_t i(0); i < textures_.size(); ++i)
     {
       render::descriptor_binding_t& binding = bindings[bindingIndex];
-      binding.type_ = render::descriptor_t::type::COMBINED_IMAGE_SAMPLER;
-      binding.binding_ = textures_[i].binding_;
-      binding.stageFlags_ = render::descriptor_t::stage::VERTEX | render::descriptor_t::stage::FRAGMENT;
+      binding.type = render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER;
+      binding.binding = textures_[i].binding_;
+      binding.stageFlags = render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT;
       bindingIndex++;
     }
 
@@ -589,15 +588,15 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
       }
 
       render::graphics_pipeline_t::description_t pipelineDesc = {};      
-      pipelineDesc.blendState_.resize(1);
-      pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-      pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-      pipelineDesc.cullMode_ = cullMode;
-      pipelineDesc.depthTestEnabled_ = depthTest;
-      pipelineDesc.depthWriteEnabled_ = depthWrite;
-      pipelineDesc.depthTestFunction_ = depthTestFunc;
-      pipelineDesc.vertexShader_ = vertexShader;
-      pipelineDesc.fragmentShader_ = fragmentShader;
+      pipelineDesc.blendState.resize(1);
+      pipelineDesc.blendState[0].colorWriteMask = 0xF;
+      pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+      pipelineDesc.cullMode = cullMode;
+      pipelineDesc.depthTestEnabled = depthTest;
+      pipelineDesc.depthWriteEnabled = depthWrite;
+      pipelineDesc.depthTestFunction = depthTestFunc;
+      pipelineDesc.vertexShader = vertexShader;
+      pipelineDesc.fragmentShader = fragmentShader;
       graphicsPipelineDescriptions_.push_back(pipelineDesc);
     }
 
@@ -638,14 +637,14 @@ core::render::graphics_pipeline_t shader_t::getPipeline(uint32_t pass, frame_buf
     frame_buffer_t* frameBuffer = renderer->getFrameBuffer(fb);
     width = frameBuffer->getWidth();
     height = frameBuffer->getHeight();
-    renderPass = frameBuffer->getRenderPass().handle_;
+    renderPass = frameBuffer->getRenderPass().handle;
 
     uint32_t count = (uint32_t)pass_.size();
     std::vector<core::render::graphics_pipeline_t> pipelines(count);
     for (uint32_t i = 0; i < count ; ++i)
     {
-      graphicsPipelineDescriptions_[i].viewPort_ = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
-      graphicsPipelineDescriptions_[i].scissorRect_ = { { 0,0 },{ width, height } };
+      graphicsPipelineDescriptions_[i].viewPort = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
+      graphicsPipelineDescriptions_[i].scissorRect = { { 0,0 },{ width, height } };
       bkk::core::render::graphics_pipeline_t pipeline;
       bkk::core::render::graphicsPipelineCreate(renderer->getContext(), 
         renderPass, 0u, vertexFormats_[i], pipelineLayouts_[i], 

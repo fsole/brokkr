@@ -127,16 +127,16 @@ static mesh::mesh_t createCube(const render::context_t& context, u32 width, u32 
 
 
   static render::vertex_attribute_t attributes[1];
-  attributes[0].format_ = render::vertex_attribute_t::format::VEC3;
-  attributes[0].offset_ = 0;
-  attributes[0].stride_ = sizeof(vec3);
-  attributes[0].instanced_ = false;
+  attributes[0].format = render::vertex_attribute_t::format_e::VEC3;
+  attributes[0].offset = 0;
+  attributes[0].stride = sizeof(vec3);
+  attributes[0].instanced = false;
 
   mesh::mesh_t mesh;
   mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 1, nullptr, &mesh);
 
-  mesh.aabb_.min_ = vec3(-hw, -hh, -hd);
-  mesh.aabb_.max_ = vec3(hw, hh, hd);
+  mesh.aabb.min = vec3(-hw, -hh, -hd);
+  mesh.aabb.max = vec3(hw, hh, hd);
   return mesh;
 }
 
@@ -230,24 +230,24 @@ static maths::vec3 gridToLocal(u32 x, u32 y, u32 z, u32 gridWidth, u32 gridHeigh
 static void distanceFieldFromMesh(const render::context_t& context, u32 width, u32 height, u32 depth, const mesh::mesh_t& mesh, render::gpu_buffer_t* buffer)
 {
   //Compute distances for an area twice as big as the bounding box of the mesh
-  maths::vec3 aabbMinScaled = mesh.aabb_.min_ * 4.0f;
-  maths::vec3 aabbMaxScaled = mesh.aabb_.max_ * 4.0f;
+  maths::vec3 aabbMinScaled = mesh.aabb.min * 4.0f;
+  maths::vec3 aabbMaxScaled = mesh.aabb.max * 4.0f;
 
   //Read index data from mesh
-  uint32_t indexBufferSize = (uint32_t)mesh.indexBuffer_.memory_.size_ - (uint32_t)mesh.indexBuffer_.memory_.offset_;
+  uint32_t indexBufferSize = (uint32_t)mesh.indexBuffer.memory.size - (uint32_t)mesh.indexBuffer.memory.offset;
   uint32_t* index = (uint32_t*)malloc(indexBufferSize);
-  memcpy(index, render::gpuBufferMap(context, mesh.indexBuffer_), indexBufferSize);
-  gpuBufferUnmap(context, mesh.indexBuffer_);
+  memcpy(index, render::gpuBufferMap(context, mesh.indexBuffer), indexBufferSize);
+  gpuBufferUnmap(context, mesh.indexBuffer);
 
   //Read vertex data from mesh
-  uint32_t vertexBufferSize = (uint32_t)mesh.vertexBuffer_.memory_.size_ - (uint32_t)mesh.vertexBuffer_.memory_.offset_;
+  uint32_t vertexBufferSize = (uint32_t)mesh.vertexBuffer.memory.size - (uint32_t)mesh.vertexBuffer.memory.offset;
   uint8_t* vertex = (uint8_t*)malloc(vertexBufferSize);
-  memcpy(vertex, render::gpuBufferMap(context, mesh.vertexBuffer_), vertexBufferSize);
-  gpuBufferUnmap(context, mesh.vertexBuffer_);
-  vec3* vertexPosition = (vec3*)malloc(sizeof(vec3) * mesh.vertexCount_ );
-  for (u32 i(0); i < mesh.vertexCount_; ++i)
+  memcpy(vertex, render::gpuBufferMap(context, mesh.vertexBuffer), vertexBufferSize);
+  gpuBufferUnmap(context, mesh.vertexBuffer);
+  vec3* vertexPosition = (vec3*)malloc(sizeof(vec3) * mesh.vertexCount );
+  for (u32 i(0); i < mesh.vertexCount; ++i)
   {
-    vertexPosition[i] = *(vec3*)(vertex + i*mesh.vertexFormat_.vertexSize_);
+    vertexPosition[i] = *(vec3*)(vertex + i*mesh.vertexFormat.vertexSize);
   }
   
   //Generate distance field
@@ -258,7 +258,7 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
     {
       for (u32 x = 0; x<width; ++x)
       {
-        float distance = signedDistancePointMesh(gridToLocal(x, y, z, width, height, depth, aabbMinScaled, aabbMaxScaled), index, mesh.indexCount_, vertexPosition, mesh.vertexCount_);
+        float distance = signedDistancePointMesh(gridToLocal(x, y, z, width, height, depth, aabbMinScaled, aabbMaxScaled), index, mesh.indexCount, vertexPosition, mesh.vertexCount);
         data[z*width*height + y*width + x] = distance;
       }
     }
@@ -284,7 +284,7 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
   field.aabbMin = maths::vec4(aabbMinScaled.x, aabbMinScaled.y, aabbMinScaled.z, 0.0f);
   field.aabbMax = maths::vec4(aabbMaxScaled.x, aabbMaxScaled.y, aabbMaxScaled.z, 0.0f);
 
-  render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage::STORAGE_BUFFER,
+  render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
                           render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                           nullptr, sizeof(distance_field_buffer_data_t) + sizeof(float) * width * height * depth,
                           nullptr, buffer);
@@ -316,7 +316,7 @@ bool createUniformBuffer()
   data.camera.aperture = 0.05f;
  
   //Create uniform buffer
-  render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage::UNIFORM_BUFFER,
+  render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
                           render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                           (void*)&data, sizeof(data),
                           nullptr, &gUbo);
@@ -344,14 +344,14 @@ void createFullscreenQuad( mesh::mesh_t* quad )
 
 
   static render::vertex_attribute_t attributes[2];
-  attributes[0].format_ = render::vertex_attribute_t::format::VEC3;
-  attributes[0].offset_ = 0;
-  attributes[0].stride_ = sizeof(Vertex);
-  attributes[0].instanced_ = false;
-  attributes[1].format_ = render::vertex_attribute_t::format::VEC2;;
-  attributes[1].offset_ = offsetof(Vertex, uv);
-  attributes[1].stride_ = sizeof(Vertex);
-  attributes[1].instanced_ = false;
+  attributes[0].format = render::vertex_attribute_t::format_e::VEC3;
+  attributes[0].offset = 0;
+  attributes[0].stride = sizeof(Vertex);
+  attributes[0].instanced = false;
+  attributes[1].format = render::vertex_attribute_t::format_e::VEC2;;
+  attributes[1].offset = offsetof(Vertex, uv);
+  attributes[1].stride = sizeof(Vertex);
+  attributes[1].instanced = false;
 
   mesh::create(gContext, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, quad);
 }
@@ -359,7 +359,7 @@ void createFullscreenQuad( mesh::mesh_t* quad )
 void createGraphicsPipeline()
 {
   //Create descriptor layout
-  render::descriptor_binding_t binding = { render::descriptor_t::type::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage::FRAGMENT };
+  render::descriptor_binding_t binding = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage_e::FRAGMENT };
   render::descriptorSetLayoutCreate(gContext, &binding, 1u, &gDescriptorSetLayout);
 
   //Create pipeline layout
@@ -383,26 +383,26 @@ void createGraphicsPipeline()
 
   //Create graphics pipeline
   render::graphics_pipeline_t::description_t pipelineDesc = {};
-  pipelineDesc.viewPort_ = { 0.0f, 0.0f, (float)gContext.swapChain_.imageWidth_, (float)gContext.swapChain_.imageHeight_, 0.0f, 1.0f };
-  pipelineDesc.scissorRect_ = { { 0,0 },{ gContext.swapChain_.imageWidth_,gContext.swapChain_.imageHeight_ } };
-  pipelineDesc.blendState_.resize(1);
-  pipelineDesc.blendState_[0].colorWriteMask = 0xF;
-  pipelineDesc.blendState_[0].blendEnable = VK_FALSE;
-  pipelineDesc.cullMode_ = VK_CULL_MODE_BACK_BIT;
-  pipelineDesc.depthTestEnabled_ = false;
-  pipelineDesc.depthWriteEnabled_ = false;
-  pipelineDesc.vertexShader_ = gVertexShader;
-  pipelineDesc.fragmentShader_ = gFragmentShader;
-  render::graphicsPipelineCreate(gContext, gContext.swapChain_.renderPass_, 0u, gFSQuad.vertexFormat_, gPipelineLayout, pipelineDesc, &gPipeline);
+  pipelineDesc.viewPort = { 0.0f, 0.0f, (float)gContext.swapChain.imageWidth, (float)gContext.swapChain.imageHeight, 0.0f, 1.0f };
+  pipelineDesc.scissorRect = { { 0,0 },{ gContext.swapChain.imageWidth, gContext.swapChain.imageHeight } };
+  pipelineDesc.blendState.resize(1);
+  pipelineDesc.blendState[0].colorWriteMask = 0xF;
+  pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+  pipelineDesc.cullMode = VK_CULL_MODE_BACK_BIT;
+  pipelineDesc.depthTestEnabled = false;
+  pipelineDesc.depthWriteEnabled = false;
+  pipelineDesc.vertexShader = gVertexShader;
+  pipelineDesc.fragmentShader = gFragmentShader;
+  render::graphicsPipelineCreate(gContext, gContext.swapChain.renderPass, 0u, gFSQuad.vertexFormat, gPipelineLayout, pipelineDesc, &gPipeline);
 }
 
 void createComputePipeline()
 {
   //Create descriptor layout
     render::descriptor_binding_t bindings[3] = {  
-      render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_IMAGE,  0, render::descriptor_t::stage::COMPUTE },
-      render::descriptor_binding_t{ render::descriptor_t::type::UNIFORM_BUFFER, 1, render::descriptor_t::stage::COMPUTE },
-      render::descriptor_binding_t{ render::descriptor_t::type::STORAGE_BUFFER, 2, render::descriptor_t::stage::COMPUTE }
+      render::descriptor_binding_t{ render::descriptor_t::type_e::STORAGE_IMAGE,  0, render::descriptor_t::stage_e::COMPUTE },
+      render::descriptor_binding_t{ render::descriptor_t::type_e::UNIFORM_BUFFER, 1, render::descriptor_t::stage_e::COMPUTE },
+      render::descriptor_binding_t{ render::descriptor_t::type_e::STORAGE_BUFFER, 2, render::descriptor_t::stage_e::COMPUTE }
     };
 
   render::descriptorSetLayoutCreate(gContext, bindings, 3u, &gComputeDescriptorSetLayout);
@@ -494,7 +494,7 @@ void renderFrame()
 
   //Submit compute command buffer
   render::commandBufferSubmit(gContext, gComputeCommandBuffer);
-  vkQueueWaitIdle(gContext.computeQueue_.handle_);
+  vkQueueWaitIdle(gContext.computeQueue.handle);
 }
 
 void updateCameraTransform()
@@ -591,7 +591,7 @@ int main()
     window::event_t* event = nullptr;
     while ((event = window::getNextEvent(&gWindow)))
     {
-      switch (event->type_)
+      switch (event->type)
       {
       case window::EVENT_QUIT:
       {
@@ -601,26 +601,26 @@ int main()
       case window::EVENT_RESIZE:
       {
         window::event_resize_t* resizeEvent = (window::event_resize_t*)event;
-        render::swapchainResize(&gContext, resizeEvent->width_, resizeEvent->height_);
+        render::swapchainResize(&gContext, resizeEvent->width, resizeEvent->height);
         buildCommandBuffers();
         break;
       }
       case window::EVENT_KEY:
       {
         window::event_key_t* keyEvent = (window::event_key_t*)event;
-        onKeyEvent(keyEvent->keyCode_, keyEvent->pressed_);
+        onKeyEvent(keyEvent->keyCode, keyEvent->pressed);
         break;
       }
       case window::EVENT_MOUSE_BUTTON:
       {
         window::event_mouse_button_t* buttonEvent = (window::event_mouse_button_t*)event;
-        onMouseButton(buttonEvent->button_, buttonEvent->x_, buttonEvent->y_, buttonEvent->pressed_);
+        onMouseButton(buttonEvent->button, buttonEvent->x, buttonEvent->y, buttonEvent->pressed);
         break;
       }
       case window::EVENT_MOUSE_MOVE:
       {
         window::event_mouse_move_t* moveEvent = (window::event_mouse_move_t*)event;
-        onMouseMove(moveEvent->x_, moveEvent->y_);
+        onMouseMove(moveEvent->x, moveEvent->y);
         break;
       }
       default:

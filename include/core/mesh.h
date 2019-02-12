@@ -37,76 +37,76 @@ namespace bkk
     {
       struct aabb_t
       {
-        maths::vec3 min_;
-        maths::vec3 max_;
+        maths::vec3 min;
+        maths::vec3 max;
       };
 
       struct skeleton_t
       {
-        transform_manager_t txManager_;
+        transform_manager_t txManager;
 
-        handle_t* bones_;
-        maths::mat4* bindPose_;
+        handle_t* bones;
+        maths::mat4* bindPose;
 
-        maths::mat4 rootBoneInverseTransform_;
+        maths::mat4 rootBoneInverseTransform;
 
-        u32 boneCount_;
-        u32 nodeCount_;
+        u32 boneCount;
+        u32 nodeCount;
       };
 
       struct bone_transform_t
       {
-        maths::vec3 position_;
-        maths::vec3 scale_;
-        maths::quat orientation_;
+        maths::vec3 position;
+        maths::vec3 scale;
+        maths::quat orientation;
       };
 
       struct skeletal_animation_t
       {
-        u32 frameCount_;
-        u32 nodeCount_;
-        f32 duration_;  //In ms
+        u32 frameCount;
+        u32 nodeCount;
+        f32 duration;  //In ms
 
-        handle_t* nodes_;    //Handles of animated nodes
-        bone_transform_t* data_;
+        handle_t* nodes;    //Handles of animated nodes
+        bone_transform_t* data;
       };
 
 
       struct skeletal_animator_t
       {
-        f32 cursor_;
-        float speed_;
+        f32 cursor;
+        float speed;
 
-        skeleton_t* skeleton_;
-        const skeletal_animation_t* animation_;
+        skeleton_t* skeleton;
+        const skeletal_animation_t* animation;
 
-        maths::mat4* boneTransform_;      //Final bones transforms for current time in the animation
-        render::gpu_buffer_t buffer_;    //Uniform buffer with the final transformation of each bone
+        maths::mat4* boneTransform;      //Final bones transforms for current time in the animation
+        render::gpu_buffer_t buffer;    //Uniform buffer with the final transformation of each bone
       };
 
       struct mesh_t
       {
-        render::gpu_buffer_t vertexBuffer_;
-        render::gpu_buffer_t indexBuffer_;
+        render::gpu_buffer_t vertexBuffer;
+        render::gpu_buffer_t indexBuffer;
 
-        u32 vertexCount_;
-        u32 indexCount_;
-        aabb_t aabb_;
+        u32 vertexCount;
+        u32 indexCount;
+        aabb_t aabb;
 
         //Only used for skinned meshes
-        skeleton_t* skeleton_ = nullptr;
-        skeletal_animation_t* animations_ = nullptr;
-        u32 animationCount_ = 0u;
+        skeleton_t* skeleton = nullptr;
+        skeletal_animation_t* animations = nullptr;
+        u32 animationCount = 0u;
 
-        render::vertex_format_t vertexFormat_;
+        render::vertex_format_t vertexFormat;
       };
 
       struct material_t
       {
-        maths::vec3 kd_;
-        maths::vec3 ks_;
+        maths::vec3 kd;
+        maths::vec3 ks;
 
-        char diffuseMap_[128];
+        char diffuseMap[128];
       };
 
       enum export_flags_e
@@ -119,15 +119,13 @@ namespace bkk
 
       };
 
-      ///Mesh API
-
+      
       void create(const render::context_t& context,
         const uint32_t* indexData, uint32_t indexDataSize,
         const void* vertexData, size_t vertexDataSize,
         render::vertex_attribute_t* attribute, uint32_t attributeCount,
         render::gpu_memory_allocator_t* allocator, mesh_t* mesh);
-
-
+      
       //Load all submeshes from a file
       //Warning: Allocates an array of meshes from the heap (returned by reference in 'meshes') and passes ownership of that memory to the caller
       uint32_t createFromFile(const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, mesh_t** meshes);
@@ -150,7 +148,7 @@ namespace bkk
       mesh_t unitQuad(const render::context_t& context);
       mesh_t unitCube(const render::context_t& context);
 
-    } //mesh namespace
-  }//core namespace
-}//namespace bkk
+    } //mesh
+  }//core
+}//bkk
 #endif  /*  MESH_H   */
