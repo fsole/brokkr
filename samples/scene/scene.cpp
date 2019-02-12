@@ -495,14 +495,14 @@ public:
 
 
     //Create globals uniform buffer
-    camera_.position_ = vec3(-1.1f, 0.6f, -0.1f);
-    camera_.angle_ = vec2(0.2f, 1.57f);
+    camera_.setPosition( vec3(-1.1f, 0.6f, -0.1f) );
+    camera_.setRotation( vec2(0.2f, 1.57f) );
     camera_.Update();
-    uniforms_.projectionMatrix_ = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.01f, 10.0f);
-    invertMatrix(uniforms_.projectionMatrix_, uniforms_.projectionInverseMatrix_);
-    uniforms_.worldToViewMatrix_ = camera_.view_;
-    uniforms_.viewToWorldMatrix_ = camera_.tx_;
-    uniforms_.imageSize_ = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
+    uniforms_.projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.01f, 10.0f);
+    invertMatrix(uniforms_.projectionMatrix, uniforms_.projectionInverseMatrix);
+    uniforms_.worldToViewMatrix = camera_.getViewMatrix();
+    uniforms_.viewToWorldMatrix = camera_.getWorldMatrix();
+    uniforms_.imageSize = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER, (void*)&uniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
 
 
@@ -573,30 +573,30 @@ public:
 
     //Create uniform buffer and descriptor set
     material_t material = {};
-    material.uniforms_.albedo_ = albedo;
-    material.uniforms_.metallic_ = metallic;
-    material.uniforms_.F0_ = F0;
-    material.uniforms_.roughness_ = roughness;
+    material.uniforms.albedo = albedo;
+    material.uniforms.metallic = metallic;
+    material.uniforms.F0 = F0;
+    material.uniforms.roughness = roughness;
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
-      &material.uniforms_, sizeof(material_t::uniforms_t),
-      &allocator_, &material.ubo_);
+      &material.uniforms, sizeof(material_t::uniforms_t),
+      &allocator_, &material.ubo);
 
-    render::descriptor_t descriptors[2] = { render::getDescriptor(material.ubo_),render::getDescriptor(defaultDiffuseMap_) };
+    render::descriptor_t descriptors[2] = { render::getDescriptor(material.ubo),render::getDescriptor(defaultDiffuseMap_) };
 
-    material.diffuseMap_ = {};
+    material.diffuseMap = {};
     if (!diffuseMap.empty())
     {
       image::image2D_t image = {};
       if (image::load(diffuseMap.c_str(), true, &image))
       {
         //Create the texture
-        render::texture2DCreateAndGenerateMipmaps(context, image, render::texture_sampler_t(), &material.diffuseMap_);
+        render::texture2DCreateAndGenerateMipmaps(context, image, render::texture_sampler_t(), &material.diffuseMap);
         image::unload(&image);
-        descriptors[1] = render::getDescriptor(material.diffuseMap_);
+        descriptors[1] = render::getDescriptor(material.diffuseMap);
       }
     }
 
-    render::descriptorSetCreate(context, descriptorPool_, materialDescriptorSetLayout_, descriptors, &material.descriptorSet_);
+    render::descriptorSetCreate(context, descriptorPool_, materialDescriptorSetLayout_, descriptors, &material.descriptorSet);
     return material_.add(material);
   }
 
@@ -613,8 +613,8 @@ public:
       &allocator_, &ubo);
 
     object_t object = { meshId, materialId, transformId, ubo };
-    render::descriptor_t descriptor = render::getDescriptor(object.ubo_);
-    render::descriptorSetCreate(context, descriptorPool_, objectDescriptorSetLayout_, &descriptor, &object.descriptorSet_);
+    render::descriptor_t descriptor = render::getDescriptor(object.ubo);
+    render::descriptorSetCreate(context, descriptorPool_, objectDescriptorSetLayout_, &descriptor, &object.descriptorSet);
     return object_.add(object);
   }
   
@@ -627,24 +627,24 @@ public:
       directionalLight_ = new directional_light_t;
 
       vec3 lightDirection = normalize(direction);
-      directionalLight_->uniforms_.direction_ = maths::vec4(lightDirection, 0.0f);
-      directionalLight_->uniforms_.color_ = vec4(color, ambient);
+      directionalLight_->uniforms.direction_ = maths::vec4(lightDirection, 0.0f);
+      directionalLight_->uniforms.color_ = vec4(color, ambient);
 
       mat4 lightViewMatrix;
       quat orientation(vec3(0.0f, 0.0f, 1.0f), lightDirection);
       mat4 lightModelMatrix = maths::createTransform(position, VEC3_ONE, orientation);
       invertMatrix(lightModelMatrix, lightViewMatrix);
 
-      directionalLight_->uniforms_.worldToClipSpace_ = lightViewMatrix * orthographicProjectionMatrix(-1.0f, 1.0f, 1.0f, -1.0f, 0.01f, 2.0f);
-      directionalLight_->uniforms_.shadowMapSize_ = vec4((float)shadowMapSize_, (float)shadowMapSize_, 1.0f / (float)shadowMapSize_, 1.0f / (float)shadowMapSize_);
+      directionalLight_->uniforms.worldToClipSpace_ = lightViewMatrix * orthographicProjectionMatrix(-1.0f, 1.0f, 1.0f, -1.0f, 0.01f, 2.0f);
+      directionalLight_->uniforms.shadowMapSize_ = vec4((float)shadowMapSize_, (float)shadowMapSize_, 1.0f / (float)shadowMapSize_, 1.0f / (float)shadowMapSize_);
 
       //Create uniform buffer and descriptor set
       render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
-        &directionalLight_->uniforms_, sizeof(directional_light_t::uniforms_t),
-        &allocator_, &directionalLight_->ubo_);
+        &directionalLight_->uniforms, sizeof(directional_light_t::uniforms_t),
+        &allocator_, &directionalLight_->ubo);
 
-      render::descriptor_t descriptor = render::getDescriptor(directionalLight_->ubo_);
-      render::descriptorSetCreate(context, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &directionalLight_->descriptorSet_);
+      render::descriptor_t descriptor = render::getDescriptor(directionalLight_->ubo);
+      render::descriptorSetCreate(context, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &directionalLight_->descriptorSet);
 
       initializeShadowPass(context);
     }
@@ -656,16 +656,16 @@ public:
 
     point_light_t light;
 
-    light.uniforms_.position_ = maths::vec4(position, 1.0);
-    light.uniforms_.color_ = color;
-    light.uniforms_.radius_ = radius;
+    light.uniforms.position = maths::vec4(position, 1.0);
+    light.uniforms.color = color;
+    light.uniforms.radius = radius;
     //Create uniform buffer and descriptor set
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
-      &light.uniforms_, sizeof(point_light_t::uniforms_t),
-      &allocator_, &light.ubo_);
+      &light.uniforms, sizeof(point_light_t::uniforms_t),
+      &allocator_, &light.ubo);
 
-    render::descriptor_t descriptor = render::getDescriptor(light.ubo_);
-    render::descriptorSetCreate(context, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &light.descriptorSet_);
+    render::descriptor_t descriptor = render::getDescriptor(light.ubo);
+    render::descriptorSetCreate(context, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &light.descriptorSet);
     return pointLight_.add(light);
   }
      
@@ -682,8 +682,8 @@ public:
     transformManager_.update();
 
     //Update camera matrices
-    uniforms_.worldToViewMatrix_ = camera_.view_;
-    uniforms_.viewToWorldMatrix_ = camera_.tx_;
+    uniforms_.worldToViewMatrix = camera_.getViewMatrix();
+    uniforms_.viewToWorldMatrix = camera_.getWorldMatrix();
     render::gpuBufferUpdate(context, (void*)&uniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
 
     //Update modelview matrices
@@ -691,7 +691,7 @@ public:
     uint32_t objectCount = object_.getData(&objects);
     for (u32 i(0); i < objectCount; ++i)
     {
-      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(objects[i].transform_), 0, sizeof(mat4), &objects[i].ubo_);
+      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(objects[i].transform), 0, sizeof(mat4), &objects[i].ubo);
     }
 
     //Update lights position
@@ -699,7 +699,7 @@ public:
     uint32_t lightCount = pointLight_.getData(&lights);
     for (u32 i(0); i<lightCount; ++i)
     {
-      render::gpuBufferUpdate(context, &lights[i].uniforms_.position_, 0, sizeof(vec4), &lights[i].ubo_);
+      render::gpuBufferUpdate(context, &lights[i].uniforms.position, 0, sizeof(vec4), &lights[i].ubo);
     }
 
     buildAndSubmitCommandBuffer();
@@ -777,12 +777,12 @@ public:
     packed_freelist_iterator_t<material_t> materialIter = material_.begin();
     while (materialIter != material_.end())
     {
-      render::gpuBufferDestroy(context, &allocator_, &materialIter.get().ubo_);
-      if (&materialIter.get().diffuseMap_.image != VK_NULL_HANDLE)
+      render::gpuBufferDestroy(context, &allocator_, &materialIter.get().ubo);
+      if (&materialIter.get().diffuseMap.image != VK_NULL_HANDLE)
       {
-        render::textureDestroy(context, &materialIter.get().diffuseMap_);
+        render::textureDestroy(context, &materialIter.get().diffuseMap);
       }
-      render::descriptorSetDestroy(context, &materialIter.get().descriptorSet_);
+      render::descriptorSetDestroy(context, &materialIter.get().descriptorSet);
       ++materialIter;
     }
 
@@ -790,8 +790,8 @@ public:
     packed_freelist_iterator_t<object_t> objectIter = object_.begin();
     while (objectIter != object_.end())
     {
-      render::gpuBufferDestroy(context, &allocator_, &objectIter.get().ubo_);
-      render::descriptorSetDestroy(context, &objectIter.get().descriptorSet_);
+      render::gpuBufferDestroy(context, &allocator_, &objectIter.get().ubo);
+      render::descriptorSetDestroy(context, &objectIter.get().descriptorSet);
       ++objectIter;
     }
 
@@ -799,15 +799,15 @@ public:
     packed_freelist_iterator_t<point_light_t> lightIter = pointLight_.begin();
     while (lightIter != pointLight_.end())
     {
-      render::gpuBufferDestroy(context, &allocator_, &lightIter.get().ubo_);
-      render::descriptorSetDestroy(context, &lightIter.get().descriptorSet_);
+      render::gpuBufferDestroy(context, &allocator_, &lightIter.get().ubo);
+      render::descriptorSetDestroy(context, &lightIter.get().descriptorSet);
       ++lightIter;
     }
 
     if (directionalLight_ != nullptr)
     {
-      render::gpuBufferDestroy(context, &allocator_, &directionalLight_->ubo_);
-      render::descriptorSetDestroy(context, &directionalLight_->descriptorSet_);
+      render::gpuBufferDestroy(context, &allocator_, &directionalLight_->ubo);
+      render::descriptorSetDestroy(context, &directionalLight_->descriptorSet);
       render::shaderDestroy(context, &shadowVertexShader_);
       render::shaderDestroy(context, &shadowFragmentShader_);
       render::graphicsPipelineDestroy(context, &shadowPipeline_);
@@ -969,7 +969,7 @@ private:
     //Create shadow pipeline layout
     render::descriptor_binding_t binding = { render::descriptor_t::type_e::UNIFORM_BUFFER, 0, render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT };
     render::descriptorSetLayoutCreate(context, &binding, 1u, &shadowGlobalsDescriptorSetLayout_);
-    render::descriptor_t descriptor = render::getDescriptor(directionalLight_->ubo_);
+    render::descriptor_t descriptor = render::getDescriptor(directionalLight_->ubo);
     render::descriptorSetCreate(context, descriptorPool_, shadowGlobalsDescriptorSetLayout_, &descriptor, &shadowGlobalsDescriptorSet_);
     render::descriptor_set_layout_t shadowDescriptorSetLayouts[2] = { shadowGlobalsDescriptorSetLayout_, objectDescriptorSetLayout_ };
     render::pipelineLayoutCreate(context, shadowDescriptorSetLayouts, 2, nullptr, 0u, &shadowPipelineLayout_);
@@ -1172,8 +1172,8 @@ private:
           packed_freelist_iterator_t<object_t> objectIter = object_.begin();
           while (objectIter != object_.end())
           {
-            render::descriptorSetBind(shadowCommandBuffer_, gBufferPipelineLayout_, 1, &objectIter.get().descriptorSet_, 1u);
-            mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
+            render::descriptorSetBind(shadowCommandBuffer_, gBufferPipelineLayout_, 1, &objectIter.get().descriptorSet, 1u);
+            mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh);
             mesh::draw(shadowCommandBuffer_, *mesh);
             ++objectIter;
           }
@@ -1214,9 +1214,9 @@ private:
         packed_freelist_iterator_t<object_t> objectIter = object_.begin();
         while (objectIter != object_.end())
         {
-          render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 1, &objectIter.get().descriptorSet_, 1u);
-          render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 2, &material_.get(objectIter.get().material_)->descriptorSet_, 1u);
-          mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
+          render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 1, &objectIter.get().descriptorSet, 1u);
+          render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 2, &material_.get(objectIter.get().material)->descriptorSet, 1u);
+          mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh);
           mesh::draw(commandBuffer_, *mesh);
           ++objectIter;
         }
@@ -1231,7 +1231,7 @@ private:
         packed_freelist_iterator_t<point_light_t> lightIter = pointLight_.begin();
         while (lightIter != pointLight_.end())
         {
-          render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 2, &lightIter.get().descriptorSet_, 1u);
+          render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 2, &lightIter.get().descriptorSet, 1u);
           mesh::draw(commandBuffer_, sphereMesh_);
           ++lightIter;
         }
@@ -1240,7 +1240,7 @@ private:
         if (directionalLight_ != nullptr)
         {
           render::graphicsPipelineBind(commandBuffer_, directionalLightPipeline_);
-          render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 2, &directionalLight_->descriptorSet_, 1u);
+          render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 2, &directionalLight_->descriptorSet, 1u);
           mesh::draw(commandBuffer_, fullScreenQuad_);
         }
 
@@ -1275,14 +1275,13 @@ private:
   {
     struct uniforms_t
     {
-      maths::vec4 position_;
-      maths::vec3 color_;
-      float radius_;
-    };
+      maths::vec4 position;
+      maths::vec3 color;
+      float radius;
+    }uniforms;
 
-    uniforms_t uniforms_;
-    render::gpu_buffer_t ubo_;
-    render::descriptor_set_t descriptorSet_;
+    render::gpu_buffer_t ubo;
+    render::descriptor_set_t descriptorSet;
   };
 
   struct directional_light_t
@@ -1293,48 +1292,45 @@ private:
       maths::vec4 color_;             //RGB is light color, A is ambient
       maths::mat4 worldToClipSpace_;  //Transforms points from world space to light clip space
       maths::vec4 shadowMapSize_;
-    };
+    }uniforms;
 
-
-    uniforms_t uniforms_;
-    maths::vec3 position_;  //For shadow map rendering
-    maths::mat4 viewProjection_;
-    render::gpu_buffer_t ubo_;
-    render::descriptor_set_t descriptorSet_;
+    maths::vec3 position;  //For shadow map rendering
+    maths::mat4 viewProjection;
+    render::gpu_buffer_t ubo;
+    render::descriptor_set_t descriptorSet;
   };
 
   struct material_t
   {
     struct uniforms_t
     {
-      vec3 albedo_;
-      float metallic_;
-      vec3 F0_;
-      float roughness_;
-    };
+      vec3 albedo;
+      float metallic;
+      vec3 F0;
+      float roughness;
+    }uniforms;
 
-    uniforms_t uniforms_;
-    render::gpu_buffer_t ubo_;
-    render::texture_t diffuseMap_;
-    render::descriptor_set_t descriptorSet_;
+    render::gpu_buffer_t ubo;
+    render::texture_t diffuseMap;
+    render::descriptor_set_t descriptorSet;
   };
 
   struct object_t
   {
-    core::handle_t mesh_;
-    core::handle_t material_;
-    core::handle_t transform_;
-    render::gpu_buffer_t ubo_;
-    render::descriptor_set_t descriptorSet_;
+    core::handle_t mesh;
+    core::handle_t material;
+    core::handle_t transform;
+    render::gpu_buffer_t ubo;
+    render::descriptor_set_t descriptorSet;
   };
 
   struct scene_uniforms_t
   {
-    mat4 worldToViewMatrix_;
-    mat4 viewToWorldMatrix_;
-    mat4 projectionMatrix_;
-    mat4 projectionInverseMatrix_;
-    vec4 imageSize_;
+    mat4 worldToViewMatrix;
+    mat4 viewToWorldMatrix;
+    mat4 projectionMatrix;
+    mat4 projectionInverseMatrix;
+    vec4 imageSize;
   };
 
   transform_manager_t transformManager_;

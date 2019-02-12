@@ -35,8 +35,9 @@ using namespace bkk;
 using namespace bkk::framework;
 
 
-struct application_t::frame_counter_t
+class application_t::frame_counter_t
 {
+public:
   void init(core::window::window_t* window, uint32_t displayInterval = 1000u)
   {
     window_ = window;
@@ -66,7 +67,7 @@ struct application_t::frame_counter_t
       core::window::setTitle(title, window_);
     }
   }
-
+private:
   core::window::window_t* window_;
   char windowTitle_[128];
 

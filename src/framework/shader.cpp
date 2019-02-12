@@ -48,15 +48,15 @@ static uint32_t deserializeFieldDescription(pugi::xml_node fieldNode, uint32_t o
     {
       buffer_desc_t::field_desc_t childField;
       fieldSize += deserializeFieldDescription(fieldNodeChild, offset+fieldSize, &childField);
-      field->fields_.push_back(childField);
+      field->fields.push_back(childField);
     }
   }
 
-  field->name_ = fieldNode.attribute("Name").value();
-  field->type_ = fieldType;
-  field->byteOffset_ = offset;
-  field->size_ = fieldSize;
-  field->count_ = fieldNode.attribute("Count").empty() ? 1 :
+  field->name = fieldNode.attribute("Name").value();
+  field->type = fieldType;
+  field->byteOffset = offset;
+  field->size = fieldSize;
+  field->count = fieldNode.attribute("Count").empty() ? 1 :
     strcmp(fieldNode.attribute("Count").value(), "") == 0 ? 0 : fieldNode.attribute("Count").as_int();
 
   return fieldSize;
@@ -64,76 +64,93 @@ static uint32_t deserializeFieldDescription(pugi::xml_node fieldNode, uint32_t o
 
 static void deserializeBufferDescription(pugi::xml_node resourceNode, uint32_t binding, buffer_desc_t* bufferDesc )
 {
-  bufferDesc->name_ = resourceNode.attribute("Name").value();
-  bufferDesc->type_ = strcmp(resourceNode.attribute("Type").value(), "uniform_buffer") == 0 ?
+  bufferDesc->name = resourceNode.attribute("Name").value();
+  bufferDesc->type = strcmp(resourceNode.attribute("Type").value(), "uniform_buffer") == 0 ?
     buffer_desc_t::UNIFORM_BUFFER : buffer_desc_t::STORAGE_BUFFER;
 
-  bufferDesc->binding_ = binding;
-  bufferDesc->shared_ = strcmp(resourceNode.attribute("Shared").value(), "yes") == 0;
+  bufferDesc->binding = binding;
+  bufferDesc->shared = strcmp(resourceNode.attribute("Shared").value(), "yes") == 0;
 
   uint32_t offset = 0u;
   for (pugi::xml_node fieldNode = resourceNode.child("Field"); fieldNode; fieldNode = fieldNode.next_sibling("Field"))
   {
     buffer_desc_t::field_desc_t field;
     offset += deserializeFieldDescription(fieldNode, offset, &field);
-    bufferDesc->fields_.push_back(field);
+    bufferDesc->fields.push_back(field);
   }
 
-  bufferDesc->size_ = offset;
+  bufferDesc->size = offset;
 }
 
 static void deserializeTextureDescription(pugi::xml_node resourceNode, uint32_t binding, texture_desc_t* textureDesc)
 {
-  textureDesc->name_ = resourceNode.attribute("Name").value();
-  textureDesc->binding_ = binding;
+  textureDesc->name = resourceNode.attribute("Name").value();
+  textureDesc->binding = binding;
 
   if (strcmp(resourceNode.attribute("Type").value(), "texture2D") == 0)
   {
-    textureDesc->type_ = texture_desc_t::TEXTURE_2D;
+    textureDesc->type = texture_desc_t::TEXTURE_2D;
   }
   else if (strcmp(resourceNode.attribute("Type").value(), "textureCube") == 0)
   {
-    textureDesc->type_ = texture_desc_t::TEXTURE_CUBE;
+    textureDesc->type = texture_desc_t::TEXTURE_CUBE;
   }
 }
 
 static void fieldDescriptionToGLSL(const buffer_desc_t& bufferDesc, const buffer_desc_t::field_desc_t& fieldDesc, std::string& code )
 {
-  if (fieldDesc.type_ == buffer_desc_t::field_desc_t::INT){
-    code += "int ";
-  }
-  else if (fieldDesc.type_ == buffer_desc_t::field_desc_t::FLOAT) {
-    code += "float ";
-  }
-  else if (fieldDesc.type_ == buffer_desc_t::field_desc_t::VEC2){
-    code += "vec2 ";
-  }
-  else if (fieldDesc.type_ == buffer_desc_t::field_desc_t::VEC3){
-    code += "vec3 ";
-  }
-  else if (fieldDesc.type_ == buffer_desc_t::field_desc_t::VEC4){
-    code += "vec4 ";
-  }
-  else if (fieldDesc.type_ == buffer_desc_t::field_desc_t::MAT4){
-    code += "mat4 ";
-  }
-  else if (fieldDesc.type_ == buffer_desc_t::field_desc_t::COMPOUND_TYPE) {    
-    code += bufferDesc.name_;
-    code += "_";
-    code += fieldDesc.name_;
-    code += "_struct ";
-  }
-
-  code += fieldDesc.name_;
-
-  if (fieldDesc.count_ != 1)
+  switch (fieldDesc.type)
   {
-    if (fieldDesc.count_ == 0){
+    case buffer_desc_t::field_desc_t::INT:
+    {
+      code += "int ";
+      break;
+    }
+    case buffer_desc_t::field_desc_t::FLOAT:
+    {
+      code += "float ";
+      break;
+    }
+    case buffer_desc_t::field_desc_t::VEC2:
+    {
+      code += "vec2 ";
+      break;
+    }
+    case buffer_desc_t::field_desc_t::VEC3:
+    {
+      code += "vec3 ";
+      break;
+    }
+    case buffer_desc_t::field_desc_t::VEC4:
+    {
+      code += "vec4 ";
+      break;
+    }
+    case buffer_desc_t::field_desc_t::MAT4:
+    {
+      code += "mat4 ";
+      break;
+    }
+    case buffer_desc_t::field_desc_t::COMPOUND_TYPE:
+    {
+      code += bufferDesc.name;
+      code += "_";
+      code += fieldDesc.name;
+      code += "_struct ";
+      break;
+    }
+  }
+
+  code += fieldDesc.name;
+
+  if (fieldDesc.count != 1)
+  {
+    if (fieldDesc.count == 0){
       code += "[]";
     }
     else{
       code += "["; 
-      code += fieldDesc.count_;
+      code += fieldDesc.count;
       code += "]";
     }
   }
@@ -144,19 +161,19 @@ static void fieldDescriptionToGLSL(const buffer_desc_t& bufferDesc, const buffer
 static void fieldDataTypesToGLSL(const buffer_desc_t& bufferDesc, const buffer_desc_t::field_desc_t& fieldDesc, std::string& result)
 {
   //Inside out. First most internal structure
-  for (int i = 0; i < fieldDesc.fields_.size(); i++)
-    fieldDataTypesToGLSL(bufferDesc, fieldDesc.fields_[i], result);
+  for (int i = 0; i < fieldDesc.fields.size(); i++)
+    fieldDataTypesToGLSL(bufferDesc, fieldDesc.fields[i], result);
 
-    if (fieldDesc.type_ == buffer_desc_t::field_desc_t::COMPOUND_TYPE )
+    if (fieldDesc.type == buffer_desc_t::field_desc_t::COMPOUND_TYPE )
     {
       result += "struct ";
-      result += bufferDesc.name_;
+      result += bufferDesc.name;
       result += "_";
-      result += fieldDesc.name_;
+      result += fieldDesc.name;
       result += "_struct{\n";
-      for (int j = 0; j <fieldDesc.fields_.size(); j++)
+      for (int j = 0; j <fieldDesc.fields.size(); j++)
       {
-        fieldDescriptionToGLSL(bufferDesc, fieldDesc.fields_[j], result);
+        fieldDescriptionToGLSL(bufferDesc, fieldDesc.fields[j], result);
       }
       result += "};\n";
     }
@@ -299,10 +316,10 @@ static void generateGlslHeader(const std::vector<texture_desc_t>& textures,
   //Data structures declarations
   for (uint32_t i = 0; i < buffers.size(); ++i)
   {
-    for (int j = 0; j < buffers[i].fields_.size(); ++j)
+    for (int j = 0; j < buffers[i].fields.size(); ++j)
     {
       std::string code;
-      fieldDataTypesToGLSL(buffers[i], buffers[i].fields_[j], code);
+      fieldDataTypesToGLSL(buffers[i], buffers[i].fields[j], code);
       generatedCode += code;
     }
   }
@@ -313,48 +330,48 @@ static void generateGlslHeader(const std::vector<texture_desc_t>& textures,
   for (uint32_t i = 0; i < textures.size(); ++i)
   {
     generatedCode += "layout(set=2, binding=";
-    generatedCode += intToString(textures[i].binding_);
+    generatedCode += intToString(textures[i].binding);
 
-    if (textures[i].type_ == texture_desc_t::TEXTURE_2D)
+    if (textures[i].type == texture_desc_t::TEXTURE_2D)
     {
       generatedCode += ") uniform sampler2D ";
     }
-    else if (textures[i].type_ == texture_desc_t::TEXTURE_CUBE)
+    else if (textures[i].type == texture_desc_t::TEXTURE_CUBE)
     {
       generatedCode += ") uniform samplerCube ";
     }
 
-    generatedCode += textures[i].name_;
+    generatedCode += textures[i].name;
     generatedCode += ";\n";
   }
 
   //Buffers
   for (uint32_t i = 0; i < buffers.size(); ++i)
   {
-    if (buffers[i].type_ == buffer_desc_t::UNIFORM_BUFFER){
+    if (buffers[i].type == buffer_desc_t::UNIFORM_BUFFER){
       generatedCode += "layout(set=2, binding=";
-      generatedCode += intToString(buffers[i].binding_);
+      generatedCode += intToString(buffers[i].binding);
       generatedCode += ") uniform _";
-      generatedCode += buffers[i].name_;
+      generatedCode += buffers[i].name;
       generatedCode += "{\n";
     }
     else{
       generatedCode += "layout(std140, set=2, binding=";
-      generatedCode += intToString(buffers[i].binding_);
+      generatedCode += intToString(buffers[i].binding);
       generatedCode += ") readonly buffer _";
-      generatedCode += buffers[i].name_;
+      generatedCode += buffers[i].name;
       generatedCode += "{\n";
     }
 
-    for (int j = 0; j < buffers[i].fields_.size(); ++j)
+    for (int j = 0; j < buffers[i].fields.size(); ++j)
     {
       std::string code;
-      fieldDescriptionToGLSL(buffers[i], buffers[i].fields_[j], code);
+      fieldDescriptionToGLSL(buffers[i], buffers[i].fields[j], code);
       generatedCode += code;
     }
 
     generatedCode += "}";
-    generatedCode += buffers[i].name_;
+    generatedCode += buffers[i].name;
     generatedCode += ";\n";
   }
 }
@@ -488,7 +505,7 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
     for (uint32_t i(0); i < buffers_.size(); ++i)
     {
       render::descriptor_binding_t& binding = bindings[bindingIndex];
-      switch (buffers_[i].type_)
+      switch (buffers_[i].type)
       {
       case buffer_desc_t::UNIFORM_BUFFER:
         binding.type = render::descriptor_t::type_e::UNIFORM_BUFFER;
@@ -498,7 +515,7 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
         break;
       }
 
-      binding.binding = buffers_[i].binding_;
+      binding.binding = buffers_[i].binding;
       binding.stageFlags = render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT;
       bindingIndex++;
     }
@@ -507,7 +524,7 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
     {
       render::descriptor_binding_t& binding = bindings[bindingIndex];
       binding.type = render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER;
-      binding.binding = textures_[i].binding_;
+      binding.binding = textures_[i].binding;
       binding.stageFlags = render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT;
       bindingIndex++;
     }

@@ -358,10 +358,10 @@ struct TXAA_sample_t : public framework::application_t
     render::textureChangeLayoutNow(context, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &historyBuffer_[1]);
     
     //Create globals uniform buffer    
-    sceneUniforms_.projectionMatrix_ = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
-    invertMatrix(sceneUniforms_.projectionMatrix_, sceneUniforms_.projectionInverseMatrix_);
-    sceneUniforms_.viewMatrix_ = camera_.view_;
-    sceneUniforms_.imageSize_ = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
+    sceneUniforms_.projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
+    invertMatrix(sceneUniforms_.projectionMatrix, sceneUniforms_.projectionInverseMatrix);
+    sceneUniforms_.viewMatrix = camera_.getViewMatrix();
+    sceneUniforms_.imageSize = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER, (void*)&sceneUniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
 
     //Create global descriptor set (Scene uniforms)   
@@ -436,16 +436,16 @@ struct TXAA_sample_t : public framework::application_t
 
     //Create uniform buffer and descriptor set
     material_t material = {};
-    material.uniforms_.albedo_ = albedo;
-    material.uniforms_.metallic_ = metallic;
-    material.uniforms_.F0_ = F0;
-    material.uniforms_.roughness_ = roughness;
+    material.uniforms.albedo = albedo;
+    material.uniforms.metallic = metallic;
+    material.uniforms.F0 = F0;
+    material.uniforms.roughness = roughness;
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
-                            &material.uniforms_, sizeof(material_t::uniforms_t),
-                            &allocator_, &material.ubo_);
+                            &material.uniforms, sizeof(material_t::uniforms_t),
+                            &allocator_, &material.ubo);
 
-    render::descriptor_t descriptor = render::getDescriptor(material.ubo_);
-    render::descriptorSetCreate(context, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet_);
+    render::descriptor_t descriptor = render::getDescriptor(material.ubo);
+    render::descriptorSetCreate(context, descriptorPool_, materialDescriptorSetLayout_, &descriptor, &material.descriptorSet);
     return material_.add(material);
   }
 
@@ -462,8 +462,8 @@ struct TXAA_sample_t : public framework::application_t
       &allocator_, &ubo);
 
     object_t object = { meshId, materialId, transformId, ubo };
-    render::descriptor_t descriptor = render::getDescriptor(object.ubo_);
-    render::descriptorSetCreate(context, descriptorPool_, objectDescriptorSetLayout_, &descriptor, &object.descriptorSet_);
+    render::descriptor_t descriptor = render::getDescriptor(object.ubo);
+    render::descriptorSetCreate(context, descriptorPool_, objectDescriptorSetLayout_, &descriptor, &object.descriptorSet);
     return object_.add(object);
   }
 
@@ -473,17 +473,17 @@ struct TXAA_sample_t : public framework::application_t
 
     light_t light;
 
-    light.uniforms_.position_ = maths::vec4(position, 1.0);
-    light.uniforms_.color_ = color;
-    light.uniforms_.radius_ = radius;
+    light.uniforms.position = maths::vec4(position, 1.0);
+    light.uniforms.color = color;
+    light.uniforms.radius = radius;
 
     //Create uniform buffer and descriptor set
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
-                            &light.uniforms_, sizeof(light_t::uniforms_t),
-                            &allocator_, &light.ubo_);
+                            &light.uniforms, sizeof(light_t::uniforms_t),
+                            &allocator_, &light.ubo);
 
-    render::descriptor_t descriptor = render::getDescriptor(light.ubo_);
-    render::descriptorSetCreate(context, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &light.descriptorSet_);
+    render::descriptor_t descriptor = render::getDescriptor(light.ubo);
+    render::descriptorSetCreate(context, descriptorPool_, lightDescriptorSetLayout_, &descriptor, &light.descriptorSet);
     return light_.add(light);
   }
 
@@ -498,23 +498,23 @@ struct TXAA_sample_t : public framework::application_t
     transformManager_.update();
 
     uvec2 windowSize = getWindowSize();
-    sceneUniforms_.projectionMatrix_ = perspectiveProjectionMatrix(1.2f, (f32)windowSize.x / (f32)windowSize.y, 0.1f, 100.0f);
-    invertMatrix(sceneUniforms_.projectionMatrix_, sceneUniforms_.projectionInverseMatrix_);
+    sceneUniforms_.projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)windowSize.x / (f32)windowSize.y, 0.1f, 100.0f);
+    invertMatrix(sceneUniforms_.projectionMatrix, sceneUniforms_.projectionInverseMatrix);
 
     //Update global matrices
-    sceneUniforms_.prevViewProjection_ = sceneUniforms_.viewMatrix_ * sceneUniforms_.projectionMatrix_;
-    sceneUniforms_.viewMatrix_ = camera_.view_;
+    sceneUniforms_.prevViewProjection = sceneUniforms_.viewMatrix * sceneUniforms_.projectionMatrix;
+    sceneUniforms_.viewMatrix = camera_.getViewMatrix();
     
     if (bTemporalAA_)
     {
       static const vec2 sampleLocations[8] = { vec2(-7.0f,1.0f) / 8.0f, vec2(-5.0f,-5.0f)/ 8.0f, vec2(-1.0f,-3.0f) / 8.0f, vec2(3.0f, -7.0f) / 8.0f,
                                                vec2(5.0f,-1.0f) / 8.0f, vec2(7.0f, 7.0f) / 8.0f, vec2(1.0f,3.0f)   / 8.0f, vec2(-3.0f, 5.0f) / 8.0f };
 
-      vec2 texelSize(sceneUniforms_.imageSize_.z, sceneUniforms_.imageSize_.w);
+      vec2 texelSize(sceneUniforms_.imageSize.z, sceneUniforms_.imageSize.w);
       vec2 subsampleOffset = sampleLocations[currentFrame_ % 8] * texelSize;
 
-      sceneUniforms_.projectionMatrix_[8] = subsampleOffset.x;
-      sceneUniforms_.projectionMatrix_[9] = subsampleOffset.y;
+      sceneUniforms_.projectionMatrix[8] = subsampleOffset.x;
+      sceneUniforms_.projectionMatrix[9] = subsampleOffset.y;
     }
     
     render::gpuBufferUpdate(context, (void*)&sceneUniforms_, 0u, sizeof(scene_uniforms_t), &globalsUbo_);
@@ -524,7 +524,7 @@ struct TXAA_sample_t : public framework::application_t
     uint32_t objectCount = object_.getData(&objects);
     for (u32 i(0); i < objectCount; ++i)
     {
-      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(objects[i].transform_), 0, sizeof(mat4), &objects[i].ubo_);
+      render::gpuBufferUpdate(context, transformManager_.getWorldMatrix(objects[i].transform), 0, sizeof(mat4), &objects[i].ubo);
     }
 
     //Update lights position
@@ -532,7 +532,7 @@ struct TXAA_sample_t : public framework::application_t
     uint32_t lightCount = light_.getData(&lights);
     for (u32 i(0); i<lightCount; ++i)
     {
-      render::gpuBufferUpdate(context, &lights[i].uniforms_.position_, 0, sizeof(vec4), &lights[i].ubo_);
+      render::gpuBufferUpdate(context, &lights[i].uniforms.position, 0, sizeof(vec4), &lights[i].ubo);
     }
 
     buildAndSubmitCommandBuffer();
@@ -609,8 +609,8 @@ struct TXAA_sample_t : public framework::application_t
     packed_freelist_iterator_t<material_t> materialIter = material_.begin();
     while (materialIter != material_.end())
     {
-      render::gpuBufferDestroy(context, &allocator_, &materialIter.get().ubo_);
-      render::descriptorSetDestroy(context, &materialIter.get().descriptorSet_);
+      render::gpuBufferDestroy(context, &allocator_, &materialIter.get().ubo);
+      render::descriptorSetDestroy(context, &materialIter.get().descriptorSet);
       ++materialIter;
     }
 
@@ -618,8 +618,8 @@ struct TXAA_sample_t : public framework::application_t
     packed_freelist_iterator_t<object_t> objectIter = object_.begin();
     while (objectIter != object_.end())
     {
-      render::gpuBufferDestroy(context, &allocator_, &objectIter.get().ubo_);
-      render::descriptorSetDestroy(context, &objectIter.get().descriptorSet_);
+      render::gpuBufferDestroy(context, &allocator_, &objectIter.get().ubo);
+      render::descriptorSetDestroy(context, &objectIter.get().descriptorSet);
       ++objectIter;
     }
 
@@ -627,8 +627,8 @@ struct TXAA_sample_t : public framework::application_t
     packed_freelist_iterator_t<light_t> lightIter = light_.begin();
     while (lightIter != light_.end())
     {
-      render::gpuBufferDestroy(context, &allocator_, &lightIter.get().ubo_);
-      render::descriptorSetDestroy(context, &lightIter.get().descriptorSet_);
+      render::gpuBufferDestroy(context, &allocator_, &lightIter.get().ubo);
+      render::descriptorSetDestroy(context, &lightIter.get().descriptorSet);
       ++lightIter;
     }
 
@@ -907,10 +907,10 @@ private:
       packed_freelist_iterator_t<object_t> objectIter = object_.begin();
       while (objectIter != object_.end())
       {
-        descriptorSets[1] = objectIter.get().descriptorSet_;
-        descriptorSets[2] = material_.get(objectIter.get().material_)->descriptorSet_;
+        descriptorSets[1] = objectIter.get().descriptorSet;
+        descriptorSets[2] = material_.get(objectIter.get().material)->descriptorSet;
         render::descriptorSetBind(commandBuffer_, gBufferPipelineLayout_, 0, descriptorSets, 3u);
-        mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh_);
+        mesh::mesh_t* mesh = mesh_.get(objectIter.get().mesh);
         mesh::draw(commandBuffer_, *mesh);
         ++objectIter;
       }
@@ -923,7 +923,7 @@ private:
       packed_freelist_iterator_t<light_t> lightIter = light_.begin();
       while (lightIter != light_.end())
       {
-        descriptorSets[2] = lightIter.get().descriptorSet_;
+        descriptorSets[2] = lightIter.get().descriptorSet;
         render::descriptorSetBind(commandBuffer_, lightPipelineLayout_, 0u, descriptorSets, 3u);
         mesh::draw(commandBuffer_, sphereMesh_);
         ++lightIter;
@@ -1001,47 +1001,45 @@ private:
   {
     struct uniforms_t
     {
-      maths::vec4 position_;
-      maths::vec3 color_;
-      float radius_;
-    };
+      maths::vec4 position;
+      maths::vec3 color;
+      float radius;
+    }uniforms;
 
-    uniforms_t uniforms_;
-    render::gpu_buffer_t ubo_;
-    render::descriptor_set_t descriptorSet_;
+    render::gpu_buffer_t ubo;
+    render::descriptor_set_t descriptorSet;
   };
 
   struct material_t
   {
     struct uniforms_t
     {
-      vec3 albedo_;
-      float metallic_;
-      vec3 F0_;
-      float roughness_;
-    };
+      vec3 albedo;
+      float metallic;
+      vec3 F0;
+      float roughness;
+    }uniforms;
 
-    uniforms_t uniforms_;
-    render::gpu_buffer_t ubo_;
-    render::descriptor_set_t descriptorSet_;
+    render::gpu_buffer_t ubo;
+    render::descriptor_set_t descriptorSet;
   };
 
   struct object_t
   {
-    core::handle_t mesh_;
-    core::handle_t material_;
-    core::handle_t transform_;
-    render::gpu_buffer_t ubo_;
-    render::descriptor_set_t descriptorSet_;
+    core::handle_t mesh;
+    core::handle_t material;
+    core::handle_t transform;
+    render::gpu_buffer_t ubo;
+    render::descriptor_set_t descriptorSet;
   };
 
   struct scene_uniforms_t
   {
-    mat4 viewMatrix_;
-    mat4 projectionMatrix_;
-    mat4 projectionInverseMatrix_;
-    mat4 prevViewProjection_;
-    vec4 imageSize_;
+    mat4 viewMatrix;
+    mat4 projectionMatrix;
+    mat4 projectionInverseMatrix;
+    mat4 prevViewProjection;
+    vec4 imageSize;
   };
 
   ///Member variables

@@ -412,7 +412,7 @@ private:
 
   void updateCameraTransform()
   {
-    render::gpuBufferUpdate(getRenderContext(), (void*)&camera_.tx_, offsetof(buffer_data_t, camera), sizeof(mat4), &sceneBuffer_);
+    render::gpuBufferUpdate(getRenderContext(), (void*)&camera_.getWorldMatrix(), offsetof(buffer_data_t, camera), sizeof(mat4), &sceneBuffer_);
     sampleCount_ = 0;
   }
 

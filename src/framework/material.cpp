@@ -37,21 +37,21 @@ material_t::material_t(shader_handle_t shaderHandle, renderer_t* renderer)
 
     for (uint32_t i(0); i < bufferDesc.size(); ++i)
     {
-      if (bufferDesc[i].shared_ == false)
+      if (bufferDesc[i].shared == false)
       {
-        uint8_t* data = new uint8_t[bufferDesc[i].size_];
-        memset(data, 0, bufferDesc[i].size_);
+        uint8_t* data = new uint8_t[bufferDesc[i].size];
+        memset(data, 0, bufferDesc[i].size);
         uniformData_.push_back(data);
-        uniformDataSize_.push_back(bufferDesc[i].size_);
+        uniformDataSize_.push_back(bufferDesc[i].size);
 
         render::gpu_buffer_t ubo = {};
         render::gpuBufferCreate(context,
                                 render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
-                                (void*)data, bufferDesc[i].size_,
+                                (void*)data, bufferDesc[i].size,
                                 nullptr, &ubo);
 
         uniformBuffers_.push_back(ubo);
-        descriptors_[bufferDesc[i].binding_] = render::getDescriptor(ubo);
+        descriptors_[bufferDesc[i].binding] = render::getDescriptor(ubo);
         uniformBufferUpdate_.push_back(false);
       }
     }
@@ -138,16 +138,16 @@ bool material_t::setProperty(const char* property, void* value)
   uint32_t size = 0u;
   for (uint32_t i(0); bufferDesc.size(); ++i)
   {
-    if (bufferDesc[i].shared_ == false )
+    if (bufferDesc[i].shared == false )
     {
-      if (bufferDesc[i].name_ == tokens[0] )
+      if (bufferDesc[i].name == tokens[0] )
       {
-        for (int j(0); j < bufferDesc[i].fields_.size(); ++j)
+        for (int j(0); j < bufferDesc[i].fields.size(); ++j)
         {
-          if (bufferDesc[i].fields_[j].name_ == tokens[1])
+          if (bufferDesc[i].fields[j].name == tokens[1])
           {
-            ptr = uniformData_[bufferCount] + bufferDesc[i].fields_[j].byteOffset_;
-            size = bufferDesc[i].fields_[j].size_;
+            ptr = uniformData_[bufferCount] + bufferDesc[i].fields[j].byteOffset;
+            size = bufferDesc[i].fields[j].size;
             uniformBufferUpdate_[bufferCount] = true;
             break;
           }
@@ -176,8 +176,8 @@ bool material_t::setBuffer(const char* property, render::gpu_buffer_t buffer)
   int32_t bindPoint = -1;
   for (uint32_t i(0); i<bufferDesc.size(); ++i)
   {
-    if (bufferDesc[i].shared_ == true && bufferDesc[i].name_.compare(property) == 0)
-      bindPoint = bufferDesc[i].binding_;
+    if (bufferDesc[i].shared == true && bufferDesc[i].name.compare(property) == 0)
+      bindPoint = bufferDesc[i].binding;
   }
 
   if (bindPoint < 0) return false;
@@ -206,8 +206,8 @@ bool material_t::setTexture(const char* property, render::texture_t texture)
   int32_t bindPoint = -1;
   for (uint32_t i(0); i<textureDesc.size(); ++i)
   {
-    if (textureDesc[i].name_.compare(property) == 0)
-      bindPoint = textureDesc[i].binding_;
+    if (textureDesc[i].name.compare(property) == 0)
+      bindPoint = textureDesc[i].binding;
   }
 
   if (bindPoint < 0) return false;

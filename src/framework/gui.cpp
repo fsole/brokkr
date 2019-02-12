@@ -32,20 +32,20 @@ using namespace bkk::framework;
 
 struct gui_context_t
 {
-  render::texture_t fontTexture_;
-  render::descriptor_pool_t descriptorPool_;
+  render::texture_t fontTexture;
+  render::descriptor_pool_t descriptorPool;
 
-  render::descriptor_set_layout_t descriptorSetLayout_;
-  render::descriptor_set_t descriptorSet_;
+  render::descriptor_set_layout_t descriptorSetLayout;
+  render::descriptor_set_t descriptorSet;
 
-  render::pipeline_layout_t pipelineLayout_;
-  render::graphics_pipeline_t pipeline_;
-  render::shader_t vertexShader_;
-  render::shader_t fragmentShader_;
-  render::vertex_format_t vertexFormat_;
-  render::gpu_buffer_t vertexBuffer_ = {};
-  render::gpu_buffer_t indexBuffer_ = {};
-  maths::vec4 scaleAndOffset_;
+  render::pipeline_layout_t pipelineLayout;
+  render::graphics_pipeline_t pipeline;
+  render::shader_t vertexShader;
+  render::shader_t fragmentShader;
+  render::vertex_format_t vertexFormat;
+  render::gpu_buffer_t vertexBuffer = {};
+  render::gpu_buffer_t indexBuffer = {};
+  maths::vec4 scaleAndOffset;
 };
 
 static gui_context_t gGuiContext = {};
@@ -105,8 +105,8 @@ static void createFontsTexture(const render::context_t& context)
   image::image2D_t image = { (uint32_t)width, (uint32_t)height, 4u, 1u, size, data };
 
 
-  render::texture2DCreate(context, &image, 1u, render::texture_sampler_t(), &gGuiContext.fontTexture_);
-  io.Fonts->TexID = (void *)(intptr_t)gGuiContext.fontTexture_.image;
+  render::texture2DCreate(context, &image, 1u, render::texture_sampler_t(), &gGuiContext.fontTexture);
+  io.Fonts->TexID = (void *)(intptr_t)gGuiContext.fontTexture.image;
 }
 
 void gui::init(const render::context_t& context)
@@ -123,19 +123,19 @@ void gui::init(const render::context_t& context)
       render::uniform_buffer_count(10u),
       render::storage_buffer_count(10u),
       render::storage_image_count(10u),
-      &gGuiContext.descriptorPool_);
+      &gGuiContext.descriptorPool);
 
     render::descriptor_binding_t binding = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 0, VK_SHADER_STAGE_FRAGMENT_BIT };
-    render::descriptorSetLayoutCreate(context, &binding, 1u, &gGuiContext.descriptorSetLayout_);
+    render::descriptorSetLayoutCreate(context, &binding, 1u, &gGuiContext.descriptorSetLayout);
 
-    render::descriptor_t descriptor = render::getDescriptor(gGuiContext.fontTexture_);
-    render::descriptorSetCreate(context, gGuiContext.descriptorPool_, gGuiContext.descriptorSetLayout_, &descriptor, &gGuiContext.descriptorSet_);
+    render::descriptor_t descriptor = render::getDescriptor(gGuiContext.fontTexture);
+    render::descriptorSetCreate(context, gGuiContext.descriptorPool, gGuiContext.descriptorSetLayout, &descriptor, &gGuiContext.descriptorSet);
 
     render::push_constant_range_t pushConstantRanges = { VK_SHADER_STAGE_VERTEX_BIT, sizeof(float) * 4, 0u };
-    render::pipelineLayoutCreate(context, &gGuiContext.descriptorSetLayout_, 1u, &pushConstantRanges, 1u, &gGuiContext.pipelineLayout_);
+    render::pipelineLayoutCreate(context, &gGuiContext.descriptorSetLayout, 1u, &pushConstantRanges, 1u, &gGuiContext.pipelineLayout);
 
-    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, vsSource, &gGuiContext.vertexShader_);
-    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, fsSource, &gGuiContext.fragmentShader_);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, vsSource, &gGuiContext.vertexShader);
+    render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, fsSource, &gGuiContext.fragmentShader);
 
     //Create vertex format (vec2, vec2, vec4)
     uint32_t vertexSize = 2 * sizeof(maths::vec2) + sizeof(maths::vec4);
@@ -143,7 +143,7 @@ void gui::init(const render::context_t& context)
       { render::vertex_attribute_t::format_e::VEC2, IM_OFFSETOF(ImDrawVert, pos), sizeof(ImDrawVert), false },
       { render::vertex_attribute_t::format_e::VEC2, IM_OFFSETOF(ImDrawVert, uv),  sizeof(ImDrawVert), false },
       { render::vertex_attribute_t::format_e::COLOR,IM_OFFSETOF(ImDrawVert, col), sizeof(ImDrawVert), false } };
-    render::vertexFormatCreate(attributes, 3u, &gGuiContext.vertexFormat_);
+    render::vertexFormatCreate(attributes, 3u, &gGuiContext.vertexFormat);
 
 
     render::graphics_pipeline_t::description_t pipelineDesc = {};
@@ -162,9 +162,9 @@ void gui::init(const render::context_t& context)
     pipelineDesc.cullMode = VK_CULL_MODE_NONE;
     pipelineDesc.depthTestEnabled = false;
     pipelineDesc.depthWriteEnabled = false;
-    pipelineDesc.vertexShader = gGuiContext.vertexShader_;
-    pipelineDesc.fragmentShader = gGuiContext.fragmentShader_;
-    render::graphicsPipelineCreate(context, context.swapChain.renderPass, 0u, gGuiContext.vertexFormat_, gGuiContext.pipelineLayout_, pipelineDesc, &gGuiContext.pipeline_);
+    pipelineDesc.vertexShader = gGuiContext.vertexShader;
+    pipelineDesc.fragmentShader = gGuiContext.fragmentShader;
+    render::graphicsPipelineCreate(context, context.swapChain.renderPass, 0u, gGuiContext.vertexFormat, gGuiContext.pipelineLayout, pipelineDesc, &gGuiContext.pipeline);
 
     gGuiInitialized = true;
   }
@@ -175,17 +175,17 @@ void gui::destroy(const render::context_t& context)
   if (gGuiInitialized)
   {
     //Destroy resources
-    render::textureDestroy(context, &gGuiContext.fontTexture_);    
-    render::descriptorSetLayoutDestroy(context, &gGuiContext.descriptorSetLayout_);
-    render::descriptorSetDestroy(context, &gGuiContext.descriptorSet_);
-    render::pipelineLayoutDestroy(context, &gGuiContext.pipelineLayout_);
-    render::graphicsPipelineDestroy(context, &gGuiContext.pipeline_);
-    render::shaderDestroy(context, &gGuiContext.vertexShader_);
-    render::shaderDestroy(context, &gGuiContext.fragmentShader_);
-    render::vertexFormatDestroy(&gGuiContext.vertexFormat_);
-    render::gpuBufferDestroy(context, nullptr, &gGuiContext.vertexBuffer_);
-    render::gpuBufferDestroy(context, nullptr, &gGuiContext.indexBuffer_);
-    render::descriptorPoolDestroy(context, &gGuiContext.descriptorPool_);
+    render::textureDestroy(context, &gGuiContext.fontTexture);    
+    render::descriptorSetLayoutDestroy(context, &gGuiContext.descriptorSetLayout);
+    render::descriptorSetDestroy(context, &gGuiContext.descriptorSet);
+    render::pipelineLayoutDestroy(context, &gGuiContext.pipelineLayout);
+    render::graphicsPipelineDestroy(context, &gGuiContext.pipeline);
+    render::shaderDestroy(context, &gGuiContext.vertexShader);
+    render::shaderDestroy(context, &gGuiContext.fragmentShader);
+    render::vertexFormatDestroy(&gGuiContext.vertexFormat);
+    render::gpuBufferDestroy(context, nullptr, &gGuiContext.vertexBuffer);
+    render::gpuBufferDestroy(context, nullptr, &gGuiContext.indexBuffer);
+    render::descriptorPoolDestroy(context, &gGuiContext.descriptorPool);
     
     ImGui::DestroyContext();
   }
@@ -215,26 +215,26 @@ void gui::draw(const render::context_t& context, render::command_buffer_t comman
   if (vertex_size == 0 || index_size == 0)
     return;
 
-  if(gGuiContext.vertexBuffer_.memory.size < vertex_size)
+  if(gGuiContext.vertexBuffer.memory.size < vertex_size)
   {
     render::contextFlush(context);
-    if (gGuiContext.vertexBuffer_.handle != VK_NULL_HANDLE)
-      render::gpuBufferDestroy(context, nullptr, &gGuiContext.vertexBuffer_);
+    if (gGuiContext.vertexBuffer.handle != VK_NULL_HANDLE)
+      render::gpuBufferDestroy(context, nullptr, &gGuiContext.vertexBuffer);
 
-    render::gpuBufferCreate(context, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, nullptr, vertex_size, nullptr, &gGuiContext.vertexBuffer_);
+    render::gpuBufferCreate(context, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, nullptr, vertex_size, nullptr, &gGuiContext.vertexBuffer);
   }
 
-  if( gGuiContext.indexBuffer_.memory.size < index_size)
+  if( gGuiContext.indexBuffer.memory.size < index_size)
   {
     render::contextFlush(context);
-    if (gGuiContext.indexBuffer_.handle != VK_NULL_HANDLE)
-      render::gpuBufferDestroy(context, nullptr, &gGuiContext.indexBuffer_);
+    if (gGuiContext.indexBuffer.handle != VK_NULL_HANDLE)
+      render::gpuBufferDestroy(context, nullptr, &gGuiContext.indexBuffer);
 
-    render::gpuBufferCreate(context, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, nullptr, index_size, nullptr, &gGuiContext.indexBuffer_);
+    render::gpuBufferCreate(context, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, nullptr, index_size, nullptr, &gGuiContext.indexBuffer);
   }
 
-  ImDrawVert* vertexData = (ImDrawVert*)render::gpuBufferMap(context, gGuiContext.vertexBuffer_);
-  ImDrawIdx* indexData = (ImDrawIdx*)render::gpuBufferMap(context, gGuiContext.indexBuffer_);
+  ImDrawVert* vertexData = (ImDrawVert*)render::gpuBufferMap(context, gGuiContext.vertexBuffer);
+  ImDrawIdx* indexData = (ImDrawIdx*)render::gpuBufferMap(context, gGuiContext.indexBuffer);
   for (int n = 0; n < draw_data->CmdListsCount; n++)
   {
     const ImDrawList* cmd_list = draw_data->CmdLists[n];
@@ -247,28 +247,28 @@ void gui::draw(const render::context_t& context, render::command_buffer_t comman
   //Flush buffers
   VkMappedMemoryRange range[2] = {};
   range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-  range[0].memory = gGuiContext.vertexBuffer_.memory.handle;
+  range[0].memory = gGuiContext.vertexBuffer.memory.handle;
   range[0].size = VK_WHOLE_SIZE;
   range[1].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-  range[1].memory = gGuiContext.indexBuffer_.memory.handle;
+  range[1].memory = gGuiContext.indexBuffer.memory.handle;
   range[1].size = VK_WHOLE_SIZE;
   vkFlushMappedMemoryRanges(context.device, 2u, range);
-  render::gpuBufferUnmap(context, gGuiContext.vertexBuffer_);
-  render::gpuBufferUnmap(context, gGuiContext.indexBuffer_);
+  render::gpuBufferUnmap(context, gGuiContext.vertexBuffer);
+  render::gpuBufferUnmap(context, gGuiContext.indexBuffer);
   
-  VkBuffer vertex_buffers[3] = { gGuiContext.vertexBuffer_.handle,gGuiContext.vertexBuffer_.handle,gGuiContext.vertexBuffer_.handle };
+  VkBuffer vertex_buffers[3] = { gGuiContext.vertexBuffer.handle,gGuiContext.vertexBuffer.handle,gGuiContext.vertexBuffer.handle };
   VkDeviceSize vertex_offsets[3] = {};
   vkCmdBindVertexBuffers(commandBuffer.handle, 0, 3, vertex_buffers, vertex_offsets);
-  vkCmdBindIndexBuffer(commandBuffer.handle, gGuiContext.indexBuffer_.handle, 0, VK_INDEX_TYPE_UINT16);
+  vkCmdBindIndexBuffer(commandBuffer.handle, gGuiContext.indexBuffer.handle, 0, VK_INDEX_TYPE_UINT16);
 
-  gGuiContext.scaleAndOffset_.x = 2.0f / draw_data->DisplaySize.x;
-  gGuiContext.scaleAndOffset_.y = 2.0f / draw_data->DisplaySize.y;
-  gGuiContext.scaleAndOffset_.z = -1.0f - draw_data->DisplayPos.x * gGuiContext.scaleAndOffset_.x;
-  gGuiContext.scaleAndOffset_.w = -1.0f - draw_data->DisplayPos.y * gGuiContext.scaleAndOffset_.y;
+  gGuiContext.scaleAndOffset.x = 2.0f / draw_data->DisplaySize.x;
+  gGuiContext.scaleAndOffset.y = 2.0f / draw_data->DisplaySize.y;
+  gGuiContext.scaleAndOffset.z = -1.0f - draw_data->DisplayPos.x * gGuiContext.scaleAndOffset.x;
+  gGuiContext.scaleAndOffset.w = -1.0f - draw_data->DisplayPos.y * gGuiContext.scaleAndOffset.y;
 
-  render::graphicsPipelineBind(commandBuffer, gGuiContext.pipeline_);
-  render::descriptorSetBind(commandBuffer, gGuiContext.pipelineLayout_, 0, &gGuiContext.descriptorSet_, 1u);
-  render::pushConstants(commandBuffer, gGuiContext.pipelineLayout_, 0u, &gGuiContext.scaleAndOffset_);
+  render::graphicsPipelineBind(commandBuffer, gGuiContext.pipeline);
+  render::descriptorSetBind(commandBuffer, gGuiContext.pipelineLayout, 0, &gGuiContext.descriptorSet, 1u);
+  render::pushConstants(commandBuffer, gGuiContext.pipelineLayout, 0u, &gGuiContext.scaleAndOffset);
 
   int vertexOffset = 0;
   int indexOffset = 0;

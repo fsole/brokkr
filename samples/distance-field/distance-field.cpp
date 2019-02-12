@@ -310,7 +310,7 @@ bool createUniformBuffer()
   data.sampleCount = gSampleCount;
   data.maxBounces = 3;
   data.imageSize = gImageSize;
-  data.camera.tx = gCamera.tx_;
+  data.camera.tx = gCamera.getWorldMatrix();
   data.camera.verticalFov = (f32)PI_2;
   data.camera.focalDistance = 5.0f;
   data.camera.aperture = 0.05f;
@@ -499,7 +499,7 @@ void renderFrame()
 
 void updateCameraTransform()
 {
-  render::gpuBufferUpdate(gContext, (void*)&gCamera.tx_, offsetof(buffer_data_t, camera), sizeof(mat4), &gUbo);
+  render::gpuBufferUpdate(gContext, (void*)&gCamera.getWorldMatrix(), offsetof(buffer_data_t, camera), sizeof(mat4), &gUbo);
   gSampleCount = 0;
 }
 
@@ -571,7 +571,7 @@ int main()
   render::contextCreate("Distance Field", "", gWindow, 3, &gContext);
   
   gFSQuad = mesh::fullScreenQuad(gContext);
-  gCamera.position_ = vec3(0.0f, 0.0f, 5.0f);
+  gCamera.setPosition( vec3(0.0f, 0.0f, 5.0f) );
   gCamera.Update();
 
   createUniformBuffer();

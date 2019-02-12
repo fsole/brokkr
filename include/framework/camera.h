@@ -62,10 +62,10 @@ namespace bkk
     private:
       struct uniforms_t
       {
-        core::maths::mat4 worldToView_;
-        core::maths::mat4 viewToWorld_;
-        core::maths::mat4 projection_;
-        core::maths::mat4 projectionInverse_;
+        core::maths::mat4 worldToView;
+        core::maths::mat4 viewToWorld;
+        core::maths::mat4 projection;
+        core::maths::mat4 projectionInverse;
       }uniforms_;
 
       core::render::gpu_buffer_t uniformBuffer_ = {};
@@ -81,8 +81,9 @@ namespace bkk
       actor_t* visibleActors_ = nullptr;
     };
 
-    struct orbiting_camera_t
+    class orbiting_camera_t
     {
+    public:
       orbiting_camera_t();
       orbiting_camera_t(const core::maths::vec3& target, const f32 offset, const core::maths::vec2& angle, f32 rotationSensitivity);
 
@@ -90,6 +91,9 @@ namespace bkk
       void Rotate(f32 angleY, f32 angleZ);
       void Update();
 
+      const core::maths::mat4& getViewMatrix() const { return view_; }
+
+    private:
       core::maths::mat4 view_;
       core::maths::vec3 target_;
       f32 offset_;
@@ -97,8 +101,9 @@ namespace bkk
       f32 rotationSensitivity_;
     };
 
-    struct free_camera_t
+    class free_camera_t
     {
+    public:
       free_camera_t();
       free_camera_t(const core::maths::vec3& position, const core::maths::vec2& angle, f32 velocity, f32 rotationSensitivity);
       void setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer);
@@ -107,6 +112,16 @@ namespace bkk
       void Rotate(f32 angleY, f32 angleX);
       void Update();
 
+      const core::maths::mat4& getViewMatrix() const{ return view_; }
+      const core::maths::mat4& getWorldMatrix() const{ return tx_; }
+      
+      void setPosition(const core::maths::vec3& position) { position_ = position; }
+      const core::maths::vec3& getPosition() { return position_; }
+      
+      void setRotation(const core::maths::vec2& angle) { angle_ = angle; }
+      const core::maths::vec2& getRotation() { return angle_; }
+
+    private:
       core::maths::mat4 tx_;
       core::maths::mat4 view_;
       core::maths::vec3 position_;

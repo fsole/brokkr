@@ -47,15 +47,15 @@ void camera_t::update(renderer_t* renderer)
 {
   if (projection_ == camera_t::PERSPECTIVE_PROJECTION)
   {
-    uniforms_.projection_ = maths::perspectiveProjectionMatrix(fov_, aspect_, nearPlane_, farPlane_);
+    uniforms_.projection = maths::perspectiveProjectionMatrix(fov_, aspect_, nearPlane_, farPlane_);
   }
   else
   {
-    uniforms_.projection_ = maths::orthographicProjectionMatrix(-fov_, fov_, fov_, -fov_, nearPlane_, farPlane_);
+    uniforms_.projection = maths::orthographicProjectionMatrix(-fov_, fov_, fov_, -fov_, nearPlane_, farPlane_);
   }
 
-  maths::invertMatrix(uniforms_.projection_, uniforms_.projectionInverse_);
-  maths::invertMatrix(uniforms_.viewToWorld_, uniforms_.worldToView_);
+  maths::invertMatrix(uniforms_.projection, uniforms_.projectionInverse);
+  maths::invertMatrix(uniforms_.viewToWorld, uniforms_.worldToView);
 
   render::context_t& context = renderer->getContext();
   if (uniformBuffer_.handle == VK_NULL_HANDLE)
@@ -110,11 +110,11 @@ uint32_t camera_t::getVisibleActors(actor_t** actors)
 
 void camera_t::setWorldToViewMatrix(maths::mat4& m)
 {
-  uniforms_.worldToView_ = m;
+  uniforms_.worldToView = m;
 }
 void camera_t::setViewToWorldMatrix(maths::mat4& m)
 {
-  uniforms_.viewToWorld_ = m;
+  uniforms_.viewToWorld = m;
 }
 
 orbiting_camera_t::orbiting_camera_t()
@@ -138,7 +138,7 @@ orbiting_camera_t::orbiting_camera_t(const maths::vec3& target, const f32 offset
 void orbiting_camera_t::Move(f32 amount)
 {
   offset_ += amount;
-  offset_ = maths::clamp(0.0f, offset_, offset_);
+  //offset_ = maths::clamp(0.0f, offset_, offset_);
 
   Update();
 }

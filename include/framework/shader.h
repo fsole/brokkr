@@ -30,9 +30,9 @@ namespace bkk
         TYPE_COUNT
       };
 
-      std::string name_;
-      type_e type_;
-      int32_t binding_;
+      std::string name;
+      type_e type;
+      int32_t binding;
     };
 
     struct buffer_desc_t
@@ -50,12 +50,12 @@ namespace bkk
           TYPE_COUNT
         };
 
-        std::string name_;
-        type_e type_;
-        uint32_t byteOffset_;
-        uint32_t size_;
-        uint32_t count_;  //0 means it's an array with no size defined "[]"
-        std::vector<field_desc_t> fields_; //For compound types (fields composed of other fields)
+        std::string name;
+        type_e type;
+        uint32_t byteOffset;
+        uint32_t size;
+        uint32_t count;  //0 means it's an array with no size defined "[]"
+        std::vector<field_desc_t> fields; //For compound types (fields composed of other fields)
       };
 
       enum type_e {
@@ -64,12 +64,12 @@ namespace bkk
         TYPE_COUNT
       };
 
-      std::string name_;
-      type_e type_;
-      int32_t binding_;      
-      uint32_t size_;
-      bool shared_;
-      std::vector<field_desc_t> fields_;
+      std::string name;
+      type_e type;
+      int32_t binding;      
+      uint32_t size;
+      bool shared;
+      std::vector<field_desc_t> fields;
     };
     
     class shader_t

@@ -413,7 +413,7 @@ public:
 
     //Create uniform buffer
     mat4 matrices[2];
-    matrices[0] = modelTx_ * camera_.view_;
+    matrices[0] = modelTx_ * camera_.getViewMatrix();
     matrices[1] = matrices[0] * projectionTx_;
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
@@ -525,7 +525,7 @@ public:
 
     //Update uniform buffer
     mat4 matrices[2];
-    matrices[0] = modelTx_ * camera_.view_;
+    matrices[0] = modelTx_ * camera_.getViewMatrix();
     matrices[1] = matrices[0] * projectionTx_;
     render::gpuBufferUpdate(context, (void*)&matrices, 0, sizeof(matrices), &globalUnifomBuffer_);
 

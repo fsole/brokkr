@@ -76,7 +76,7 @@ namespace bkk
         core::maths::vec2 mousePrevPos_;
         s32 mouseButtonPressed_;
 
-        struct frame_counter_t;
+        class frame_counter_t;
         frame_counter_t* frameCounter_;
 
         application_t();
