@@ -1,3 +1,11 @@
+/*
+* Copyright(c) Ferran Sole (2017-2019)
+*
+* This file is part of brokkr framework
+* (see https://github.com/fsole/brokkr).
+* The use of this software is governed by the LICENSE file.
+*/
+
 #ifndef COMMAND_BUFFER_H
 #define COMMAND_BUFFER_H
 
