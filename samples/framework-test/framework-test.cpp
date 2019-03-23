@@ -45,6 +45,7 @@ public:
     render::diffuseConvolution(getRenderContext(), skybox_, 64u, &irradianceMap_);
     render::specularConvolution(getRenderContext(), skybox_, 256u, 4u, &specularMap_);
     render::brdfConvolution(getRenderContext(), 512u, &brdfLut_);
+    image::unload(&cubemapImage);
 
     shader_handle_t skyboxShader = renderer.shaderCreate("../../shaders/sky-box.shader");
     skyboxMaterial_ = renderer.materialCreate(skyboxShader);

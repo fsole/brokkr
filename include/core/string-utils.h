@@ -46,5 +46,17 @@ namespace bkk
       return hash;
     }
 
+    static std::string intToString(int n)
+    {
+      char result[10];
+      sprintf(result, "%d", n);
+      return std::string(result);
+    }
+
+    static int stringToInt(const std::string& s)
+    {
+      return std::stoi(s);
+    }
+
   }//core
 }//bkk

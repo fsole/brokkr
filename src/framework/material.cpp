@@ -203,6 +203,17 @@ bool material_t::setBuffer(const char* property, render::gpu_buffer_t buffer)
   return true;
 }
 
+bool material_t::setTexture(const char* property, render_target_handle_t randerTarget)
+{
+  render_target_t* targetPtr = renderer_->getRenderTarget(randerTarget);
+  if (targetPtr != nullptr)
+  {
+    return setTexture(property, targetPtr->getColorBuffer());
+  }
+
+  return false;
+}
+
 bool material_t::setTexture(const char* property, render::texture_t texture)
 {
   shader_t* shader = renderer_->getShader(shader_);
@@ -214,7 +225,10 @@ bool material_t::setTexture(const char* property, render::texture_t texture)
   for (uint32_t i(0); i<textureDesc.size(); ++i)
   {
     if (textureDesc[i].name.compare(property) == 0)
+    {
       bindPoint = textureDesc[i].binding;
+      break;
+    }
   }
 
   if (bindPoint < 0) return false;

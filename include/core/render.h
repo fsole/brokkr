@@ -31,11 +31,12 @@ namespace bkk
       void contextDestroy(context_t* context);
       void contextFlush(const context_t& context);
       void swapchainResize(context_t* context, uint32_t width, uint32_t height);
+
       void beginPresentationCommandBuffer(const context_t& context, uint32_t index, VkClearValue* clearValues);
       uint32_t getPresentationCommandBuffers(const context_t& context, const command_buffer_t** commandBuffers);
       uint32_t getPresentationCommandBuffer(context_t& context, command_buffer_t** commandBuffer);
-
       void endPresentationCommandBuffer(const context_t& context, uint32_t index);
+
       void presentFrame(context_t* context, VkSemaphore* waitSemaphore = nullptr, uint32_t waitSemaphoreCount = 0u);
 
       //Shaders
@@ -57,7 +58,7 @@ namespace bkk
       void texture2DCreate(const context_t& context, const image::image2D_t* images, uint32_t mipLevels, texture_sampler_t sampler, texture_t* texture);
       void texture2DCreateAndGenerateMipmaps(const context_t& context, const image::image2D_t& image, texture_sampler_t sampler, texture_t* texture);
       void texture2DCreate(const context_t& context, uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageUsageFlags usageFlags, texture_sampler_t sampler, texture_t* texture);
-
+      bool textureIsValid(const texture_t& texture);
       void textureDestroy(const context_t& context, texture_t* texture);
 
       void textureCopy(const command_buffer_t& commandBuffer, texture_t* srcTexture, texture_t* dstTexture,

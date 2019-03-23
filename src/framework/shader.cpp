@@ -156,7 +156,7 @@ static void fieldDescriptionToGLSL(const buffer_desc_t& bufferDesc, const buffer
     }
     else{
       code += "["; 
-      code += fieldDesc.count;
+      code += intToString( fieldDesc.count );
       code += "]";
     }
   }
@@ -183,18 +183,6 @@ static void fieldDataTypesToGLSL(const buffer_desc_t& bufferDesc, const buffer_d
       }
       result += "};\n";
     }
-}
-
-static std::string intToString(int n)
-{
-  char result[10];
-  sprintf(result, "%d", n);
-  return std::string(result);
-}
-
-static int stringToInt(const std::string& s)
-{
-  return std::stoi(s);
 }
 
 static render::vertex_format_t extractVertexFormatFromShader(std::string& code)
@@ -610,10 +598,31 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
         }
       }
 
+      //Blend state
+      VkPipelineColorBlendAttachmentState defaultBlend = { 
+        VK_FALSE,
+        VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD,
+        VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD, 0xF };
+
+      std::vector<VkPipelineColorBlendAttachmentState> blendStates(1);
+      blendStates[0] = defaultBlend;
+
+      for (pugi::xml_node blendNode = passNode.child("Blend"); blendNode; blendNode = blendNode.next_sibling("Blend"))
+      {
+        uint32_t target = stringToInt(blendNode.attribute("Target").value());
+        if (target >= (uint32_t)blendStates.size())
+        {
+          uint32_t oldSize = (uint32_t)blendStates.size();
+          uint32_t newSize = target + 1u;
+
+          blendStates.resize(newSize);
+          for (uint32_t i(oldSize); i<newSize; ++i)
+            blendStates[i] = defaultBlend;          
+        }
+      }
+
       render::graphics_pipeline_t::description_t pipelineDesc = {};      
-      pipelineDesc.blendState.resize(1);
-      pipelineDesc.blendState[0].colorWriteMask = 0xF;
-      pipelineDesc.blendState[0].blendEnable = VK_FALSE;
+      pipelineDesc.blendState = blendStates;
       pipelineDesc.cullMode = cullMode;
       pipelineDesc.depthTestEnabled = depthTest;
       pipelineDesc.depthWriteEnabled = depthWrite;
@@ -668,11 +677,24 @@ core::render::graphics_pipeline_t shader_t::getPipeline(uint32_t pass, frame_buf
     {
       graphicsPipelineDescriptions_[i].viewPort = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
       graphicsPipelineDescriptions_[i].scissorRect = { { 0,0 },{ width, height } };
-      bkk::core::render::graphics_pipeline_t pipeline;
-      bkk::core::render::graphicsPipelineCreate(renderer->getContext(), 
-        renderPass, 0u, vertexFormats_[i], pipelineLayouts_[i], 
-        graphicsPipelineDescriptions_[i], &pipelines[i]);
+      if (graphicsPipelineDescriptions_[i].blendState.size() < frameBuffer->getTargetCount())
+      {
+        uint32_t oldSize = (uint32_t)graphicsPipelineDescriptions_[i].blendState.size();
+        uint32_t newSize = frameBuffer->getTargetCount();
+        graphicsPipelineDescriptions_[i].blendState.resize(newSize);
+        for (uint32_t j(0);  j< newSize; ++j)
+        {
+          graphicsPipelineDescriptions_[i].blendState[j] = {
+            VK_FALSE,
+            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD,
+            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD, 0xF };
+        }
+      }
 
+      bkk::core::render::graphics_pipeline_t pipeline;
+      bkk::core::render::graphicsPipelineCreate(renderer->getContext(),
+        renderPass, 0u, vertexFormats_[i], pipelineLayouts_[i],
+        graphicsPipelineDescriptions_[i], &pipelines[i]);
     }
     graphicsPipelines_.add(fb, pipelines);
     return pipelines[pass];
