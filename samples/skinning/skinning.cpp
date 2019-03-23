@@ -119,7 +119,7 @@ public:
     {
       //Create the texture
       render::texture2DCreateAndGenerateMipmaps(context, image, render::texture_sampler_t(), &texture_);
-      image::unload(&image);
+      image::free(&image);
     }
 
     //Create pipeline and descriptor set layouts

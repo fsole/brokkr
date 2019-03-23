@@ -56,7 +56,7 @@ bkk::core::render::texture_t createTexture(const bkk::core::render::context_t& c
   {
     //Create the texture
     bkk::core::render::texture2DCreate(context, &image, 1, bkk::core::render::texture_sampler_t(), &texture);
-    bkk::core::image::unload(&image);
+    bkk::core::image::free(&image);
   }
 
   return texture;

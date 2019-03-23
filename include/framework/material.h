@@ -16,6 +16,7 @@
 #include "core/packed-freelist.h"
 
 #include "framework/shader.h"
+#include "framework/frame-buffer.h"
 
 namespace bkk
 {
@@ -24,7 +25,7 @@ namespace bkk
     typedef bkk::core::handle_t material_handle_t;
     
     class renderer_t;
-
+    
     class material_t
     {
       public:
@@ -41,6 +42,7 @@ namespace bkk
         
         bool setBuffer(const char* property, core::render::gpu_buffer_t buffer);
         bool setTexture(const char* property, core::render::texture_t texture );
+        bool setTexture(const char* property, render_target_handle_t randerTarget);
         
         void destroy(renderer_t* renderer);
 

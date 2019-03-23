@@ -135,32 +135,44 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
   render::commandBufferEnd(commandBuffer_);
 }
 
+
 void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle_t materialHandle, const char* pass)
 {
-  material_t* material = renderer_->getTextureBlitMaterial();
+  bkk::core::render::texture_t texture = {};
+  if (renderTarget != core::NULL_HANDLE)
+  {
+    texture = renderer_->getRenderTarget(renderTarget)->getColorBuffer();    
+  }
+
+  blit(texture, materialHandle, pass);
+}
+
+void command_buffer_t::blit(const bkk::core::render::texture_t& texture, material_handle_t materialHandle, const char* pass)
+{
+  material_t* material = nullptr;
   if (materialHandle != NULL_HANDLE)
-  {    
+  {
     material = renderer_->getMaterial(materialHandle);
+  }
+  else
+  {
+    material = renderer_->getTextureBlitMaterial();
   }
 
   if (!material) return;
 
-  if (renderTarget != core::NULL_HANDLE)
-  {
-    render::texture_t texture = renderer_->getRenderTarget(renderTarget)->getColorBuffer();
-    //render::textureChangeLayoutNow(renderer_->getContext(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &texture);
+  if (render::textureIsValid(texture) )
     material->setTexture("MainTexture", texture);
-  }
-
+  
   camera_t* camera = renderer_->getActiveCamera();
-  actor_t* actor = renderer_->getActor( renderer_->getRootActor() );
-  mesh::mesh_t* mesh = renderer_->getMesh(actor->getMesh() );
+  actor_t* actor = renderer_->getActor(renderer_->getRootActor());
+  mesh::mesh_t* mesh = renderer_->getMesh(actor->getMesh());
 
   const char* passName = "blit";
   if (pass != nullptr)
     passName = pass;
 
-  core::render::graphics_pipeline_t pipeline = material->getPipeline(passName, frameBuffer_, renderer_);  
+  core::render::graphics_pipeline_t pipeline = material->getPipeline(passName, frameBuffer_, renderer_);
   render::descriptor_set_t materialDescriptorSet = material->getDescriptorSet(passName);
 
   beginCommandBuffer();

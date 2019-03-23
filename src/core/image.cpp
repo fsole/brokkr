@@ -25,7 +25,7 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
 {
   if( image->data != nullptr )
   {
-    unload(image);
+    free(image);
   }
 
   int width, height, componentCount;
@@ -83,15 +83,15 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
       }
     }
 
-    free(data);
+    ::free(data);
   }
   
   return true;
 }
 
-void image::unload( image2D_t* image )
+void image::free( image2D_t* image )
 {
-  free( image->data );
+  ::free( image->data );
   image->data = nullptr;
   image->width = image->height = image->componentCount = image->dataSize = 0u;
 }

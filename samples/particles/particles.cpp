@@ -263,7 +263,7 @@ public:
     image::image2D_t image = {};
     image::load("../resources/particle.png", false, &image );
     render::texture2DCreate(context, &image, 1u, render::texture_sampler_t(), &particleTexture_);
-    image::unload(&image);
+    image::free(&image);
 
     //Create particle buffers
     std::vector<particle_t> particles(particleSystem_.maxParticleCount);

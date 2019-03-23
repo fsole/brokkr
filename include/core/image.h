@@ -29,7 +29,7 @@ namespace bkk
       };
 
       bool load(const char* path, bool flipVertical, image2D_t* image);
-      void unload(image2D_t* image);
+      void free(image2D_t* image);
 
     } //image
   }//core

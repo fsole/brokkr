@@ -576,7 +576,7 @@ public:
       {
         //Create the texture
         render::texture2DCreateAndGenerateMipmaps(context, image, render::texture_sampler_t(), &material.diffuseMap);
-        image::unload(&image);
+        image::free(&image);
         descriptors[1] = render::getDescriptor(material.diffuseMap);
       }
     }

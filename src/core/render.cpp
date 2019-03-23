@@ -1213,6 +1213,11 @@ void render::texture2DCreate(const context_t& context,
   texture->extent = extents;
 }
 
+bool render::textureIsValid(const texture_t& texture)
+{
+  return texture.image != VK_NULL_HANDLE;
+}
+
 void render::textureCubemapCreate(const context_t& context, VkFormat format, uint32_t width, uint32_t height, uint32_t mipLevels, texture_sampler_t sampler, texture_t* texture)
 {
   //Get base level image width and height
@@ -3415,7 +3420,7 @@ void render::texture2DCreateAndGenerateMipmaps(const context_t& context, const i
   //Create descriptor pool
   render::descriptor_pool_t descriptorPool;
   render::descriptorPoolCreate(context, 1u,
-    render::combined_image_sampler_count(1u + mipLevels ),
+    render::combined_image_sampler_count(1u ),
     render::uniform_buffer_count(0u),
     render::storage_buffer_count(0u),
     render::storage_image_count(0u),
