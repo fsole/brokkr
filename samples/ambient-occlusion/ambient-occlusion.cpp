@@ -221,12 +221,6 @@ public:
   }
 
 private:
-  struct light_t
-  {
-    vec4 position;
-    vec3 color;
-    float radius;
-  };
 
   frame_buffer_handle_t sceneFBO_;
   render_target_handle_t colorRT_;
