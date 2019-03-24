@@ -25,6 +25,7 @@ public:
     :application_t("Screen-space Ambient occlusion", 1200u, 800u, 3u),
     cameraController_(vec3(0.0f, 4.0f, 12.0f), vec2(0.1f, 0.0f), 1.0f, 0.01f),
     ssaoEnabled_(true),
+    ssaoSampleCount(64u),
     ssaoRadius_(0.5f),
     ssaoBias_(0.025f)
   {
@@ -236,10 +237,10 @@ private:
 
   //SSAO
   bool ssaoEnabled_;
+  uint32_t ssaoSampleCount;
   float ssaoRadius_;
   float ssaoBias_;
   material_handle_t ssaoMaterial_;
-  int ssaoSampleCount = 64;
   render::gpu_buffer_t ssaoKernelBuffer_;
   render::texture_t ssaoNoise_;
 };
