@@ -33,6 +33,7 @@ namespace bkk
         material_t(shader_handle_t shader, renderer_t* renderer );
 
         bool setProperty(const char* property, float value);
+        bool setProperty(const char* property, uint32_t value);
         bool setProperty(const char* property, const core::maths::vec2& value);
         bool setProperty(const char* property, const core::maths::vec3& value);
         bool setProperty(const char* property, const core::maths::vec4& value);

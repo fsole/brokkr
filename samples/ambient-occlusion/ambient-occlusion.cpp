@@ -22,10 +22,10 @@ class ambient_occlusion_sample_t : public application_t
 {
 public:
   ambient_occlusion_sample_t()
-    :application_t("Screen-space Ambient occlusion", 1200u, 800u, 3u),
+    :application_t("Screen-space ambient occlusion", 1200u, 800u, 3u),
     cameraController_(vec3(0.0f, 4.0f, 12.0f), vec2(0.1f, 0.0f), 1.0f, 0.01f),
     ssaoEnabled_(true),
-    ssaoSampleCount(64u),
+    ssaoSampleCount_(64u),
     ssaoRadius_(0.5f),
     ssaoBias_(0.025f)
   {
@@ -65,12 +65,12 @@ public:
     mat4 transform = createTransform(vec3(-5.0f, -1.0f, 0.0f), VEC3_ONE, quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), degreeToRadian(30.0f)));
     renderer.actorCreate("teapot", teapot, material0, transform);
 
-    transform = createTransform(vec3(5.0f, 3.0f, 0.0f), vec3(4.0f,4.0f,4.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-30.0f)));
+    transform = createTransform(vec3(5.0f, 3.0f, 0.0f), vec3(4.0f, 4.0f, 4.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-30.0f)));
     renderer.actorCreate("buddha", buddha, material1, transform);
 
     transform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(20.0f, 20.0f, 20.0f), quaternionFromAxisAngle(vec3(1, 0, 0), degreeToRadian(90.0f)));
     renderer.actorCreate("plane", plane, material2, transform);
-  
+
     generateSSAOResources();
 
     //create camera
@@ -81,23 +81,24 @@ public:
   void generateSSAOResources()
   {
     //Generate random points in the normal-oriented hemishpere (in tangent space)
-    std::vector<vec4> samples(ssaoSampleCount);
-    for (uint32_t i = 0; i < ssaoSampleCount; i++)
+    std::vector<vec4> samples(ssaoSampleCount_);
+    for (uint32_t i = 0; i < ssaoSampleCount_; i++)
     {
-      vec3 sample = normalize( vec3(random(-1.0f, 1.0f),
-                                    random(-1.0f, 1.0f),
-                                    random(0.0f, 1.0f)));
+      vec3 sample = normalize(vec3(random(-1.0f, 1.0f),
+        random(-1.0f, 1.0f),
+        random(0.0f, 1.0f)));
 
       sample *= random(0.0f, 1.0f);
       samples[i] = vec4(sample, 1.0f);
     }
 
+
     render::context_t& context = getRenderContext();
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
-      samples.data(), sizeof(vec4)*ssaoSampleCount, nullptr,
-      &ssaoKernelBuffer_ );
-    
+      samples.data(), sizeof(vec4)*ssaoSampleCount_, nullptr,
+      &ssaoKernelBuffer_);
+
     //Create a texture with random rotation vectors that will be tiled across the screen
     //to add some noise to the result
     image::image2D_t image = {};
@@ -108,20 +109,29 @@ public:
     image.data = new uint8_t[image.dataSize];
     vec4* data = (vec4*)image.data;
     for (uint32_t i = 0; i < 16; ++i)
-      data[i] = vec4( random(-1.0f, 1.0f), random(-1.0f, 1.0f), 0.0f, 0.0f );
+      data[i] = vec4(random(-1.0f, 1.0f), random(-1.0f, 1.0f), 0.0f, 0.0f);
 
     render::texture2DCreate(context, &image, 1u, render::texture_sampler_t(), &ssaoNoise_);
     image::free(&image);
 
-    //Create and configure ssao material 
+    //Create a framebuffer for ssao
     renderer_t& renderer = getRenderer();
-    shader_handle_t shader = renderer.shaderCreate("../ambient-occlusion/ssao.shader");
-    ssaoMaterial_ = renderer.materialCreate(shader);
-    material_t* ssaoMaterial = renderer.getMaterial(ssaoMaterial_);
-    ssaoMaterial->setBuffer("ssaoKernel", ssaoKernelBuffer_);
-    ssaoMaterial->setTexture("GBuffer0", colorRT_);
-    ssaoMaterial->setTexture("GBuffer1", normalDepthRT_);
-    ssaoMaterial->setTexture("ssaoNoise", ssaoNoise_ );
+    ssaoRT_ = renderer.renderTargetCreate(getWindowSize().x, getWindowSize().y, VK_FORMAT_R16_SFLOAT, false);
+    ssaoFBO_ = renderer.frameBufferCreate(&ssaoRT_, 1u);
+
+    //Create and configure ssao material 
+    shader_handle_t ssaoShader = renderer.shaderCreate("../ambient-occlusion/ssao.shader");
+    ssaoMaterial_ = renderer.materialCreate(ssaoShader);
+    material_t* ssaoMaterialPtr = renderer.getMaterial(ssaoMaterial_);
+    ssaoMaterialPtr->setBuffer("ssaoKernel", ssaoKernelBuffer_);
+    ssaoMaterialPtr->setTexture("normalDepthTexture", normalDepthRT_);
+    ssaoMaterialPtr->setTexture("ssaoNoise", ssaoNoise_);
+
+    //Create and configure blur material
+    shader_handle_t blurShader = renderer.shaderCreate("../ambient-occlusion/blur.shader");
+    blurMaterial_ = renderer.materialCreate(blurShader);
+    material_t* blurMaterialPtr = renderer.getMaterial(blurMaterial_);
+    blurMaterialPtr->setTexture("sceneColorTexture", colorRT_);
   }
 
   void onKeyEvent(u32 key, bool pressed)
@@ -173,7 +183,7 @@ public:
   {
     beginFrame();
 
-    renderer_t& renderer = getRenderer();        
+    renderer_t& renderer = getRenderer();
     renderer.setupCamera(camera_);
 
     actor_t* visibleActors = nullptr;
@@ -189,19 +199,23 @@ public:
     if (ssaoEnabled_)
     {
       material_t* ssaoMaterialPtr = renderer.getMaterial(ssaoMaterial_);
-      ssaoMaterialPtr->setProperty("globals.radius", ssaoRadius_);
-      ssaoMaterialPtr->setProperty("globals.bias", ssaoBias_);
+      ssaoMaterialPtr->setProperty("globals.radius", &ssaoRadius_);
+      ssaoMaterialPtr->setProperty("globals.bias", &ssaoBias_);
+      ssaoMaterialPtr->setProperty("globals.sampleCount", &ssaoSampleCount_);
+
+      command_buffer_t ssaoPass = command_buffer_t(&renderer, ssaoFBO_);
+      ssaoPass.blit(NULL_HANDLE, ssaoMaterial_);
+      ssaoPass.submit();
+      ssaoPass.release();
 
       command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
-      blitToBackbufferCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
-      blitToBackbufferCmd.blit(NULL_HANDLE, ssaoMaterial_);
+      blitToBackbufferCmd.blit(ssaoRT_, blurMaterial_);
       blitToBackbufferCmd.submit();
       blitToBackbufferCmd.release();
     }
     else
     {
       command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
-      blitToBackbufferCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blitToBackbufferCmd.blit(colorRT_);
       blitToBackbufferCmd.submit();
       blitToBackbufferCmd.release();
@@ -225,18 +239,21 @@ private:
   frame_buffer_handle_t sceneFBO_;
   render_target_handle_t colorRT_;
   render_target_handle_t normalDepthRT_;
-  
+
   camera_handle_t camera_;
   free_camera_t cameraController_;
 
   //SSAO
   bool ssaoEnabled_;
-  uint32_t ssaoSampleCount;
+  uint32_t ssaoSampleCount_;
   float ssaoRadius_;
   float ssaoBias_;
+  frame_buffer_handle_t ssaoFBO_;
+  render_target_handle_t ssaoRT_;
   material_handle_t ssaoMaterial_;
   render::gpu_buffer_t ssaoKernelBuffer_;
   render::texture_t ssaoNoise_;
+  material_handle_t blurMaterial_;
 };
 
 int main()

@@ -4,14 +4,14 @@
         <Resource Name="globals" Type="uniform_buffer" Shared="no">						
             <Field Name="radius" Type="float" />
             <Field Name="bias" Type="float" />
+            <Field Name="sampleCount" Type="int" />
         </Resource>
         
         <Resource Name="ssaoKernel" Type="storage_buffer" Shared="yes">
             <Field Name="data" Type="vec4" Count="64" />
         </Resource>
         
-        <Resource Name="GBuffer0" Type="texture2D" />
-        <Resource Name="GBuffer1" Type="texture2D" />
+        <Resource Name="normalDepthTexture" Type="texture2D" />
         <Resource Name="ssaoNoise" Type="texture2D" />
     </Resources>
 
@@ -34,7 +34,7 @@
         
         <FragmentShader>			
             layout(location = 0)in vec2 uv;
-            layout(location = 0) out vec4 color;
+            layout(location = 0) out float color;
             
             vec3 viewSpacePositionFromDepth(vec2 uv, float depth)
             {
@@ -54,12 +54,11 @@
             
             void main()
             {
-                vec4 albedo = texture(GBuffer0, uv);
-                vec4 normalDepth = texture(GBuffer1, uv);
+                vec4 normalDepth = texture(normalDepthTexture, uv);
                 vec3 normal = normalize( normalDepth.rgb );
                 vec3 positionVS = viewSpacePositionFromDepth( uv, normalDepth.w );
                 
-                vec2 noiseScale = vec2(textureSize(GBuffer0, 0) / vec2(4.0,4.0));
+                vec2 noiseScale = vec2(textureSize(normalDepthTexture, 0) / vec2(4.0,4.0));
                 vec3 randomVec = texture(ssaoNoise, uv * noiseScale).xyz;
                 
                 vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
@@ -70,20 +69,19 @@
                 float radius = globals.radius;
                 float bias = globals.bias;
                 
-                for(int i = 0; i &lt; 64; ++i)
+                for(int i = 0; i &lt; globals.sampleCount; ++i)
                 {
                     vec3 samplePosition = TBN * ssaoKernel.data[i].xyz; // From tangent to view-space
                     samplePosition = positionVS + samplePosition * radius; 
                     
                     vec2 sampleUV = screenSpaceFromViewSpace(samplePosition);
-                    float sampleDepth = viewSpacePositionFromDepth( sampleUV, texture(GBuffer1, sampleUV).w ).z;
+                    float sampleDepth = viewSpacePositionFromDepth( sampleUV, texture(normalDepthTexture, sampleUV).w ).z;
                     
                     float rangeCheck = smoothstep(0.0, 1.0, radius / abs(positionVS.z - sampleDepth));
-                    occlusion += (sampleDepth &gt;= samplePosition.z + bias ? 1.0 : 0.0) * rangeCheck;;
+                    occlusion += (sampleDepth &gt;= samplePosition.z + bias ? 1.0 : 0.0) * rangeCheck;
                 }
                 
-                occlusion = 1.0 - (occlusion/64.0);
-                color = albedo * occlusion;
+                color = 1.0 - (occlusion /  float(globals.sampleCount) );
             }			
         </FragmentShader>
 

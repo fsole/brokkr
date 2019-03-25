@@ -100,6 +100,11 @@ bool material_t::setProperty(const char* property, float value)
   return setProperty(property, (void*)&value);
 }
 
+bool material_t::setProperty(const char* property, uint32_t value)
+{
+  return setProperty(property, (void*)&value);
+}
+
 bool material_t::setProperty(const char* property, const maths::vec2& value) 
 {
   return setProperty(property, (void*)&value);
