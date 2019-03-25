@@ -49,27 +49,25 @@ public:
 
     //create materials
     shader_handle_t shader = renderer.shaderCreate("../ambient-occlusion/simple.shader");
-    material_handle_t material0 = renderer.materialCreate(shader);
-    material_t* materialPtr = renderer.getMaterial(material0);
-    materialPtr->setProperty("globals.albedo", vec4(1.0f, 0.1f, 0.1f, 1.0f));
 
-    material_handle_t material1 = renderer.materialCreate(shader);
-    materialPtr = renderer.getMaterial(material1);
-    materialPtr->setProperty("globals.albedo", vec4(0.1f, 1.0f, 0.1f, 1.0f));
+    material_handle_t teapotMaterial = renderer.materialCreate(shader);
+    renderer.getMaterial(teapotMaterial)->setProperty("globals.albedo", vec4(1.0f, 0.1f, 0.1f, 1.0f));
 
-    material_handle_t material2 = renderer.materialCreate(shader);
-    materialPtr = renderer.getMaterial(material2);
-    materialPtr->setProperty("globals.albedo", vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    material_handle_t buddhaMaterial = renderer.materialCreate(shader);
+    renderer.getMaterial(buddhaMaterial)->setProperty("globals.albedo", vec4(0.1f, 1.0f, 0.1f, 1.0f));
+
+    material_handle_t planeMaterial = renderer.materialCreate(shader);
+    renderer.getMaterial(planeMaterial)->setProperty("globals.albedo", vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
     //create actors
-    mat4 transform = createTransform(vec3(-5.0f, -1.0f, 0.0f), VEC3_ONE, quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), degreeToRadian(30.0f)));
-    renderer.actorCreate("teapot", teapot, material0, transform);
+    mat4 teapotTransform = createTransform(vec3(-5.0f, -1.0f, 0.0f), VEC3_ONE, quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), degreeToRadian(30.0f)));
+    renderer.actorCreate("teapot", teapot, teapotMaterial, teapotTransform);
 
-    transform = createTransform(vec3(5.0f, 3.0f, 0.0f), vec3(4.0f, 4.0f, 4.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-30.0f)));
-    renderer.actorCreate("buddha", buddha, material1, transform);
+    mat4 buddhaTransform = createTransform(vec3(5.0f, 3.0f, 0.0f), vec3(4.0f, 4.0f, 4.0f), maths::quaternionFromAxisAngle(vec3(1, 0, 0), maths::degreeToRadian(90.0f))*maths::quaternionFromAxisAngle(vec3(0, 1, 0), maths::degreeToRadian(-30.0f)));
+    renderer.actorCreate("buddha", buddha, buddhaMaterial, buddhaTransform);
 
-    transform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(20.0f, 20.0f, 20.0f), quaternionFromAxisAngle(vec3(1, 0, 0), degreeToRadian(90.0f)));
-    renderer.actorCreate("plane", plane, material2, transform);
+    mat4 planeTransform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(20.0f, 20.0f, 20.0f), quaternionFromAxisAngle(vec3(1, 0, 0), degreeToRadian(90.0f)));
+    renderer.actorCreate("plane", plane, planeMaterial, planeTransform);
 
     generateSSAOResources();
 
@@ -92,7 +90,6 @@ public:
       samples[i] = vec4(sample, 1.0f);
     }
 
-
     render::context_t& context = getRenderContext();
     render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
@@ -114,7 +111,7 @@ public:
     render::texture2DCreate(context, &image, 1u, render::texture_sampler_t(), &ssaoNoise_);
     image::free(&image);
 
-    //Create a framebuffer for ssao
+    //Create a framebuffer for ambient occlusion
     renderer_t& renderer = getRenderer();
     ssaoRT_ = renderer.renderTargetCreate(getWindowSize().x, getWindowSize().y, VK_FORMAT_R16_SFLOAT, false);
     ssaoFBO_ = renderer.frameBufferCreate(&ssaoRT_, 1u);
@@ -123,15 +120,15 @@ public:
     shader_handle_t ssaoShader = renderer.shaderCreate("../ambient-occlusion/ssao.shader");
     ssaoMaterial_ = renderer.materialCreate(ssaoShader);
     material_t* ssaoMaterialPtr = renderer.getMaterial(ssaoMaterial_);
+    ssaoMaterialPtr->setProperty("globals.sampleCount", &ssaoSampleCount_);
     ssaoMaterialPtr->setBuffer("ssaoKernel", ssaoKernelBuffer_);
     ssaoMaterialPtr->setTexture("normalDepthTexture", normalDepthRT_);
-    ssaoMaterialPtr->setTexture("ssaoNoise", ssaoNoise_);
+    ssaoMaterialPtr->setTexture("ssaoNoise", ssaoNoise_);    
 
     //Create and configure blur material
     shader_handle_t blurShader = renderer.shaderCreate("../ambient-occlusion/blur.shader");
     blurMaterial_ = renderer.materialCreate(blurShader);
-    material_t* blurMaterialPtr = renderer.getMaterial(blurMaterial_);
-    blurMaterialPtr->setTexture("sceneColorTexture", colorRT_);
+    renderer.getMaterial(blurMaterial_)->setTexture("sceneColorTexture", colorRT_);
   }
 
   void onKeyEvent(u32 key, bool pressed)
@@ -200,8 +197,7 @@ public:
     {
       material_t* ssaoMaterialPtr = renderer.getMaterial(ssaoMaterial_);
       ssaoMaterialPtr->setProperty("globals.radius", &ssaoRadius_);
-      ssaoMaterialPtr->setProperty("globals.bias", &ssaoBias_);
-      ssaoMaterialPtr->setProperty("globals.sampleCount", &ssaoSampleCount_);
+      ssaoMaterialPtr->setProperty("globals.bias", &ssaoBias_);      
 
       command_buffer_t ssaoPass = command_buffer_t(&renderer, ssaoFBO_);
       ssaoPass.blit(NULL_HANDLE, ssaoMaterial_);
