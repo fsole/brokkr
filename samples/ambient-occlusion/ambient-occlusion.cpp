@@ -18,10 +18,10 @@ using namespace bkk::core;
 using namespace bkk::core::maths;
 using namespace bkk::framework;
 
-class framework_test_t : public application_t
+class ambient_occlusion_sample_t : public application_t
 {
 public:
-  framework_test_t()
+  ambient_occlusion_sample_t()
     :application_t("Screen-space Ambient occlusion", 1200u, 800u, 3u),
     cameraController_(vec3(0.0f, 4.0f, 12.0f), vec2(0.1f, 0.0f), 1.0f, 0.01f),
     ssaoEnabled_(true),
@@ -33,7 +33,7 @@ public:
     renderer_t& renderer = getRenderer();
 
     //create scene framebuffer
-    colorRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, true);
+    colorRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R8G8B8A8_UNORM, true);
     normalDepthRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
     render_target_handle_t targets[] = { colorRT_, normalDepthRT_ };
     sceneFBO_ = renderer.frameBufferCreate(targets, 2u);
@@ -241,8 +241,8 @@ private:
 
 int main()
 {
-  framework_test_t test;
-  test.loop();
+  ambient_occlusion_sample_t sample;
+  sample.loop();
 
   return 0;
 }
