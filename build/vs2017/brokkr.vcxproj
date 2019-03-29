@@ -149,6 +149,10 @@
     <ClCompile Include="..\..\src\framework\renderer.cpp" />
     <ClCompile Include="..\..\src\framework\shader.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\shaders\sky-box.shader" />
+    <None Include="..\..\shaders\textureBlit.shader" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

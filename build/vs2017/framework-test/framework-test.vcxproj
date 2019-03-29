@@ -159,6 +159,11 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\samples\framework-test\framework-test.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\samples\framework-test\blend.shader" />
+    <None Include="..\..\..\samples\framework-test\bloom.shader" />
+    <None Include="..\..\..\samples\framework-test\pbr.shader" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

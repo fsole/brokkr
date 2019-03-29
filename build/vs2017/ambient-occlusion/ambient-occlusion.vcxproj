@@ -132,6 +132,11 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\samples\ambient-occlusion\ambient-occlusion.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\samples\ambient-occlusion\blur.shader" />
+    <None Include="..\..\..\samples\ambient-occlusion\simple.shader" />
+    <None Include="..\..\..\samples\ambient-occlusion\ssao.shader" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
