@@ -24,7 +24,7 @@ public:
   ambient_occlusion_sample_t()
     :application_t("Screen-space ambient occlusion", 1200u, 800u, 3u),
     cameraController_(vec3(0.0f, 4.0f, 12.0f), vec2(0.1f, 0.0f), 1.0f, 0.01f),
-    ssaoEnabled_(false),
+    ssaoEnabled_(true),
     ssaoSampleCount_(64u),
     ssaoRadius_(0.5f),
     ssaoBias_(0.025f)
@@ -211,7 +211,7 @@ public:
     }
     else
     {
-      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer, NULL_HANDLE);
+      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
       blitToBackbufferCmd.blit(colorRT_);
       blitToBackbufferCmd.submit();
       blitToBackbufferCmd.release();
