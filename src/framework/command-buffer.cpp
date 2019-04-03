@@ -30,11 +30,28 @@ command_buffer_t::command_buffer_t(const command_buffer_t& cmdBuffer)
   clearColor_(cmdBuffer.clearColor_),
   clear_(cmdBuffer.clear_),
   released_(cmdBuffer.released_)
-{
+{}
 
-}
+command_buffer_t::command_buffer_t(renderer_t* renderer)
+:command_buffer_t(renderer, GRAPHICS, NULL_HANDLE, nullptr)
+{}
+
+command_buffer_t::command_buffer_t(renderer_t* renderer, type_e type)
+  :command_buffer_t(renderer, type, NULL_HANDLE, nullptr)
+{}
+
+command_buffer_t::command_buffer_t(renderer_t* renderer, frame_buffer_handle_t frameBuffer)
+:command_buffer_t(renderer, GRAPHICS, frameBuffer, nullptr)
+{}
 
 command_buffer_t::command_buffer_t(renderer_t* renderer, frame_buffer_handle_t frameBuffer, command_buffer_t* prevCommandBuffer)
+:command_buffer_t(renderer, GRAPHICS, frameBuffer, prevCommandBuffer)
+{}
+
+command_buffer_t::command_buffer_t(renderer_t* renderer,
+                                   type_e type,
+                                   frame_buffer_handle_t frameBuffer,
+                                   command_buffer_t* prevCommandBuffer)
 :renderer_(renderer),
  frameBuffer_(frameBuffer),
  clearColor_(0.0f, 0.0f, 0.0f, 0.0f),
@@ -57,7 +74,9 @@ command_buffer_t::command_buffer_t(renderer_t* renderer, frame_buffer_handle_t f
     frameBuffer_ = renderer_->getBackBuffer();
   }
   
-  render::commandBufferCreate(renderer->getContext(), VK_COMMAND_BUFFER_LEVEL_PRIMARY, waitSemaphore, &waitStage, waitSemaphore == nullptr ? 0 : 1, signalSemaphore, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+  core::render::command_buffer_t::type_e commandType = type == GRAPHICS ? core::render::command_buffer_t::GRAPHICS :
+                                                                          core::render::command_buffer_t::COMPUTE;
+  render::commandBufferCreate(renderer->getContext(), VK_COMMAND_BUFFER_LEVEL_PRIMARY, waitSemaphore, &waitStage, waitSemaphore == nullptr ? 0 : 1, signalSemaphore, 1u, commandType, &commandBuffer_);
 }
 
 command_buffer_t::~command_buffer_t()
@@ -71,25 +90,25 @@ void command_buffer_t::clearRenderTargets(core::maths::vec4 color)
 
 void command_buffer_t::beginCommandBuffer()
 {  
-  frame_buffer_t* frameBuffer = renderer_->getFrameBuffer(frameBuffer_);
-
   render::context_t& context = renderer_->getContext();
+
+  frame_buffer_t* frameBuffer = renderer_->getFrameBuffer(frameBuffer_);
   render::commandBufferBegin(context, commandBuffer_);
-    
+
   VkClearValue* clearValues = nullptr;
   uint32_t clearValuesCount = 0u;
   if (clear_)
   {
     clearValuesCount = frameBuffer->getTargetCount() + 1;
     clearValues = new VkClearValue[clearValuesCount];
-    for (uint32_t i(0); i < clearValuesCount-1; ++i)
+    for (uint32_t i(0); i < clearValuesCount - 1; ++i)
       clearValues[i].color = { { clearColor_.x, clearColor_.y, clearColor_.z, clearColor_.w } };
 
-    clearValues[clearValuesCount-1].depthStencil = { 1.0f,0 };
+    clearValues[clearValuesCount - 1].depthStencil = { 1.0f,0 };
   }
 
   render::commandBufferRenderPassBegin(context, &frameBuffer->getFrameBuffer(), &clearValues[0], clearValuesCount, commandBuffer_);
-  
+
   if (clearValues)
     delete[] clearValues;
 }
@@ -186,6 +205,15 @@ void command_buffer_t::blit(const bkk::core::render::texture_t& texture, materia
 
   render::commandBufferRenderPassEnd(commandBuffer_);
   render::commandBufferEnd(commandBuffer_);
+}
+
+void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
+{
+  compute_material_t* computeMaterialPtr = renderer_->getComputeMaterial(computeMaterial);
+  if (computeMaterialPtr == nullptr)
+    return;
+
+  computeMaterialPtr->dispatch(commandBuffer_, pass, groupSizeX, groupSizeY, groupSizeZ);
 }
 
 void command_buffer_t::submit()

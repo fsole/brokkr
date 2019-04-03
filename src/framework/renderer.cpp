@@ -76,6 +76,11 @@ renderer_t::~renderer_t()
     for (uint32_t i = 0; i < count; ++i)
       materials[i].destroy(this);
 
+    compute_material_t* computeMaterials;
+    count = computeMaterials_.getData(&computeMaterials);
+    for (uint32_t i = 0; i < count; ++i)
+      computeMaterials[i].destroy(this);
+
     render_target_t* renderTargets;
     count = renderTargets_.getData(&renderTargets);
     for (uint32_t i = 0; i < count; ++i)
@@ -161,6 +166,15 @@ material_t* renderer_t::getMaterial(material_handle_t handle)
   return materials_.get(handle);
 }
 
+compute_material_handle_t renderer_t::computeMaterialCreate(shader_handle_t shader)
+{
+  return computeMaterials_.add(compute_material_t(shader, this));
+}
+
+compute_material_t* renderer_t::getComputeMaterial(compute_material_handle_t handle)
+{
+  return computeMaterials_.get(handle);
+}
 
 render_target_handle_t renderer_t::renderTargetCreate(uint32_t width, uint32_t height,
   VkFormat format,
@@ -265,6 +279,8 @@ int renderer_t::getVisibleActors(camera_handle_t cameraHandle, actor_t** actors)
 
 void renderer_t::presentFrame()
 {
+  vkQueueWaitIdle(context_.computeQueue.handle);
+
   render::presentFrame(&context_, &renderComplete_, 1u);
 
   for (uint32_t i(0); i < releasedCommandBuffers_.size(); ++i)

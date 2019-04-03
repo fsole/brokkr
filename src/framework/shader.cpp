@@ -101,6 +101,33 @@ static void deserializeTextureDescription(pugi::xml_node resourceNode, uint32_t 
   {
     textureDesc->type = texture_desc_t::TEXTURE_CUBE;
   }
+  else if (strcmp(resourceNode.attribute("Type").value(), "storageImage") == 0)
+  {
+    textureDesc->type = texture_desc_t::TEXTURE_STORAGE_IMAGE;
+  }
+
+  //Format
+  if (strcmp(resourceNode.attribute("Format").value(), "RGBA32F") == 0)
+  {
+    textureDesc->format = texture_desc_t::FORMAT_RGBA32F;
+  }
+  else if (strcmp(resourceNode.attribute("Format").value(), "RGBA32I") == 0)
+  {
+    textureDesc->format = texture_desc_t::FORMAT_RGBA32I;
+  }
+  else if (strcmp(resourceNode.attribute("Format").value(), "RGBA32UI") == 0)
+  {
+    textureDesc->format = texture_desc_t::FORMAT_RGBA32UI;
+  }
+  else if (strcmp(resourceNode.attribute("Format").value(), "RGBA8I") == 0)
+  {
+    textureDesc->format = texture_desc_t::FORMAT_RGBA8I;
+  }
+  else if (strcmp(resourceNode.attribute("Format").value(), "RGBA8UI") == 0)
+  {
+    textureDesc->format = texture_desc_t::FORMAT_RGBA8UI;
+  }
+  
 }
 
 static void fieldDescriptionToGLSL(const buffer_desc_t& bufferDesc, const buffer_desc_t::field_desc_t& fieldDesc, std::string& code )
@@ -370,6 +397,97 @@ static void generateGlslHeader(const std::vector<texture_desc_t>& textures,
   }
 }
 
+static void generateGlslHeaderCompute(const std::vector<texture_desc_t>& textures,
+  const std::vector<buffer_desc_t>& buffers,
+  const char* version, uint32_t localSizeX, uint32_t localSizeY, uint32_t localSizeZ,
+  std::string& generatedCode)
+{
+  generatedCode = "#version ";
+  generatedCode += version;
+  generatedCode += "\n";
+  generatedCode += "#extension GL_ARB_separate_shader_objects : enable\n";
+  generatedCode += "#extension GL_ARB_shading_language_420pack : enable\n";
+  generatedCode += "layout(local_size_x = " + intToString(localSizeX);
+  generatedCode += ", local_size_y = " + intToString(localSizeY);
+  generatedCode += ", local_size_z = " + intToString(localSizeZ);
+  generatedCode += " ) in;\n";
+
+  //Data structures declarations
+  for (uint32_t i = 0; i < buffers.size(); ++i)
+  {
+    for (int j = 0; j < buffers[i].fields.size(); ++j)
+    {
+      std::string code;
+      fieldDataTypesToGLSL(buffers[i], buffers[i].fields[j], code);
+      generatedCode += code;
+    }
+  }
+
+  //Textures
+  for (uint32_t i = 0; i < textures.size(); ++i)
+  {
+    generatedCode += "layout(set=0, binding=";
+    generatedCode += intToString(textures[i].binding);
+
+    switch (textures[i].format)
+    {
+    case texture_desc_t::FORMAT_RGBA8I:
+      generatedCode += ", rgba8i)";
+      break;
+    case texture_desc_t::FORMAT_RGBA8UI:
+      generatedCode += ", rgba8ui)";
+      break;
+    case texture_desc_t::FORMAT_RGBA32I:
+      generatedCode += ", rgba32i)";
+      break;
+    case texture_desc_t::FORMAT_RGBA32UI:
+      generatedCode += " rgba32ui)";
+      break;
+    case texture_desc_t::FORMAT_RGBA32F:
+      generatedCode += ", rgba32f)";
+      break;
+    }
+
+    if( (textures[i].type == texture_desc_t::TEXTURE_2D) || (textures[i].type == texture_desc_t::TEXTURE_STORAGE_IMAGE) )
+    {
+      generatedCode += " uniform image2D ";
+    }
+
+    generatedCode += textures[i].name;
+    generatedCode += ";\n";
+  }
+
+  //Buffers
+  for (uint32_t i = 0; i < buffers.size(); ++i)
+  {
+    if (buffers[i].type == buffer_desc_t::UNIFORM_BUFFER) {
+      generatedCode += "layout(set=0, binding=";
+      generatedCode += intToString(buffers[i].binding);
+      generatedCode += ") uniform _";
+      generatedCode += buffers[i].name;
+      generatedCode += "{\n";
+    }
+    else {
+      generatedCode += "layout(std140, set=, binding=";
+      generatedCode += intToString(buffers[i].binding);
+      generatedCode += ") buffer _";
+      generatedCode += buffers[i].name;
+      generatedCode += "{\n";
+    }
+
+    for (int j = 0; j < buffers[i].fields.size(); ++j)
+    {
+      std::string code;
+      fieldDescriptionToGLSL(buffers[i], buffers[i].fields[j], code);
+      generatedCode += code;
+    }
+
+    generatedCode += "}";
+    generatedCode += buffers[i].name;
+    generatedCode += ";\n";
+  }
+}
+
 static VkCompareOp depthTestFunctionFromString(const char* test)
 {
   VkCompareOp result = VK_COMPARE_OP_LESS_OR_EQUAL;
@@ -389,6 +507,154 @@ static VkCompareOp depthTestFunctionFromString(const char* test)
   return result;
 }
 
+static void parseResources( core::render::context_t& context,
+                            const pugi::xml_node& resourcesNode,
+                            std::vector<texture_desc_t>* textures,
+                            std::vector<buffer_desc_t>* buffers,
+                            core::render::descriptor_set_layout_t* descriptorSetLayout)
+{
+  if (resourcesNode)
+  {
+    int32_t binding = 0;
+    for (pugi::xml_node resourceNode = resourcesNode.child("Resource"); resourceNode; resourceNode = resourceNode.next_sibling("Resource"))
+    {
+      const char* resourceTypeAttr = resourceNode.attribute("Type").value();
+      if (strcmp(resourceTypeAttr, "uniform_buffer") == 0 ||
+        strcmp(resourceTypeAttr, "storage_buffer") == 0)
+      {
+        buffer_desc_t bufferDesc;
+        deserializeBufferDescription(resourceNode, binding, &bufferDesc);
+        (*buffers).push_back(bufferDesc);
+      }
+      else if ( (strcmp(resourceTypeAttr, "texture2D") == 0) ||
+                (strcmp(resourceTypeAttr, "textureCube") == 0) ||
+                (strcmp(resourceTypeAttr, "storageImage") == 0))
+      {
+        texture_desc_t textureDesc;
+        deserializeTextureDescription(resourceNode, binding, &textureDesc);
+        (*textures).push_back(textureDesc);
+      }
+
+      binding++;
+    }
+  }
+
+  //Descriptor set layout
+  uint32_t descriptorCount = (uint32_t)( (*buffers).size() + (*textures).size());
+  std::vector<render::descriptor_binding_t> bindings(descriptorCount);
+
+  uint32_t bindingIndex = 0;
+  for (uint32_t i(0); i < (*buffers).size(); ++i)
+  {
+    render::descriptor_binding_t& binding = bindings[bindingIndex];
+    switch ( (*buffers)[i].type)
+    {
+    case buffer_desc_t::UNIFORM_BUFFER:
+      binding.type = render::descriptor_t::type_e::UNIFORM_BUFFER;
+      break;
+    case buffer_desc_t::STORAGE_BUFFER:
+      binding.type = render::descriptor_t::type_e::STORAGE_BUFFER;
+      break;
+    }
+
+    binding.binding = (*buffers)[i].binding;
+    binding.stageFlags = render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT | render::descriptor_t::stage_e::COMPUTE;
+    bindingIndex++;
+  }
+
+  for (uint32_t i(0); i < (*textures).size(); ++i)
+  {
+    render::descriptor_binding_t& binding = bindings[bindingIndex];
+
+    binding.type = render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER;
+    if( (*textures)[i].type == texture_desc_t::TEXTURE_STORAGE_IMAGE )
+      binding.type = render::descriptor_t::type_e::STORAGE_IMAGE;
+
+    binding.binding = (*textures)[i].binding;
+
+    //TODO: Get stage flags from file
+    binding.stageFlags = render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT | render::descriptor_t::stage_e::COMPUTE;
+    bindingIndex++;
+  }
+
+  *descriptorSetLayout = {};
+  render::descriptor_binding_t* bindingsPtr = bindings.empty() ? nullptr : &bindings[0];
+  render::descriptorSetLayoutCreate(context, bindingsPtr, (uint32_t)bindings.size(), descriptorSetLayout);
+}
+
+render::graphics_pipeline_t::description_t parsePipelineDescription(const pugi::xml_node& passNode )
+{
+  bool depthWrite = true;
+  pugi::xml_node zWrite = passNode.child("ZWrite");
+  if (zWrite)
+    depthWrite = strcmp(zWrite.attribute("Value").value(), "On") == 0 ? true : false;
+
+  bool depthTest = true;
+  VkCompareOp depthTestFunc = VK_COMPARE_OP_LESS_OR_EQUAL;
+  pugi::xml_node zTest = passNode.child("ZTest");
+  if (zTest)
+  {
+    if (strcmp(zTest.attribute("Value").value(), "Off") == 0)
+    {
+      depthTest = false;
+    }
+    else
+    {
+      depthTestFunc = depthTestFunctionFromString(zTest.attribute("Value").value());
+    }
+  }
+
+  VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
+  pugi::xml_node cull = passNode.child("Cull");
+  if (cull)
+  {
+    if (strcmp(cull.attribute("Value").value(), "Front") == 0)
+    {
+      cullMode = VK_CULL_MODE_FRONT_BIT;
+    }
+    if (strcmp(cull.attribute("Value").value(), "Off") == 0)
+    {
+      cullMode = VK_CULL_MODE_NONE;
+    }
+  }
+
+  //Blend state
+  VkPipelineColorBlendAttachmentState defaultBlend = {
+    VK_FALSE,
+    VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD,
+    VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD, 0xF };
+
+  std::vector<VkPipelineColorBlendAttachmentState> blendStates(1);
+  blendStates[0] = defaultBlend;
+
+  for (pugi::xml_node blendNode = passNode.child("Blend"); blendNode; blendNode = blendNode.next_sibling("Blend"))
+  {
+    uint32_t target = stringToInt(blendNode.attribute("Target").value());
+    if (target >= (uint32_t)blendStates.size())
+    {
+      uint32_t oldSize = (uint32_t)blendStates.size();
+      uint32_t newSize = target + 1u;
+
+      blendStates.resize(newSize);
+      for (uint32_t i(oldSize); i < newSize; ++i)
+        blendStates[i] = defaultBlend;
+    }
+  }
+
+  render::graphics_pipeline_t::description_t pipelineDesc = {};
+  pipelineDesc.blendState = blendStates;
+  pipelineDesc.cullMode = cullMode;
+  pipelineDesc.depthTestEnabled = depthTest;
+  pipelineDesc.depthWriteEnabled = depthWrite;
+  pipelineDesc.depthTestFunction = depthTestFunc;
+
+  return pipelineDesc;
+}
+
+
+/**************************
+* shader_t Implementation *
+***************************/
 shader_t::shader_t()
 :name_(),
 textures_(),
@@ -397,7 +663,7 @@ buffers_()
 }
 
 shader_t::shader_t(const char* file, renderer_t* renderer)
-:descriptorSetLayout_()
+:descriptorSetLayout_() 
 {
   initializeFromFile(file, renderer);
 }
@@ -427,9 +693,19 @@ void shader_t::destroy(renderer_t* renderer)
       render::graphicsPipelineDestroy(renderer->getContext(), &pipelines[i][j]);
   }
 
-  if (descriptorSetLayout_.handle != VK_NULL_HANDLE )
+  if (descriptorSetLayout_.handle != VK_NULL_HANDLE)
+  {
     render::descriptorSetLayoutDestroy(renderer->getContext(), &descriptorSetLayout_);
+  }
 
+  for( uint32_t i(0); i<computePipelines_.size(); ++i )
+  {
+    render::shaderDestroy(renderer->getContext(), &computeShaders_[i]);
+    render::pipelineLayoutDestroy(renderer->getContext(), &pipelineLayouts_[i]);
+    render::computePipelineDestroy(renderer->getContext(), &computePipelines_[i]);
+  }
+
+  descriptorSetLayout_ = {};
   textures_.clear();
   buffers_.clear();
   pass_.clear();
@@ -452,189 +728,102 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
   if (shaderNode)
   {
     pugi::xml_attribute name(shaderNode.attribute("Name"));
-    if (!name)
-      return false;
+    if (name)
+      name_ = name.value();
 
-    name_ = name.value();
+    render::context_t& context = renderer->getContext();
 
     //Resources
     pugi::xml_node resourcesNode = shaderNode.child("Resources");
-    uint32_t currentOffset_ = 0u;
-    if (resourcesNode)
-    {
-      int32_t binding = 0;
-      for (pugi::xml_node resourceNode = resourcesNode.child("Resource"); resourceNode; resourceNode = resourceNode.next_sibling("Resource"))
-      {
-        const char* resourceTypeAttr = resourceNode.attribute("Type").value();
-        if (strcmp(resourceTypeAttr, "uniform_buffer") == 0 ||
-            strcmp(resourceTypeAttr, "storage_buffer") == 0)
-        {
-          buffer_desc_t bufferDesc;
-          deserializeBufferDescription(resourceNode, binding, &bufferDesc);
-          buffers_.push_back(bufferDesc);
-        }
-        else if (strcmp(resourceTypeAttr, "texture2D")   == 0 || 
-                 strcmp(resourceTypeAttr, "textureCube") == 0 )
-        {
-          texture_desc_t textureDesc;
-          deserializeTextureDescription(resourceNode, binding, &textureDesc);
-          textures_.push_back(textureDesc);
-        }
+    parseResources(context, resourcesNode, &textures_, &buffers_, &descriptorSetLayout_);
 
-        binding++;
+    //Compute shader
+    if (shaderNode.child("ComputeShader") )
+    {
+      for (pugi::xml_node computeShaderNode = shaderNode.child("ComputeShader"); computeShaderNode; computeShaderNode = computeShaderNode.next_sibling("ComputeShader"))
+      {
+        pass_.push_back(hashString(computeShaderNode.attribute("Name").value()));
+
+        uint32_t localSizeX = 1;
+        if (computeShaderNode.attribute("LocalSizeX"))
+          localSizeX = stringToInt(computeShaderNode.attribute("LocalSizeX").value());
+
+        uint32_t localSizeY = 1;
+        if (computeShaderNode.attribute("LocalSizeY"))
+          localSizeY = stringToInt(computeShaderNode.attribute("LocalSizeY").value());
+
+        uint32_t localSizeZ = 1;
+        if (computeShaderNode.attribute("LocalSizeZ"))
+          localSizeZ = stringToInt(computeShaderNode.attribute("LocalSizeZ").value());
+
+        std::string computeShaderCode;
+        generateGlslHeaderCompute(textures_, buffers_, shaderNode.attribute("Version").value(),
+          localSizeX, localSizeY, localSizeZ, computeShaderCode);
+
+        computeShaderCode += computeShaderNode.first_child().value();
+
+        //Create shader and pipeline
+        render::shader_t computeShader = {};
+        render::shaderCreateFromGLSLSource(context, render::shader_t::COMPUTE_SHADER, computeShaderCode.c_str(), &computeShader);
+        render::pipeline_layout_t pipelineLayout = {};
+        render::pipelineLayoutCreate(context, &descriptorSetLayout_, 1u, nullptr, 0u, &pipelineLayout);
+        render::compute_pipeline_t pipeline = {};
+        render::computePipelineCreate(context, pipelineLayout, computeShader, &pipeline);
+
+        computeShaders_.push_back(computeShader);
+        pipelineLayouts_.push_back(pipelineLayout);
+        computePipelines_.push_back(pipeline);
       }
     }
+    else
+    {
+      //Generate glsl code that will be appended to every shader in the file
+      std::string glslHeader;
+      generateGlslHeader(textures_, buffers_, shaderNode.attribute("Version").value(), glslHeader);
 
-    //Generate glsl code that will be appended to every shader in the file
-    std::string glslHeader;
-    generateGlslHeader(textures_, buffers_, shaderNode.attribute("Version").value(), glslHeader);
+      uint32_t pass = 0;
+      for (pugi::xml_node passNode = shaderNode.child("Pass"); passNode; passNode = passNode.next_sibling("Pass"))
+      {
+        pass_.push_back(hashString(passNode.attribute("Name").value()));
+
+        //Vertex shader
+        render::shader_t vertexShader;
+        std::string shaderCode = glslHeader;
+        std::string vertexShaderCode = passNode.child("VertexShader").first_child().value();
+        shaderCode += vertexShaderCode;
+        render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, shaderCode.c_str(), &vertexShader);
+        vertexShaders_.push_back(vertexShader);
+
+        //Vertex format
+        vertexFormats_.push_back(extractVertexFormatFromShader(vertexShaderCode));
         
-    render::context_t& context = renderer->getContext();
+        //Fragment shader
+        render::shader_t fragmentShader;
+        shaderCode = glslHeader;
+        shaderCode += passNode.child("FragmentShader").first_child().value();
+        render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, shaderCode.c_str(), &fragmentShader);
+        fragmentShaders_.push_back(fragmentShader);
 
-    //Descriptor set layout
-    uint32_t descriptorCount = (uint32_t)(buffers_.size() + textures_.size());
-    std::vector<render::descriptor_binding_t> bindings(descriptorCount);
+        //Pipeline layout
+        render::pipeline_layout_t pipelineLayout;
+        render::descriptor_set_layout_t descriptorSetLayouts[3] = {
+          renderer->getGlobalsDescriptorSetLayout(),
+          renderer->getObjectDescriptorSetLayout(),
+          descriptorSetLayout_
+        };
 
-    uint32_t bindingIndex = 0;
-    for (uint32_t i(0); i < buffers_.size(); ++i)
-    {
-      render::descriptor_binding_t& binding = bindings[bindingIndex];
-      switch (buffers_[i].type)
-      {
-      case buffer_desc_t::UNIFORM_BUFFER:
-        binding.type = render::descriptor_t::type_e::UNIFORM_BUFFER;
-        break;
-      case buffer_desc_t::STORAGE_BUFFER:
-        binding.type = render::descriptor_t::type_e::STORAGE_BUFFER;
-        break;
+        render::pipelineLayoutCreate(context, descriptorSetLayouts, 3u, nullptr, 0u, &pipelineLayout);
+        pipelineLayouts_.push_back(pipelineLayout);
+
+        //Pipeline description
+        render::graphics_pipeline_t::description_t pipelineDesc = parsePipelineDescription(passNode);
+        pipelineDesc.vertexShader = vertexShader;
+        pipelineDesc.fragmentShader = fragmentShader;
+        graphicsPipelineDescriptions_.push_back(pipelineDesc);
       }
-
-      binding.binding = buffers_[i].binding;
-      binding.stageFlags = render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT;
-      bindingIndex++;
     }
-
-    for (uint32_t i(0); i < textures_.size(); ++i)
-    {
-      render::descriptor_binding_t& binding = bindings[bindingIndex];
-      binding.type = render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER;
-      binding.binding = textures_[i].binding;
-      binding.stageFlags = render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT;
-      bindingIndex++;
-    }
-
-    descriptorSetLayout_ = {};
-    render::descriptor_binding_t* bindingsPtr = bindings.empty() ? nullptr : &bindings[0];
-    render::descriptorSetLayoutCreate(context, bindingsPtr, (uint32_t)bindings.size(), &descriptorSetLayout_);
-    
-
-    render::descriptor_set_layout_t descriptorSetLayouts[3] = {
-      renderer->getGlobalsDescriptorSetLayout(),
-      renderer->getObjectDescriptorSetLayout(),
-      descriptorSetLayout_
-    };
-
-    //Render passes    
-    uint32_t pass = 0;
-    for (pugi::xml_node passNode = shaderNode.child("Pass"); passNode; passNode = passNode.next_sibling("Pass"))
-    {
-      pass_.push_back(hashString( passNode.attribute("Name").value()) );
-
-      //Vertex shader
-      render::shader_t vertexShader;
-      std::string shaderCode = glslHeader;
-      std::string vertexShaderCode = passNode.child("VertexShader").first_child().value();
-      shaderCode += vertexShaderCode;
-      render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, shaderCode.c_str(), &vertexShader);
-      vertexShaders_.push_back(vertexShader);
-      
-      //Get vertex format from the code
-      vertexFormats_.push_back( extractVertexFormatFromShader(vertexShaderCode) );
-      
-
-      //Fragment shader
-      render::shader_t fragmentShader;
-      shaderCode = glslHeader;
-      shaderCode += passNode.child("FragmentShader").first_child().value();
-      render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, shaderCode.c_str(), &fragmentShader);
-      fragmentShaders_.push_back(fragmentShader);
-
-
-      render::pipeline_layout_t pipelineLayout;
-      render::pipelineLayoutCreate(context, descriptorSetLayouts, 3u, nullptr, 0u, &pipelineLayout);      
-      pipelineLayouts_.push_back(pipelineLayout);
-
-      bool depthWrite = true;
-      pugi::xml_node zWrite = passNode.child("ZWrite");
-      if (zWrite)
-        depthWrite = strcmp(zWrite.attribute("Value").value(), "On") == 0 ? true : false;
-
-      bool depthTest = true;
-      VkCompareOp depthTestFunc = VK_COMPARE_OP_LESS_OR_EQUAL;
-      pugi::xml_node zTest = passNode.child("ZTest");
-      if (zTest)
-      {
-        if (strcmp(zTest.attribute("Value").value(), "Off") == 0)
-        {
-          depthTest = false;
-        }
-        else
-        {
-          depthTestFunc = depthTestFunctionFromString(zTest.attribute("Value").value());
-        }
-      }
-
-      VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
-      pugi::xml_node cull = passNode.child("Cull");
-      if (cull)
-      {
-        if (strcmp(cull.attribute("Value").value(), "Front") == 0)
-        {
-          cullMode = VK_CULL_MODE_FRONT_BIT;
-        }
-        if (strcmp(cull.attribute("Value").value(), "Off") == 0)
-        {
-          cullMode = VK_CULL_MODE_NONE;
-        }
-      }
-
-      //Blend state
-      VkPipelineColorBlendAttachmentState defaultBlend = { 
-        VK_FALSE,
-        VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD,
-        VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD, 0xF };
-
-      std::vector<VkPipelineColorBlendAttachmentState> blendStates(1);
-      blendStates[0] = defaultBlend;
-
-      for (pugi::xml_node blendNode = passNode.child("Blend"); blendNode; blendNode = blendNode.next_sibling("Blend"))
-      {
-        uint32_t target = stringToInt(blendNode.attribute("Target").value());
-        if (target >= (uint32_t)blendStates.size())
-        {
-          uint32_t oldSize = (uint32_t)blendStates.size();
-          uint32_t newSize = target + 1u;
-
-          blendStates.resize(newSize);
-          for (uint32_t i(oldSize); i<newSize; ++i)
-            blendStates[i] = defaultBlend;          
-        }
-      }
-
-      render::graphics_pipeline_t::description_t pipelineDesc = {};      
-      pipelineDesc.blendState = blendStates;
-      pipelineDesc.cullMode = cullMode;
-      pipelineDesc.depthTestEnabled = depthTest;
-      pipelineDesc.depthWriteEnabled = depthWrite;
-      pipelineDesc.depthTestFunction = depthTestFunc;
-      pipelineDesc.vertexShader = vertexShader;
-      pipelineDesc.fragmentShader = fragmentShader;
-      graphicsPipelineDescriptions_.push_back(pipelineDesc);
-    }
-
     return true;
-  }
-  
+  }  
   return false;
 }
 
@@ -729,4 +918,45 @@ uint32_t shader_t::getPassIndexFromName(const char* pass) const
   }
 
   return 0;
+}
+
+
+core::render::compute_pipeline_t shader_t::getComputePipeline(const char* name)
+{
+  uint64_t hash = hashString(name);
+  for (uint32_t i(0); i < pass_.size(); ++i)
+  {
+    if (hash == pass_[i])
+      return getComputePipeline(i);
+  }
+
+  return core::render::compute_pipeline_t{};
+}
+
+core::render::compute_pipeline_t shader_t::getComputePipeline(uint32_t pass)
+{
+  if (pass >= computePipelines_.size()) 
+    return core::render::compute_pipeline_t{};
+
+  return computePipelines_[pass];
+}
+
+render::pipeline_layout_t shader_t::getPipelineLayout(const char* name)
+{
+  uint64_t hash = hashString(name);
+  for (uint32_t i(0); i < pass_.size(); ++i)
+  {
+    if (hash == pass_[i])
+      return getPipelineLayout(i);
+  }
+
+  return render::pipeline_layout_t{};
+}
+
+core::render::pipeline_layout_t shader_t::getPipelineLayout(uint32_t pass)
+{
+  if (pass >= pipelineLayouts_.size())
+    return core::render::pipeline_layout_t{};
+
+  return pipelineLayouts_[pass];
 }

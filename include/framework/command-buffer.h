@@ -26,9 +26,16 @@ namespace bkk
     {
       public:
         
-        command_buffer_t(renderer_t* renderer,                          
-                         frame_buffer_handle_t frameBuffer = core::NULL_HANDLE,
-                         command_buffer_t* prevCommandBuffer = nullptr);
+        enum type_e {
+          GRAPHICS,
+          COMPUTE
+        };
+
+        command_buffer_t(renderer_t* renderer);
+        command_buffer_t(renderer_t* renderer, type_e type);
+        command_buffer_t(renderer_t* renderer, frame_buffer_handle_t frameBuffer);
+        command_buffer_t(renderer_t* renderer, frame_buffer_handle_t frameBuffer, command_buffer_t* prevCommandBuffer);
+        command_buffer_t(renderer_t* renderer, type_e type, frame_buffer_handle_t frameBuffer,command_buffer_t* prevCommandBuffer);
 
         command_buffer_t(const command_buffer_t& cmdBuffer );
 
@@ -40,6 +47,8 @@ namespace bkk
         void blit(render_target_handle_t renderTarget, material_handle_t materialHandle = core::NULL_HANDLE, const char* pass = nullptr);
         void blit(const bkk::core::render::texture_t& texture, material_handle_t materialHandle = core::NULL_HANDLE, const char* pass = nullptr);
         
+        void dispatchCompute(material_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ);
+
         void submit();
         void release();
         
@@ -60,6 +69,7 @@ namespace bkk
         core::maths::vec4 clearColor_;
         bool clear_;
         bool released_;
+
     };
 
   }//framework

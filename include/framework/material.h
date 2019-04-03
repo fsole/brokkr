@@ -23,7 +23,7 @@ namespace bkk
   namespace framework
   {
     typedef bkk::core::handle_t material_handle_t;
-    
+
     class renderer_t;
     
     class material_t
@@ -49,8 +49,9 @@ namespace bkk
 
         core::render::graphics_pipeline_t getPipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer);
         core::render::descriptor_set_t getDescriptorSet(const char* pass = nullptr);
+        core::render::descriptor_set_t getDescriptorSet(uint32_t pass);
 
-      private:
+      protected:
         renderer_t* renderer_;
         shader_handle_t shader_;
 

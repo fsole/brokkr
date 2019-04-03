@@ -35,11 +35,22 @@ namespace bkk
         TEXTURE_2D,
         TEXTURE_CUBE,
         TEXTURE_ARRAY,
+        TEXTURE_STORAGE_IMAGE,
         TYPE_COUNT
+      };
+
+      enum format_e
+      {
+         FORMAT_RGBA8I,
+         FORMAT_RGBA8UI,
+         FORMAT_RGBA32I,
+         FORMAT_RGBA32UI,
+         FORMAT_RGBA32F
       };
 
       std::string name;
       type_e type;
+      format_e format;
       int32_t binding;
     };
 
@@ -100,6 +111,12 @@ namespace bkk
       uint32_t getPassCount() const{return (uint32_t)pass_.size();}
       uint32_t getPassIndexFromName(const char* pass) const;
 
+      core::render::compute_pipeline_t getComputePipeline(const char* name);
+      core::render::compute_pipeline_t getComputePipeline(uint32_t pass);
+
+      core::render::pipeline_layout_t getPipelineLayout(const char* name);
+      core::render::pipeline_layout_t getPipelineLayout(uint32_t pass);
+
     private:
       std::string name_;
 
@@ -111,13 +128,13 @@ namespace bkk
       std::vector<uint64_t> pass_;
       std::vector<core::render::shader_t> vertexShaders_;
       std::vector<core::render::shader_t> fragmentShaders_;
+      std::vector<core::render::shader_t> computeShaders_;
       std::vector<core::render::vertex_format_t> vertexFormats_;
       std::vector<core::render::pipeline_layout_t> pipelineLayouts_;
       std::vector<core::render::graphics_pipeline_t::description_t> graphicsPipelineDescriptions_;
-      //std::vector<core::render::shader_t> computeShaders_;
-      //std::vector<core::render::compute_pipeline_t> computePipelines_;
 
       core::hash_table_t<frame_buffer_handle_t, std::vector<core::render::graphics_pipeline_t> > graphicsPipelines_;
+      std::vector<core::render::compute_pipeline_t> computePipelines_;
     };
 
   }//framework

@@ -121,6 +121,7 @@
     <ClInclude Include="..\..\include\framework\application.h" />
     <ClInclude Include="..\..\include\framework\camera.h" />
     <ClInclude Include="..\..\include\framework\command-buffer.h" />
+    <ClInclude Include="..\..\include\framework\compute-material.h" />
     <ClInclude Include="..\..\include\framework\frame-buffer.h" />
     <ClInclude Include="..\..\include\framework\gui.h" />
     <ClInclude Include="..\..\include\framework\material.h" />
@@ -142,6 +143,7 @@
     <ClCompile Include="..\..\src\framework\application.cpp" />
     <ClCompile Include="..\..\src\framework\camera.cpp" />
     <ClCompile Include="..\..\src\framework\command-buffer.cpp" />
+    <ClCompile Include="..\..\src\framework\compute-material.cpp" />
     <ClCompile Include="..\..\src\framework\frame-buffer.cpp" />
     <ClCompile Include="..\..\src\framework\render-target.cpp" />
     <ClCompile Include="..\..\src\framework\gui.cpp" />

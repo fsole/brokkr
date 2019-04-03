@@ -251,7 +251,7 @@ bool material_t::setTexture(const char* property, render::texture_t texture)
   return true;
 }
 
-render::descriptor_set_t material_t::getDescriptorSet(const char* pass)
+render::descriptor_set_t material_t::getDescriptorSet(uint32_t pass)
 {
   render::context_t& context = renderer_->getContext();
 
@@ -268,22 +268,30 @@ render::descriptor_set_t material_t::getDescriptorSet(const char* pass)
       uniformBufferUpdate_[i] = false;
     }
   }
-
-  uint32_t i = shader->getPassIndexFromName(pass);
-  if ( updateDescriptorSet_[i] )
+    
+  if (updateDescriptorSet_[pass])
   {
-    if (descriptorSet_[i].handle == VK_NULL_HANDLE)
+    if (descriptorSet_[pass].handle == VK_NULL_HANDLE)
     {
       render::descriptor_t* descriptorsPtr = descriptors_.empty() ? nullptr : &descriptors_[0];
-      render::descriptorSetCreate(context, renderer_->getDescriptorPool(), shader->getDescriptorSetLayout(), descriptorsPtr, &descriptorSet_[i]);
+      render::descriptorSetCreate(context, renderer_->getDescriptorPool(), shader->getDescriptorSetLayout(), descriptorsPtr, &descriptorSet_[pass]);
     }
     else
     {
-      render::descriptorSetUpdate(context, shader->getDescriptorSetLayout(), &descriptorSet_[i]);
+      render::descriptorSetUpdate(context, shader->getDescriptorSetLayout(), &descriptorSet_[pass]);
     }
 
-    updateDescriptorSet_[i] = false;
+    updateDescriptorSet_[pass] = false;
   }
 
-  return descriptorSet_[i];
+  return descriptorSet_[pass];
+
+}
+render::descriptor_set_t material_t::getDescriptorSet(const char* pass)
+{
+  shader_t* shader = renderer_->getShader(shader_);
+  if (!shader)
+    return core::render::descriptor_set_t();
+
+  return getDescriptorSet( shader->getPassIndexFromName(pass) );
 }

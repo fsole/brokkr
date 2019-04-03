@@ -18,6 +18,7 @@
 
 #include "framework/shader.h"
 #include "framework/material.h"
+#include "framework/compute-material.h"
 #include "framework/render-target.h"
 #include "framework/frame-buffer.h"
 #include "framework/actor.h"
@@ -51,6 +52,9 @@ namespace bkk
 
         material_handle_t materialCreate(shader_handle_t shader);
         material_t* getMaterial(material_handle_t handle);
+
+        compute_material_handle_t computeMaterialCreate(shader_handle_t shader);
+        compute_material_t* getComputeMaterial(compute_material_handle_t handle);
 
         render_target_handle_t renderTargetCreate(uint32_t width, uint32_t height,VkFormat format,bool depthBuffer);
         render_target_t* getRenderTarget(render_target_handle_t handle);
@@ -96,6 +100,7 @@ namespace bkk
         core::packed_freelist_t<camera_t> cameras_;
         core::packed_freelist_t<core::mesh::mesh_t> meshes_;        
         core::packed_freelist_t<material_t> materials_;
+        core::packed_freelist_t<compute_material_t> computeMaterials_;
         core::packed_freelist_t<shader_t> shaders_;
         core::packed_freelist_t<render_target_t> renderTargets_;
         core::packed_freelist_t<frame_buffer_t> framebuffers_;
