@@ -63,9 +63,10 @@ namespace bkk
         frame_buffer_t* getFrameBuffer(frame_buffer_handle_t handle);
 
         mesh_handle_t addMesh(const core::mesh::mesh_t& mesh);
+        mesh_handle_t meshCreate(const char* file, core::mesh::export_flags_e exportFlags, core::render::gpu_memory_allocator_t* allocator = nullptr, uint32_t submesh = 0);
         core::mesh::mesh_t* getMesh(mesh_handle_t handle);
 
-        actor_handle_t actorCreate(const char* name, mesh_handle_t mesh, material_handle_t material, core::maths::mat4 transform = core::maths::mat4() );
+        actor_handle_t actorCreate(const char* name, mesh_handle_t mesh, material_handle_t material, core::maths::mat4 transform = core::maths::mat4(), uint32_t instanceCount = 1);
         actor_t* getActor(actor_handle_t handle);        
         void actorSetParent(actor_handle_t actor, actor_handle_t parent);
         void actorSetTransform(actor_handle_t actor, const core::maths::mat4& newTransform);

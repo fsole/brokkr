@@ -55,10 +55,10 @@ namespace bkk
         renderer_t* renderer_;
         shader_handle_t shader_;
 
-        std::vector<uint8_t*> uniformData_;
-        std::vector<size_t> uniformDataSize_;
-        std::vector<core::render::gpu_buffer_t> uniformBuffers_;
-        std::vector<bool> uniformBufferUpdate_;
+        std::vector<uint8_t*> bufferData_;
+        std::vector<size_t> bufferDataSize_;
+        std::vector<core::render::gpu_buffer_t> buffers_;
+        std::vector<bool> bufferUpdate_;
 
         std::vector<core::render::descriptor_t> descriptors_;
 

@@ -48,18 +48,22 @@ material_t::material_t(shader_handle_t shaderHandle, renderer_t* renderer)
       {
         uint8_t* data = new uint8_t[bufferDesc[i].size];
         memset(data, 0, bufferDesc[i].size);
-        uniformData_.push_back(data);
-        uniformDataSize_.push_back(bufferDesc[i].size);
+        bufferData_.push_back(data);
+        bufferDataSize_.push_back(bufferDesc[i].size);
 
-        render::gpu_buffer_t ubo = {};
+        render::gpu_buffer_t::usage_e usage = ( bufferDesc[i].type == buffer_desc_t::UNIFORM_BUFFER ) ? 
+          render::gpu_buffer_t::usage_e::UNIFORM_BUFFER :
+          render::gpu_buffer_t::usage_e::STORAGE_BUFFER;
+
+        render::gpu_buffer_t buffer = {};
         render::gpuBufferCreate(context,
                                 render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
                                 (void*)data, bufferDesc[i].size,
-                                nullptr, &ubo);
+                                nullptr, &buffer);
 
-        uniformBuffers_.push_back(ubo);
-        descriptors_[bufferDesc[i].binding] = render::getDescriptor(ubo);
-        uniformBufferUpdate_.push_back(false);
+        buffers_.push_back(buffer);
+        descriptors_[bufferDesc[i].binding] = render::getDescriptor(buffer);
+        bufferUpdate_.push_back(false);
       }
     }
   }
@@ -68,10 +72,10 @@ material_t::material_t(shader_handle_t shaderHandle, renderer_t* renderer)
 void material_t::destroy(renderer_t* renderer)
 {
   render::context_t& context = renderer->getContext();
-  for (uint32_t i(0); i < uniformBuffers_.size(); ++i)
+  for (uint32_t i(0); i < buffers_.size(); ++i)
   {
-    render::gpuBufferDestroy(context, nullptr, &uniformBuffers_[i]);
-    delete[] uniformData_[i];
+    render::gpuBufferDestroy(context, nullptr, &buffers_[i]);
+    delete[] bufferData_[i];
   }
   
   for (int i = 0; i < descriptorSet_.size(); ++i)
@@ -158,9 +162,9 @@ bool material_t::setProperty(const char* property, void* value)
         {
           if (bufferDesc[i].fields[j].name == tokens[1])
           {
-            ptr = uniformData_[bufferCount] + bufferDesc[i].fields[j].byteOffset;
+            ptr = bufferData_[bufferCount] + bufferDesc[i].fields[j].byteOffset;
             size = bufferDesc[i].fields[j].size;
-            uniformBufferUpdate_[bufferCount] = true;
+            bufferUpdate_[bufferCount] = true;
             break;
           }
         }
@@ -260,12 +264,12 @@ render::descriptor_set_t material_t::getDescriptorSet(uint32_t pass)
     return core::render::descriptor_set_t();
 
   //Update owned uniform buffer if needed
-  for (uint32_t i(0); i < uniformBufferUpdate_.size(); ++i)
+  for (uint32_t i(0); i < bufferUpdate_.size(); ++i)
   {
-    if (uniformBufferUpdate_[i])
+    if (bufferUpdate_[i])
     {
-      render::gpuBufferUpdate(context, uniformData_[i], 0u, uniformDataSize_[i], &uniformBuffers_[i]);
-      uniformBufferUpdate_[i] = false;
+      render::gpuBufferUpdate(context, bufferData_[i], 0u, bufferDataSize_[i], &buffers_[i]);
+      bufferUpdate_[i] = false;
     }
   }
     

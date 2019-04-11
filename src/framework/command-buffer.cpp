@@ -48,6 +48,11 @@ command_buffer_t::command_buffer_t(renderer_t* renderer, frame_buffer_handle_t f
 :command_buffer_t(renderer, GRAPHICS, frameBuffer, prevCommandBuffer)
 {}
 
+command_buffer_t::command_buffer_t(renderer_t* renderer, type_e type, command_buffer_t* prevCommandBuffer)
+  : command_buffer_t(renderer, type, NULL_HANDLE, prevCommandBuffer)
+{
+}
+
 command_buffer_t::command_buffer_t(renderer_t* renderer,
                                    type_e type,
                                    frame_buffer_handle_t frameBuffer,
@@ -145,7 +150,15 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
         render::descriptorSetBind(commandBuffer_, pipeline.layout, 2, &materialDescriptorSet, 1u);
 
         //Draw call
-        core::mesh::draw(commandBuffer_, *mesh);
+        uint32_t instanceCount = actors[i].getInstanceCount();
+        if (instanceCount == 1)
+        {
+          core::mesh::draw(commandBuffer_, *mesh);
+        }
+        else
+        {
+          core::mesh::drawInstanced(commandBuffer_, instanceCount, nullptr, 0u, *mesh);
+        }
       }
     }
   }
@@ -208,6 +221,15 @@ void command_buffer_t::blit(const bkk::core::render::texture_t& texture, materia
 }
 
 void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
+{
+  compute_material_t* computeMaterialPtr = renderer_->getComputeMaterial(computeMaterial);
+  if (computeMaterialPtr == nullptr)
+    return;
+
+  computeMaterialPtr->dispatch(commandBuffer_, pass, groupSizeX, groupSizeY, groupSizeZ);
+}
+
+void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, const char* pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
 {
   compute_material_t* computeMaterialPtr = renderer_->getComputeMaterial(computeMaterial);
   if (computeMaterialPtr == nullptr)

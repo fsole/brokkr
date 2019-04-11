@@ -114,8 +114,17 @@ orbiting_camera_t::orbiting_camera_t(const maths::vec3& target, const f32 offset
 :target_(target), 
  offset_(offset),
  angle_(angle),
- rotationSensitivity_(rotationSensitivity)
+ rotationSensitivity_(rotationSensitivity),
+ cameraHandle_(bkk::core::NULL_HANDLE),
+ renderer_(nullptr)
 {
+  Update();
+}
+
+void orbiting_camera_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
+{
+  cameraHandle_ = cameraHandle;
+  renderer_ = renderer;
   Update();
 }
 
@@ -141,6 +150,16 @@ void orbiting_camera_t::Update()
 
   maths::mat4 tx = maths::createTransform(maths::vec3(0.0f, 0.0f, offset_), maths::VEC3_ONE, maths::QUAT_UNIT) * maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, orientation) * maths::createTransform(target_, maths::VEC3_ONE, maths::QUAT_UNIT);
   maths::invertMatrix(tx, view_);
+
+  if (cameraHandle_ != bkk::core::NULL_HANDLE)
+  {
+    camera_t* camera = renderer_->getCamera(cameraHandle_);
+    if (camera)
+    {
+      camera->setViewToWorldMatrix(tx);
+      camera->setWorldToViewMatrix(view_);
+    }
+  }
 }
 
 
@@ -165,6 +184,13 @@ free_camera_t::free_camera_t(const maths::vec3& position, const maths::vec2& ang
   cameraHandle_(bkk::core::NULL_HANDLE),
   renderer_(nullptr)
 {
+  Update();
+}
+
+void free_camera_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
+{
+  cameraHandle_ = cameraHandle;
+  renderer_ = renderer;
   Update();
 }
 
@@ -201,11 +227,4 @@ void free_camera_t::Update()
       camera->setWorldToViewMatrix( view_ );
     }
   }
-}
-
-void free_camera_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
-{
-  cameraHandle_ = cameraHandle;
-  renderer_ = renderer;
-  Update();
 }

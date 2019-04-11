@@ -22,8 +22,12 @@ actor_t::actor_t()
 {
 }
 
-actor_t::actor_t(const char* name, mesh_handle_t mesh, transform_handle_t transform, material_handle_t material, renderer_t* renderer)
-  :name_(name), mesh_(mesh), transform_(transform), material_(material)
+actor_t::actor_t(const char* name, mesh_handle_t mesh, transform_handle_t transform, material_handle_t material, uint32_t instanceCount, renderer_t* renderer)
+:name_(name), 
+ mesh_(mesh), 
+ transform_(transform), 
+ material_(material),
+ instanceCount_(instanceCount)
 {
   core::render::context_t& context = renderer->getContext();
 

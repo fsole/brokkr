@@ -39,12 +39,8 @@ public:
     sceneFBO_ = renderer.frameBufferCreate(targets, 2u);
 
     //create meshes
-    mesh::mesh_t teapotMesh;
-    mesh::createFromFile(getRenderContext(), "../resources/teapot.obj", mesh::EXPORT_ALL, nullptr, 0, &teapotMesh);
-    mesh_handle_t teapot = renderer.addMesh(teapotMesh);
-    mesh::mesh_t buddhaMesh;
-    mesh::createFromFile(getRenderContext(), "../resources/buddha.obj", mesh::EXPORT_ALL, nullptr, 0, &buddhaMesh);
-    mesh_handle_t buddha = renderer.addMesh(buddhaMesh);
+    mesh_handle_t teapot = renderer.meshCreate("../resources/teapot.obj", mesh::EXPORT_ALL);    
+    mesh_handle_t buddha = renderer.meshCreate("../resources/buddha.obj", mesh::EXPORT_ALL);
     mesh_handle_t plane = renderer.addMesh(mesh::unitQuad(getRenderContext()));
 
     //create materials

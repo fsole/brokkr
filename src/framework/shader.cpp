@@ -61,10 +61,14 @@ static uint32_t deserializeFieldDescription(pugi::xml_node fieldNode, uint32_t o
   field->name = fieldNode.attribute("Name").value();
   field->type = fieldType;
   field->byteOffset = offset;
-  field->size = fieldSize;
+  
   field->count = fieldNode.attribute("Count").empty() ? 1 :
     strcmp(fieldNode.attribute("Count").value(), "") == 0 ? 0 : fieldNode.attribute("Count").as_int();
 
+  if (field->count > 1)
+    fieldSize *= field->count;
+
+  field->size = fieldSize;
   return fieldSize;
 }
 
@@ -468,7 +472,7 @@ static void generateGlslHeaderCompute(const std::vector<texture_desc_t>& texture
       generatedCode += "{\n";
     }
     else {
-      generatedCode += "layout(std140, set=, binding=";
+      generatedCode += "layout(std140, set=0, binding=";
       generatedCode += intToString(buffers[i].binding);
       generatedCode += ") buffer _";
       generatedCode += buffers[i].name;

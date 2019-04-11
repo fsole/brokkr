@@ -23,6 +23,7 @@ namespace bkk
       compute_material_t();
       compute_material_t(shader_handle_t shader, renderer_t* renderer);
 
+      void dispatch(core::render::command_buffer_t& commandBuffer, const char* passName, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ);
       void dispatch(core::render::command_buffer_t& commandBuffer, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ);
     };
 

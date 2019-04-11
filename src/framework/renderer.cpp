@@ -207,17 +207,24 @@ mesh_handle_t renderer_t::addMesh(const mesh::mesh_t& mesh)
   return meshes_.add(mesh);
 }
 
+mesh_handle_t renderer_t::meshCreate(const char* file, mesh::export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t submesh)
+{
+  mesh::mesh_t mesh;
+  mesh::createFromFile(context_, file, exportFlags, nullptr, submesh, &mesh);
+  return addMesh(mesh);
+}
+
 mesh::mesh_t* renderer_t::getMesh(mesh_handle_t handle)
 {
   return meshes_.get(handle);
 }
 
-actor_handle_t renderer_t::actorCreate(const char* name, mesh_handle_t mesh, material_handle_t material, maths::mat4 transform)
+actor_handle_t renderer_t::actorCreate(const char* name, mesh_handle_t mesh, material_handle_t material, maths::mat4 transform, uint32_t instanceCount)
 {
   bkk::core::handle_t transformHandle = transformManager_.createTransform(transform);
 
   return actors_.add(
-    actor_t(name, mesh, transformHandle, material, this) );
+    actor_t(name, mesh, transformHandle, material, instanceCount, this) );
 }
 
 actor_t* renderer_t::getActor(actor_handle_t handle)
@@ -307,7 +314,7 @@ void renderer_t::update()
 
 void renderer_t::createTextureBlitResources()
 {
-  render_target_handle_t colorBufferHandle = renderTargetCreate(context_.swapChain.imageWidth, context_.swapChain.imageHeight, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+  render_target_handle_t colorBufferHandle = renderTargetCreate(context_.swapChain.imageWidth, context_.swapChain.imageHeight, VK_FORMAT_R32G32B32A32_SFLOAT, true);
   backBuffer_ = frameBufferCreate(&colorBufferHandle, 1u);
 
   fullScreenQuad_ = mesh::fullScreenQuad(context_);

@@ -132,6 +132,10 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\samples\fluid-simulation\fluid-simulation.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\samples\fluid-simulation\fluid-simulation.shader" />
+    <None Include="..\..\..\samples\fluid-simulation\particles.shader" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
