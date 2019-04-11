@@ -281,7 +281,7 @@ public:
     invertMatrix(sceneUniforms_.projectionMatrix, sceneUniforms_.projectionInverseMatrix);
     sceneUniforms_.viewMatrix = camera_.getViewMatrix();
     sceneUniforms_.imageSize = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER, (void*)&sceneUniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
+    render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER, (void*)&sceneUniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
 
     //Create global descriptor set (Scene uniforms)   
     render::descriptor_binding_t binding = { render::descriptor_t::type_e::UNIFORM_BUFFER, 0, render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT };
@@ -376,7 +376,7 @@ public:
     material.uniforms.metallic = metallic;
     material.uniforms.F0 = F0;
     material.uniforms.roughness = roughness;
-    render::gpuBufferCreate(  context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate(  context, render::gpu_buffer_t::UNIFORM_BUFFER,
                               &material.uniforms, sizeof(material_t::uniforms_t),
                               &allocator_, &material.ubo);
 
@@ -393,7 +393,7 @@ public:
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
-    render::gpuBufferCreate( context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate( context, render::gpu_buffer_t::UNIFORM_BUFFER,
                              nullptr, sizeof(mat4),
                              &allocator_, &ubo );
 
@@ -414,7 +414,7 @@ public:
     light.uniforms.radius = radius;
 
     //Create uniform buffer and descriptor set
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER,
       &light.uniforms, sizeof(light_t::uniforms_t),
       &allocator_, &light.ubo);
 

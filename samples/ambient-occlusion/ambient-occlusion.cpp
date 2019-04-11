@@ -87,8 +87,7 @@ public:
     }
 
     render::context_t& context = getRenderContext();
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
-      render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::STORAGE_BUFFER,
       samples.data(), sizeof(vec4)*ssaoSampleCount_, nullptr,
       &ssaoKernelBuffer_);
 

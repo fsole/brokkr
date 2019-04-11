@@ -100,7 +100,7 @@ public:
     mat4 matrices[2];
     matrices[0] = modelTx_ * camera_.getViewMatrix();
     matrices[1] = matrices[0] * projectionTx_;
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER,
                             render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                             (void*)&matrices, sizeof(matrices) ,
                             nullptr, &globalUnifomBuffer_);

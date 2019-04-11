@@ -650,7 +650,7 @@ public:
     uniforms_.imageSize = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
     uniforms_.projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.01f, 10.0f);
     invertMatrix(uniforms_.projectionMatrix, uniforms_.projectionInverseMatrix);
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER, (void*)&uniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
+    render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER, (void*)&uniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
 
     //Create global descriptor set (Scene uniforms)   
     render::descriptor_binding_t binding = { render::descriptor_t::type_e::UNIFORM_BUFFER, 0, render::descriptor_t::stage_e::VERTEX | render::descriptor_t::stage_e::FRAGMENT };
@@ -734,7 +734,7 @@ public:
     material.uniforms.metallic = metallic;
     material.uniforms.F0 = F0;
     material.uniforms.roughness = roughness;
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER,
       &material.uniforms, sizeof(material_t::uniforms_t),
       &allocator_, &material.ubo);
 
@@ -751,7 +751,7 @@ public:
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER,
       nullptr, sizeof(mat4),
       &allocator_, &ubo);
 
@@ -789,7 +789,7 @@ public:
         directionalLight_->uniforms.samples[i] = vec4(maxRadius * e1 * sinf(2.0f *(float) PI * e2), maxRadius * e1 * cosf(2.0f * (float)PI * e2), e1*e1, 0.0f);
       }
       //Create uniform buffer and descriptor set
-      render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+      render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER,
         &directionalLight_->uniforms, sizeof(directional_light_t::uniforms_t),
         &allocator_, &directionalLight_->ubo);
 
@@ -810,7 +810,7 @@ public:
     light.uniforms.color = color;
     light.uniforms.radius = radius;
     //Create uniform buffer and descriptor set
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER,
       &light.uniforms, sizeof(point_light_t::uniforms_t),
       &allocator_, &light.ubo);
 

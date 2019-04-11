@@ -406,8 +406,8 @@ void mesh::create(const render::context_t& context,
   mesh->indexCount = (u32)indexDataSize / sizeof(uint32_t);
   mesh->vertexCount = (u32)vertexDataSize / mesh->vertexFormat.vertexSize;
 
-  render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::INDEX_BUFFER, (void*)indexData, (size_t)indexDataSize, allocator, &mesh->indexBuffer);
-  render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::VERTEX_BUFFER, (void*)vertexData, (size_t)vertexDataSize, allocator, &mesh->vertexBuffer);
+  render::gpuBufferCreate(context, render::gpu_buffer_t::INDEX_BUFFER, (void*)indexData, (size_t)indexDataSize, allocator, &mesh->indexBuffer);
+  render::gpuBufferCreate(context, render::gpu_buffer_t::VERTEX_BUFFER, (void*)vertexData, (size_t)vertexDataSize, allocator, &mesh->vertexBuffer);
 }
 
 
@@ -565,7 +565,7 @@ void mesh::animatorCreate(const render::context_t& context, const mesh_t& mesh, 
   animator->boneTransform = new maths::mat4[mesh.skeleton->boneCount];
 
   //Create an uninitialized uniform buffer
-  render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
+  render::gpuBufferCreate(context, render::gpu_buffer_t::STORAGE_BUFFER,
     render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
     nullptr, sizeof(maths::mat4) * mesh.skeleton->boneCount,
     nullptr, &animator->buffer);

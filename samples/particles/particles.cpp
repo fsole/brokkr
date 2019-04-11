@@ -253,7 +253,7 @@ public:
     mat4 matrices[2];
     matrices[0] = modelTx_ * camera_.getViewMatrix();
     matrices[1] = matrices[0] * projectionTx_;
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
       (void*)&matrices, sizeof(matrices),
       nullptr, &globalUnifomBuffer_);
@@ -274,19 +274,15 @@ public:
       particlesState[i].age = -1.0f;
     }
 
-    u32 usage = render::gpu_buffer_t::usage_e::STORAGE_BUFFER;
-    render::gpuBufferCreate(context, usage,
-      render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::STORAGE_BUFFER,
       (void*)particles.data(), sizeof(particle_t)*particleSystem_.maxParticleCount,
       nullptr, &particleBuffer_);
 
-    render::gpuBufferCreate(context, usage,
-      render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::STORAGE_BUFFER,
       (void*)particlesState.data(), sizeof(particle_state_t)*particleSystem_.maxParticleCount,
       nullptr, &particleStateBuffer_);
 
-    render::gpuBufferCreate(context, usage,
-      render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::STORAGE_BUFFER,
       (void*)&particleSystem_, sizeof(particle_system_t),
       nullptr, &particleGlobalsBuffer_);
     

@@ -1639,7 +1639,7 @@ void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layo
 
 
 void render::gpuBufferCreate(const context_t& context,
-  uint32_t usage, uint32_t memoryType, void* data,
+  gpu_buffer_t::usage_e usage, uint32_t memoryType, void* data,
   size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
 {
   //Create the buffer
@@ -1677,9 +1677,9 @@ void render::gpuBufferCreate(const context_t& context,
   buffer->usage = usage;
 }
 
-void render::gpuBufferCreate(const context_t& context, uint32_t usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
+void render::gpuBufferCreate(const context_t& context, gpu_buffer_t::usage_e usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)
 {
-  return gpuBufferCreate(context, usage, HOST_VISIBLE, data, size, allocator, buffer);
+  return gpuBufferCreate(context, usage, HOST_VISIBLE_COHERENT, data, size, allocator, buffer);
 }
 
 void render::gpuBufferDestroy(const context_t& context, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer)

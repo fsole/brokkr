@@ -45,7 +45,7 @@ void camera_t::update(renderer_t* renderer)
   if (uniformBuffer_.handle == VK_NULL_HANDLE)
   {
     //Create buffer
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER,
       (void*)&uniforms_, sizeof(uniforms_),
       nullptr, &uniformBuffer_);
 

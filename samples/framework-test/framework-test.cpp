@@ -133,8 +133,7 @@ public:
     //Create buffer
     render::gpu_buffer_t lightBuffer = {};
     render::context_t& context = getRenderContext();
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
-      render::gpu_memory_type_e::HOST_VISIBLE_COHERENT, 
+    render::gpuBufferCreate(context, render::gpu_buffer_t::STORAGE_BUFFER,
       nullptr, sizeof(light_t)*lightCount + sizeof(maths::vec4), nullptr,
       &lightBuffer );
     

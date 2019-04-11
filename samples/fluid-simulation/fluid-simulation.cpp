@@ -39,13 +39,11 @@ public:
       particlesState[i].density = 0.0f;
     }
 
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
-      render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::STORAGE_BUFFER,
       (void*)particles.data(), sizeof(particle_t)*maxParticleCount_,
       nullptr, &particleBuffer_);
 
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
-      render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::STORAGE_BUFFER,
       (void*)particlesState.data(), sizeof(particle_state_t)*maxParticleCount_,
       nullptr, &particleStateBuffer_);
 

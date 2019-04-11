@@ -52,12 +52,12 @@ material_t::material_t(shader_handle_t shaderHandle, renderer_t* renderer)
         bufferDataSize_.push_back(bufferDesc[i].size);
 
         render::gpu_buffer_t::usage_e usage = ( bufferDesc[i].type == buffer_desc_t::UNIFORM_BUFFER ) ? 
-          render::gpu_buffer_t::usage_e::UNIFORM_BUFFER :
-          render::gpu_buffer_t::usage_e::STORAGE_BUFFER;
+          render::gpu_buffer_t::UNIFORM_BUFFER :
+          render::gpu_buffer_t::STORAGE_BUFFER;
 
         render::gpu_buffer_t buffer = {};
         render::gpuBufferCreate(context,
-                                render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+                                usage,
                                 (void*)data, bufferDesc[i].size,
                                 nullptr, &buffer);
 

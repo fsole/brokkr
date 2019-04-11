@@ -293,7 +293,7 @@ private:
     generateScene(150u, vec3(25.0f, 0.0f, 25.0f), &data.scene);
 
     //Create scene buffer
-    render::gpuBufferCreate(context, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
+    render::gpuBufferCreate(context, render::gpu_buffer_t::STORAGE_BUFFER,
       render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
       (void*)&data, sizeof(buffer_data_t),
       nullptr, &sceneBuffer_);

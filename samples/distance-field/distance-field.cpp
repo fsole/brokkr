@@ -268,7 +268,7 @@ static void distanceFieldFromMesh(const render::context_t& context, u32 width, u
   field.aabbMin = maths::vec4(aabbMinScaled.x, aabbMinScaled.y, aabbMinScaled.z, 0.0f);
   field.aabbMax = maths::vec4(aabbMaxScaled.x, aabbMaxScaled.y, aabbMaxScaled.z, 0.0f);
 
-  render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage_e::STORAGE_BUFFER,
+  render::gpuBufferCreate(gContext, render::gpu_buffer_t::STORAGE_BUFFER,
                           render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                           nullptr, sizeof(distance_field_buffer_data_t) + sizeof(float) * width * height * depth,
                           nullptr, buffer);
@@ -300,7 +300,7 @@ bool createUniformBuffer()
   data.camera.aperture = 0.05f;
  
   //Create uniform buffer
-  render::gpuBufferCreate(gContext, render::gpu_buffer_t::usage_e::UNIFORM_BUFFER,
+  render::gpuBufferCreate(gContext, render::gpu_buffer_t::UNIFORM_BUFFER,
                           render::gpu_memory_type_e::HOST_VISIBLE_COHERENT,
                           (void*)&data, sizeof(data),
                           nullptr, &gUbo);

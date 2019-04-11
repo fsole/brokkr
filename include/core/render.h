@@ -77,8 +77,8 @@ namespace bkk
 
 
       //Buffers
-      void gpuBufferCreate(const context_t& context, uint32_t usage, uint32_t memoryType, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
-      void gpuBufferCreate(const context_t& context, uint32_t usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
+      void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage_e usage, uint32_t memoryType, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
+      void gpuBufferCreate(const context_t& context, gpu_buffer_t::usage_e usage, void* data, size_t size, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
       void gpuBufferDestroy(const context_t& context, gpu_memory_allocator_t* allocator, gpu_buffer_t* buffer);
       void gpuBufferUpdate(const context_t& context, void* data, size_t offset, size_t size, gpu_buffer_t* buffer);
       void* gpuBufferMap(const context_t& context, const gpu_buffer_t& buffer);

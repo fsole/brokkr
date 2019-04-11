@@ -205,7 +205,7 @@ void gui::draw(const render::context_t& context, render::command_buffer_t comman
     if (gGuiContext.vertexBuffer.handle != VK_NULL_HANDLE)
       render::gpuBufferDestroy(context, nullptr, &gGuiContext.vertexBuffer);
 
-    render::gpuBufferCreate(context, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, nullptr, vertex_size, nullptr, &gGuiContext.vertexBuffer);
+    render::gpuBufferCreate(context, render::gpu_buffer_t::VERTEX_BUFFER, nullptr, vertex_size, nullptr, &gGuiContext.vertexBuffer);
   }
 
   if( gGuiContext.indexBuffer.memory.size < index_size)
@@ -214,7 +214,7 @@ void gui::draw(const render::context_t& context, render::command_buffer_t comman
     if (gGuiContext.indexBuffer.handle != VK_NULL_HANDLE)
       render::gpuBufferDestroy(context, nullptr, &gGuiContext.indexBuffer);
 
-    render::gpuBufferCreate(context, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, nullptr, index_size, nullptr, &gGuiContext.indexBuffer);
+    render::gpuBufferCreate(context, render::gpu_buffer_t::INDEX_BUFFER, nullptr, index_size, nullptr, &gGuiContext.indexBuffer);
   }
 
   ImDrawVert* vertexData = (ImDrawVert*)render::gpuBufferMap(context, gGuiContext.vertexBuffer);
