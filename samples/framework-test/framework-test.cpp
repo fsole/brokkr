@@ -198,6 +198,10 @@ public:
 
     renderer_t& renderer = getRenderer();
 
+    //Update global properties
+    getRenderer().getMaterial(blendMaterial_)->setProperty("globals.exposure", exposure_);
+    render::gpuBufferUpdate(getRenderContext(), &lightIntensity_, sizeof(int), sizeof(float), &lightBuffer_);
+    
     //Render scene
     renderer.setupCamera(camera_);
     actor_t* visibleActors = nullptr;
@@ -264,6 +268,7 @@ public:
   void buildGuiFrame()
   {
     ImGui::Begin("Controls");
+
     ImGui::LabelText("", "General Settings");
     ImGui::SliderFloat("Light Intensity", &lightIntensity_, 0.0f, 10.0f);
     ImGui::SliderFloat("Exposure", &exposure_, 0.0f, 10.0f);
@@ -273,11 +278,8 @@ public:
     ImGui::LabelText("", "Bloom Settings");
     ImGui::Checkbox("Enable", &bloomEnabled_);
     ImGui::SliderFloat("Bloom Treshold", &bloomTreshold_, 0.0f, 10.0f);
-    ImGui::End();
 
-    //Set properties
-    getRenderer().getMaterial(blendMaterial_)->setProperty("globals.exposure", exposure_);
-    render::gpuBufferUpdate(getRenderContext(), &lightIntensity_, sizeof(int), sizeof(float), &lightBuffer_);
+    ImGui::End();
   }
 
 private:

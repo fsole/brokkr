@@ -218,10 +218,12 @@ public:
   void buildGuiFrame()
   {
     ImGui::Begin("Controls");
+
     ImGui::LabelText("", "SSAO Settings");
     ImGui::Checkbox("Enable", &ssaoEnabled_);
     ImGui::SliderFloat("Radius", &ssaoRadius_, 0.0f, 10.0f);
     ImGui::SliderFloat("Bias", &ssaoBias_, 0.0f, 1.0f);
+
     ImGui::End();
   }
 

@@ -89,9 +89,24 @@ public:
   {
     beginFrame();
 
+    //Update simulation computeMaterial
     renderer_t& renderer = getRenderer();
+    compute_material_t* computePtr = renderer.getComputeMaterial(computeMaterial_);
+    computePtr->setProperty("globals.gravity", gravity_);
+    computePtr->setProperty("globals.viscosityCoefficient", viscosityCoefficient_);
+    computePtr->setProperty("globals.pressureCoefficient", pressureCoefficient_);
+    computePtr->setProperty("globals.referenceDensity", referenceDensity_);
 
-    //Run simulation
+    f32 deltaTime = minValue(0.033f, getTimeDelta() / 1000.0f);
+    computePtr->setProperty("globals.deltaTime", deltaTime);
+
+    //Determine number of particles that need to be emmitted next frame
+    static float particlesToEmit = 0.0f;
+    particlesToEmit += emissionRate_ * deltaTime;
+    computePtr->setProperty("globals.particlesToEmit", (uint32_t)particlesToEmit);
+    if (particlesToEmit > 0.0f) particlesToEmit -= (uint32_t)particlesToEmit;
+
+    //Run simulation compute shaders
     u32 groupSizeX = (maxParticleCount_ + 63) / 64;
     command_buffer_t computeDensity(&renderer, command_buffer_t::COMPUTE);
     computeDensity.dispatchCompute(computeMaterial_, "computeDensity", groupSizeX, 1u, 1u);
@@ -103,7 +118,7 @@ public:
     updateParticles.submit();
     updateParticles.release();
 
-    //Render scene
+    //Render particles
     renderer.setupCamera(camera_);
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera_, &visibleActors);
@@ -167,32 +182,15 @@ public:
   void buildGuiFrame()
   {
     ImGui::Begin("Controls");
+
     ImGui::SliderFloat("gravity", &gravity_, -20.0f, 20.0f);
     ImGui::SliderFloat("viscosity", &viscosityCoefficient_, 0.0f, 10.0f);
     ImGui::SliderFloat("pressure", &pressureCoefficient_, 0.0f, 500.0f);
     ImGui::SliderFloat("referenceDensity", &referenceDensity_, 0.0f, 10.0f);
     ImGui::SliderFloat("emissionRate", &emissionRate_, 0.0f, 1000.0f);
     if (ImGui::Button("Reset")){ restartSimulation(); }
+
     ImGui::End();
-
-    
-
-    //Update simulation compute material
-    renderer_t& renderer = getRenderer();
-    compute_material_t* computePtr = renderer.getComputeMaterial(computeMaterial_);
-    computePtr->setProperty("globals.gravity", gravity_);
-    computePtr->setProperty("globals.viscosityCoefficient", viscosityCoefficient_);
-    computePtr->setProperty("globals.pressureCoefficient", pressureCoefficient_);
-    computePtr->setProperty("globals.referenceDensity", referenceDensity_);    
-
-    f32 deltaTime = minValue(0.033f, getTimeDelta() / 1000.0f);    
-    computePtr->setProperty("globals.deltaTime", deltaTime);
-
-    //Compute number of particles that need to be emmited next frame
-    static float particlesToEmit = 0.0f;
-    particlesToEmit += emissionRate_ * deltaTime;
-    computePtr->setProperty("globals.particlesToEmit", (uint32_t)particlesToEmit);    
-    if (particlesToEmit > 0.0f) particlesToEmit -= (uint32_t)particlesToEmit;
   }
 
 private:
