@@ -172,14 +172,7 @@ void application_t::beginFrame()
 void application_t::presentFrame()
 {
   renderer_.presentFrame();
-} 
-
-renderer_t& application_t::getRenderer() { return renderer_;  }
-core::render::context_t& application_t::getRenderContext() { return renderer_.getContext(); }
-core::window::window_t& application_t::getWindow() { return window_; }
-f32 application_t::getTimeDelta() { return timeDelta_; }
-core::maths::uvec2 application_t::getWindowSize() { return core::maths::uvec2(window_.width, window_.height); }
-f32 application_t::getAspectRatio() { return (window_.width / (float)window_.height); }
+}
 
 
   

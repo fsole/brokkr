@@ -275,7 +275,7 @@ private:
   render::shader_t vertexShader_;
   render::shader_t fragmentShader_;
 
-  framework::orbiting_camera_t camera_;
+  framework::orbiting_camera_controller_t camera_;
   maths::mat4 projectionTx_;
   maths::mat4 modelTx_;
 };

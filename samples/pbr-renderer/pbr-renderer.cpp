@@ -1091,7 +1091,7 @@ private:
   mesh::mesh_t sphereMesh_;
   mesh::mesh_t fullScreenQuad_;
 
-  framework::free_camera_t camera_;
+  framework::free_camera_controller_t camera_;
 };
 
 int main()

@@ -27,14 +27,13 @@ namespace bkk
 
         void loop();
 
-        renderer_t& getRenderer();
-        core::render::context_t& getRenderContext();
+        renderer_t& getRenderer() { return renderer_; }
+        core::render::context_t& getRenderContext() { return renderer_.getContext(); }
+        core::window::window_t& getWindow() { return window_; }
+        f32 getTimeDelta() { return timeDelta_; }
+        core::maths::uvec2 getWindowSize() { return core::maths::uvec2(window_.width, window_.height); }
+        f32 getAspectRatio() { return (window_.width / (float)window_.height); }
 
-        core::window::window_t& getWindow();
-        core::maths::uvec2 getWindowSize();
-        f32 getAspectRatio();
-
-        f32 getTimeDelta();
 
         core::maths::vec2 getMousePosition() { return mouseCurrentPos_; }
         s32 getMousePressedButton() { return mouseButtonPressed_; }

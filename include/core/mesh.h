@@ -85,7 +85,7 @@ namespace bkk
         render::vertex_format_t vertexFormat;
       };
 
-      struct material_t
+      struct material_data_t
       {
         maths::vec3 kd;
         maths::vec3 ks;
@@ -117,7 +117,7 @@ namespace bkk
       //Load a single submesh from a file
       void createFromFile(const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t subMesh, mesh_t* mesh);
 
-      uint32_t loadMaterials(const char* file, uint32_t** materialIndices, material_t** materials);
+      uint32_t loadMaterialData(const char* file, uint32_t** materialIndices, material_data_t** materials);
 
       void draw(render::command_buffer_t commandBuffer, const mesh_t& mesh);
       void drawInstanced(render::command_buffer_t commandBuffer, u32 instanceCount, render::gpu_buffer_t* instanceBuffer, u32 instancedAttributesCount, const mesh_t& mesh);

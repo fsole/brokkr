@@ -425,7 +425,7 @@ private:
   render::shader_t fragmentShader_;
   render::shader_t computeShader_;
 
-  framework::free_camera_t camera_;
+  framework::free_camera_controller_t camera_;
   maths::uvec2 imageSize_;
   u32 sampleCount_ = 0u;
 };

@@ -234,7 +234,7 @@ private:
   render_target_handle_t normalDepthRT_;
 
   camera_handle_t camera_;
-  free_camera_t cameraController_;
+  free_camera_controller_t cameraController_;
 
   //SSAO
   bool ssaoEnabled_;

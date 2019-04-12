@@ -65,11 +65,11 @@ namespace bkk
       actor_t* visibleActors_ = nullptr;
     };
 
-    class orbiting_camera_t
+    class orbiting_camera_controller_t
     {
     public:
-      orbiting_camera_t();
-      orbiting_camera_t(const core::maths::vec3& target, const f32 offset, const core::maths::vec2& angle, f32 rotationSensitivity);
+      orbiting_camera_controller_t();
+      orbiting_camera_controller_t(const core::maths::vec3& target, const f32 offset, const core::maths::vec2& angle, f32 rotationSensitivity);
       
       void setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer);
 
@@ -90,11 +90,11 @@ namespace bkk
       renderer_t* renderer_;
     };
 
-    class free_camera_t
+    class free_camera_controller_t
     {
     public:
-      free_camera_t();
-      free_camera_t(const core::maths::vec3& position, const core::maths::vec2& angle, f32 velocity, f32 rotationSensitivity);
+      free_camera_controller_t();
+      free_camera_controller_t(const core::maths::vec3& position, const core::maths::vec2& angle, f32 velocity, f32 rotationSensitivity);
 
       void setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer);
 

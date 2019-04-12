@@ -439,9 +439,6 @@ public:
   scene_sample_t( const char* url )
   :application_t("Scene", 1200u, 800u, 3u)
   {
-
-    framework::shader_handle_t shader = getRenderer().shaderCreate("../resources/example.shader");
-
     render::context_t& context = getRenderContext();
     uvec2 size = getWindowSize();
 
@@ -879,9 +876,9 @@ private:
     delete[] mesh;
 
     //Materials
-    mesh::material_t* materials;
+    mesh::material_data_t* materials;
     uint32_t* materialIndex;
-    uint32_t materialCount = mesh::loadMaterials(url, &materialIndex, &materials);
+    uint32_t materialCount = mesh::loadMaterialData(url, &materialIndex, &materials);
     std::vector<core::handle_t> materialHandles(materialCount);
 
     std::string modelPath = url;
@@ -1394,7 +1391,7 @@ private:
   mesh::mesh_t fullScreenQuad_;
 
   directional_light_t* directionalLight_ = nullptr;
-  framework::free_camera_t camera_;
+  framework::free_camera_controller_t camera_;
 };
 
 int main()

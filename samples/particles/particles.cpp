@@ -543,7 +543,7 @@ private:
   render::command_buffer_t computeCommandBuffer_;
   render::shader_t computeShader_;
 
-  framework::orbiting_camera_t camera_;
+  framework::orbiting_camera_controller_t camera_;
   maths::mat4 projectionTx_;
   maths::mat4 modelTx_;
   f32 emissionRate_ = 100.0f;

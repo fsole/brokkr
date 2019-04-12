@@ -101,7 +101,7 @@ void camera_t::setViewToWorldMatrix(maths::mat4& m)
   uniforms_.viewToWorld = m;
 }
 
-orbiting_camera_t::orbiting_camera_t()
+orbiting_camera_controller_t::orbiting_camera_controller_t()
 :target_(0.0f,0.0f,0.0f),
  offset_(0.0f),
  angle_(maths::vec2(0.0f, 0.0f)),
@@ -110,7 +110,7 @@ orbiting_camera_t::orbiting_camera_t()
   Update();
 }
 
-orbiting_camera_t::orbiting_camera_t(const maths::vec3& target, const f32 offset, const maths::vec2& angle, f32 rotationSensitivity)
+orbiting_camera_controller_t::orbiting_camera_controller_t(const maths::vec3& target, const f32 offset, const maths::vec2& angle, f32 rotationSensitivity)
 :target_(target), 
  offset_(offset),
  angle_(angle),
@@ -121,14 +121,14 @@ orbiting_camera_t::orbiting_camera_t(const maths::vec3& target, const f32 offset
   Update();
 }
 
-void orbiting_camera_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
+void orbiting_camera_controller_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
 {
   cameraHandle_ = cameraHandle;
   renderer_ = renderer;
   Update();
 }
 
-void orbiting_camera_t::Move(f32 amount)
+void orbiting_camera_controller_t::Move(f32 amount)
 {
   offset_ += amount;
   //offset_ = maths::clamp(0.0f, offset_, offset_);
@@ -136,14 +136,14 @@ void orbiting_camera_t::Move(f32 amount)
   Update();
 }
 
-void orbiting_camera_t::Rotate(f32 angleY, f32 angleZ)
+void orbiting_camera_controller_t::Rotate(f32 angleY, f32 angleZ)
 {
   angle_.x = angle_.x + angleY * rotationSensitivity_;
   angle_.y = angle_.y + angleZ * rotationSensitivity_;
   Update();
 }
 
-void orbiting_camera_t::Update()
+void orbiting_camera_controller_t::Update()
 {
   maths::quat orientation = maths::quaternionFromAxisAngle(maths::vec3(1.0f, 0.0f, 0.0f), angle_.y) *
   maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), angle_.x);
@@ -163,7 +163,7 @@ void orbiting_camera_t::Update()
 }
 
 
-free_camera_t::free_camera_t()
+free_camera_controller_t::free_camera_controller_t()
 :tx_(),
  view_(),
  position_(0.0f, 0.0f, 0.0f),
@@ -176,7 +176,7 @@ free_camera_t::free_camera_t()
   Update();
 }
 
-free_camera_t::free_camera_t(const maths::vec3& position, const maths::vec2& angle, f32 velocity, f32 rotationSensitivity)
+free_camera_controller_t::free_camera_controller_t(const maths::vec3& position, const maths::vec2& angle, f32 velocity, f32 rotationSensitivity)
   :position_(position),
   angle_(angle),
   velocity_(velocity),
@@ -187,20 +187,20 @@ free_camera_t::free_camera_t(const maths::vec3& position, const maths::vec2& ang
   Update();
 }
 
-void free_camera_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
+void free_camera_controller_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
 {
   cameraHandle_ = cameraHandle;
   renderer_ = renderer;
   Update();
 }
 
-void free_camera_t::Move(f32 xAmount, f32 zAmount)
+void free_camera_controller_t::Move(f32 xAmount, f32 zAmount)
 {
   position_ = position_ + (zAmount * velocity_ * tx_.row(2).xyz()) + (xAmount * velocity_ * tx_.row(0).xyz());
   Update();
 }
 
-void free_camera_t::Rotate(f32 angleY, f32 angleX)
+void free_camera_controller_t::Rotate(f32 angleY, f32 angleX)
 {
   angle_.y = angle_.y + angleY * rotationSensitivity_;
   angleX = angle_.x + angleX * rotationSensitivity_;
@@ -212,7 +212,7 @@ void free_camera_t::Rotate(f32 angleY, f32 angleX)
   Update();
 }
 
-void free_camera_t::Update()
+void free_camera_controller_t::Update()
 {
   maths::quat orientation = maths::quaternionFromAxisAngle(maths::vec3(1.0f, 0.0f, 0.0f), angle_.x) * maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), angle_.y);
   tx_ = maths::createTransform(position_, maths::VEC3_ONE, orientation);

@@ -25,10 +25,7 @@ public:
   fluid_simulation_sample_t()
   :application_t("SPH Fluid Simulation", 1200u, 800u, 3u),
   cameraController_(vec3(0.0f, -10.0f, 0.0f), 45.0f, vec2(-0.8f, 0.0f), 0.01f)
-  {
-    renderer_t& renderer = getRenderer();
-    render::context_t& context = getRenderContext();
-    
+  { 
     //Create particle buffers
     std::vector<particle_t> particles(maxParticleCount_);
     std::vector<particle_state_t> particlesState(maxParticleCount_);
@@ -39,6 +36,7 @@ public:
       particlesState[i].density = 0.0f;
     }
 
+    render::context_t& context = getRenderContext();
     render::gpuBufferCreate(context, render::gpu_buffer_t::STORAGE_BUFFER,
       (void*)particles.data(), sizeof(particle_t)*maxParticleCount_,
       nullptr, &particleBuffer_);
@@ -48,6 +46,7 @@ public:
       nullptr, &particleStateBuffer_);
 
     //Create and configure compute material
+    renderer_t& renderer = getRenderer();
     shader_handle_t computeShader = renderer.shaderCreate("../fluid-simulation/fluid-simulation.shader");
     computeMaterial_ = renderer.computeMaterialCreate(computeShader);
     compute_material_t* computePtr = renderer.getComputeMaterial(computeMaterial_);    
@@ -219,7 +218,7 @@ private:
   render::gpu_buffer_t particleStateBuffer_;
 
   camera_handle_t camera_;
-  orbiting_camera_t cameraController_;
+  orbiting_camera_controller_t cameraController_;
 
   //Simulation parameters
   f32 gravity_ = 9.8f;

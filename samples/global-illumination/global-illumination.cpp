@@ -1058,9 +1058,9 @@ private:
     delete[] mesh;
 
     //Materials
-    mesh::material_t* materials;
+    mesh::material_data_t* materials;
     uint32_t* materialIndex;
-    uint32_t materialCount = mesh::loadMaterials(url, &materialIndex, &materials);
+    uint32_t materialCount = mesh::loadMaterialData(url, &materialIndex, &materials);
     std::vector<core::handle_t> materialHandles(materialCount);
     for (u32 i(0); i < materialCount; ++i)
     {
@@ -1610,7 +1610,7 @@ private:
   mesh::mesh_t fullScreenQuad_;
 
   directional_light_t* directionalLight_ = nullptr;
-  framework::free_camera_t camera_;
+  framework::free_camera_controller_t camera_;
   bool globalIllumination_ = true;
 };
 

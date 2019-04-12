@@ -90,7 +90,7 @@ static render::shader_t gVertexShader;
 static render::shader_t gFragmentShader;
 static render::shader_t gComputeShader;
 
-static framework::free_camera_t gCamera;
+static framework::free_camera_controller_t gCamera;
 static maths::vec2 gMousePosition = vec2(0.0f, 0.0f);
 static bool gMouseButtonPressed = false;
 

@@ -199,7 +199,7 @@ public:
     renderer_t& renderer = getRenderer();
 
     //Update global properties
-    getRenderer().getMaterial(blendMaterial_)->setProperty("globals.exposure", exposure_);
+    renderer.getMaterial(blendMaterial_)->setProperty("globals.exposure", exposure_);
     render::gpuBufferUpdate(getRenderContext(), &lightIntensity_, sizeof(int), sizeof(float), &lightBuffer_);
     
     //Render scene
@@ -311,7 +311,7 @@ private:
   float bloomTreshold_;
 
   camera_handle_t camera_;
-  free_camera_t cameraController_;
+  free_camera_controller_t cameraController_;
 
   float lightIntensity_;
   float exposure_;

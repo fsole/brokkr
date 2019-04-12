@@ -438,7 +438,7 @@ uint32_t mesh::createFromFile(const render::context_t& context, const char* file
   return meshCount;
 }
 
-uint32_t mesh::loadMaterials(const char* file, uint32_t** materialIndices, material_t** materials)
+uint32_t mesh::loadMaterialData(const char* file, uint32_t** materialIndices, material_data_t** materials)
 {
   Assimp::Importer Importer;
   int flags = aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_LimitBoneWeights | aiProcess_GenSmoothNormals;
@@ -453,28 +453,27 @@ uint32_t mesh::loadMaterials(const char* file, uint32_t** materialIndices, mater
   }
 
   uint32_t materialCount = scene->mNumMaterials;
-  *materials = new material_t[materialCount];
+  *materials = new material_data_t[materialCount];
 
   aiColor3D color;
   aiString path;
 
-  material_t* material;
+  material_data_t* materialData;
   for (uint32_t i(0); i < materialCount; ++i)
   {
-    material = (*materials + i);
+    materialData = (*materials + i);
 
     //Diffuse color
     if (scene->mMaterials[i]->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
     {
-      material->kd = vec3(color.r, color.g, color.b);
+      materialData->kd = vec3(color.r, color.g, color.b);
     }
 
     //Diffuse map
-    material->diffuseMap[0] = '\0';
+    materialData->diffuseMap[0] = '\0';
     if (scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_DIFFUSE(0), path) == AI_SUCCESS)
     {
-      //(*(*materials + i)).diffuseMap_ = path.C_Str();
-      memcpy(&material->diffuseMap, path.C_Str(), path.length+1 );
+      memcpy(&materialData->diffuseMap, path.C_Str(), path.length+1 );
     }
   }
 
