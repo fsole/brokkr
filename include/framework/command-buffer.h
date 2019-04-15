@@ -32,16 +32,12 @@ namespace bkk
           COMPUTE
         };
 
-        command_buffer_t(renderer_t* renderer);
-        command_buffer_t(renderer_t* renderer, type_e type);
-        command_buffer_t(renderer_t* renderer, frame_buffer_handle_t frameBuffer);
-        command_buffer_t(renderer_t* renderer, frame_buffer_handle_t frameBuffer, command_buffer_t* prevCommandBuffer);
-        command_buffer_t(renderer_t* renderer, type_e type, command_buffer_t* prevCommandBuffer);
-        command_buffer_t(renderer_t* renderer, type_e type, frame_buffer_handle_t frameBuffer,command_buffer_t* prevCommandBuffer);
-        
-        command_buffer_t(const command_buffer_t& cmdBuffer );
-
+        command_buffer_t();
+        command_buffer_t(renderer_t* renderer, type_e type = GRAPHICS );
         ~command_buffer_t();
+        
+        void setDependencies(command_buffer_t* prevCommandBuffers, uint32_t count);
+        void setFrameBuffer(frame_buffer_handle_t frameBuffer);
 
         void clearRenderTargets(core::maths::vec4 color);
         
@@ -56,19 +52,19 @@ namespace bkk
         void release();
         
         void cleanup();
-        VkSemaphore* getSemaphore();
+        VkSemaphore getSemaphore();
 
       private:
         void beginCommandBuffer();
-        command_buffer_t();
+        
+        void createCommandBuffer();
 
         renderer_t* renderer_;
-
-        frame_buffer_handle_t frameBuffer_;
-
+        type_e type_;
+        std::vector<command_buffer_t> dependencies_;
         core::render::command_buffer_t commandBuffer_;
         VkSemaphore semaphore_;
-
+        frame_buffer_handle_t frameBuffer_;
         core::maths::vec4 clearColor_;
         bool clear_;
         bool released_;

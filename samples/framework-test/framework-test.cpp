@@ -207,14 +207,17 @@ public:
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera_, &visibleActors);
 
-    command_buffer_t renderSceneCmd(&renderer, sceneFBO_);
+    command_buffer_t renderSceneCmd(&renderer);
+    renderSceneCmd.setFrameBuffer(sceneFBO_);
     renderSceneCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
     renderSceneCmd.submit();
     renderSceneCmd.release();
     
     //Render skybox
-    command_buffer_t renderSkyboxCmd = command_buffer_t(&renderer, sceneFBO_, &renderSceneCmd);    
+    command_buffer_t renderSkyboxCmd = command_buffer_t(&renderer);
+    renderSkyboxCmd.setFrameBuffer(sceneFBO_);
+    renderSkyboxCmd.setDependencies(&renderSceneCmd, 1u);
     renderSkyboxCmd.blit(bkk::core::NULL_HANDLE, skyboxMaterial_ );
     renderSkyboxCmd.submit();
     renderSkyboxCmd.release();
@@ -225,28 +228,35 @@ public:
       bloomMaterial->setProperty("globals.bloomTreshold", bloomTreshold_);
       
       //Extract bright pixels from scene render target
-      command_buffer_t extractBrightPixelsCmd = command_buffer_t(&renderer, brightPixelsFBO_, &renderSkyboxCmd);
+      command_buffer_t extractBrightPixelsCmd = command_buffer_t(&renderer);
+      extractBrightPixelsCmd.setFrameBuffer(brightPixelsFBO_);
+      extractBrightPixelsCmd.setDependencies(&renderSkyboxCmd, 1u);
       extractBrightPixelsCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       extractBrightPixelsCmd.blit(sceneRT_ , bloomMaterial_, "extractBrightPixels" );
       extractBrightPixelsCmd.submit();
       extractBrightPixelsCmd.release();
       
       //Blur vertical pass
-      command_buffer_t blurVerticalCmd = command_buffer_t(&renderer, blurVerticalFBO_, &extractBrightPixelsCmd);
+      command_buffer_t blurVerticalCmd = command_buffer_t(&renderer);
+      blurVerticalCmd.setFrameBuffer(blurVerticalFBO_);
+      blurVerticalCmd.setDependencies(&extractBrightPixelsCmd, 1u);
       blurVerticalCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blurVerticalCmd.blit(brightPixelsRT_, bloomMaterial_, "blurVertical");
       blurVerticalCmd.submit();
       blurVerticalCmd.release();
 
       //Blur horizontal pass
-      command_buffer_t blurHorizontalCmd = command_buffer_t(&renderer, bloomFBO_, &blurVerticalCmd);
+      command_buffer_t blurHorizontalCmd = command_buffer_t(&renderer);
+      blurHorizontalCmd.setFrameBuffer(bloomFBO_);
+      blurHorizontalCmd.setDependencies(&blurVerticalCmd, 1u);
       blurHorizontalCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blurHorizontalCmd.blit(blurVerticalRT_, bloomMaterial_, "blurHorizontal");
       blurHorizontalCmd.submit();
       blurHorizontalCmd.release();
 
       //Blend bloom and scene render targets
-      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer, bkk::core::NULL_HANDLE, &blurHorizontalCmd);
+      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
+      blitToBackbufferCmd.setDependencies(&blurHorizontalCmd, 1u);
       blitToBackbufferCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blitToBackbufferCmd.blit(sceneRT_, blendMaterial_, "blend" );
       blitToBackbufferCmd.submit();

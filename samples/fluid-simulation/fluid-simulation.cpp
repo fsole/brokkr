@@ -112,7 +112,8 @@ public:
     computeDensity.submit();
     computeDensity.release();
 
-    command_buffer_t updateParticles(&renderer, command_buffer_t::COMPUTE, &computeDensity);
+    command_buffer_t updateParticles(&renderer, command_buffer_t::COMPUTE);
+    updateParticles.setDependencies( &computeDensity, 1u );
     updateParticles.dispatchCompute(computeMaterial_, "updateParticles", groupSizeX, 1u, 1u);
     updateParticles.submit();
     updateParticles.release();
@@ -121,7 +122,8 @@ public:
     renderer.setupCamera(camera_);
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera_, &visibleActors);
-    command_buffer_t renderSceneCmd(&renderer, command_buffer_t::GRAPHICS, NULL_HANDLE, &updateParticles);
+    command_buffer_t renderSceneCmd(&renderer, command_buffer_t::GRAPHICS);
+    renderSceneCmd.setDependencies(&updateParticles, 1u);
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
     renderSceneCmd.submit();

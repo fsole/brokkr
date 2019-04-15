@@ -20,72 +20,77 @@ using namespace bkk::framework;
 
 
 command_buffer_t::command_buffer_t()
+  :renderer_(nullptr),
+  type_(GRAPHICS),
+  frameBuffer_(NULL_HANDLE),
+  commandBuffer_(),
+  semaphore_(),
+  clearColor_(),
+  clear_(),
+  released_()
 {}
 
-command_buffer_t::command_buffer_t(const command_buffer_t& cmdBuffer)
-  :renderer_(cmdBuffer.renderer_),
-  frameBuffer_(cmdBuffer.frameBuffer_),
-  commandBuffer_(cmdBuffer.commandBuffer_),
-  semaphore_(cmdBuffer.semaphore_),
-  clearColor_(cmdBuffer.clearColor_),
-  clear_(cmdBuffer.clear_),
-  released_(cmdBuffer.released_)
-{}
-
-command_buffer_t::command_buffer_t(renderer_t* renderer)
-:command_buffer_t(renderer, GRAPHICS, NULL_HANDLE, nullptr)
-{}
-
-command_buffer_t::command_buffer_t(renderer_t* renderer, type_e type)
-  :command_buffer_t(renderer, type, NULL_HANDLE, nullptr)
-{}
-
-command_buffer_t::command_buffer_t(renderer_t* renderer, frame_buffer_handle_t frameBuffer)
-:command_buffer_t(renderer, GRAPHICS, frameBuffer, nullptr)
-{}
-
-command_buffer_t::command_buffer_t(renderer_t* renderer, frame_buffer_handle_t frameBuffer, command_buffer_t* prevCommandBuffer)
-:command_buffer_t(renderer, GRAPHICS, frameBuffer, prevCommandBuffer)
-{}
-
-command_buffer_t::command_buffer_t(renderer_t* renderer, type_e type, command_buffer_t* prevCommandBuffer)
-  : command_buffer_t(renderer, type, NULL_HANDLE, prevCommandBuffer)
-{
-}
-
-command_buffer_t::command_buffer_t(renderer_t* renderer,
-                                   type_e type,
-                                   frame_buffer_handle_t frameBuffer,
-                                   command_buffer_t* prevCommandBuffer)
+command_buffer_t::command_buffer_t(renderer_t* renderer, type_e type )
 :renderer_(renderer),
- frameBuffer_(frameBuffer),
+ type_(type),
+ commandBuffer_(),
+ semaphore_(render::semaphoreCreate(renderer->getContext())),
+ frameBuffer_(renderer->getBackBuffer()),
  clearColor_(0.0f, 0.0f, 0.0f, 0.0f),
  clear_(false),
  released_(false)
-{ 
-  VkSemaphore* waitSemaphore = nullptr;
-  VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-  if (prevCommandBuffer != nullptr)
-  {
-    waitSemaphore = prevCommandBuffer->getSemaphore();
-  }
-  
-  semaphore_ = bkk::core::render::semaphoreCreate(renderer->getContext());
-  VkSemaphore* signalSemaphore = &semaphore_;
-  if (frameBuffer == core::NULL_HANDLE )
-  {
-    //Rendering to back buffer
-    signalSemaphore = renderer->getRenderCompleteSemaphore();
-    frameBuffer_ = renderer_->getBackBuffer();
-  }
-  
-  core::render::command_buffer_t::type_e commandType = type == GRAPHICS ? core::render::command_buffer_t::GRAPHICS :
-                                                                          core::render::command_buffer_t::COMPUTE;
-  render::commandBufferCreate(renderer->getContext(), VK_COMMAND_BUFFER_LEVEL_PRIMARY, waitSemaphore, &waitStage, waitSemaphore == nullptr ? 0 : 1, signalSemaphore, 1u, commandType, &commandBuffer_);
-}
+{}
 
 command_buffer_t::~command_buffer_t()
 {}
+
+void command_buffer_t::setFrameBuffer(frame_buffer_handle_t framebuffer)
+{
+  if (framebuffer == NULL_HANDLE)
+  {
+    frameBuffer_ = renderer_->getBackBuffer();
+  }
+  else
+  {
+    frameBuffer_ = framebuffer;
+  }
+}
+void command_buffer_t::setDependencies(command_buffer_t* prevCommandBuffers, uint32_t count)
+{
+  dependencies_.resize(count);
+  for (uint32_t i(0); i < count; ++i)
+    dependencies_[i] = prevCommandBuffers[i];
+}
+
+void command_buffer_t::createCommandBuffer()
+{
+  if (commandBuffer_.handle != VK_NULL_HANDLE)
+    return;
+
+  VkSemaphore signalSemaphore = semaphore_;
+  if (frameBuffer_ == renderer_->getBackBuffer())
+  {
+    //Rendering to back buffer
+    signalSemaphore = renderer_->getRenderCompleteSemaphore();
+  }
+
+  uint32_t dependencyCount = (uint32_t)dependencies_.size();
+  std::vector<VkSemaphore> waitSemaphores(dependencyCount);
+  std::vector<VkPipelineStageFlags> waitStage(dependencyCount);
+  for (uint32_t i(0); i < dependencyCount; ++i)
+  {
+    waitSemaphores[i] = dependencies_[i].getSemaphore();
+    waitStage[i] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+  }
+  
+  core::render::command_buffer_t::type_e commandType = type_ == GRAPHICS ?
+    core::render::command_buffer_t::GRAPHICS :
+    core::render::command_buffer_t::COMPUTE;
+  VkSemaphore* waitSemaphorePtr = dependencyCount == 0 ? nullptr : &waitSemaphores[0];
+  VkPipelineStageFlags* waitStagePtr = dependencyCount == 0 ? nullptr : &waitStage[0];
+
+  render::commandBufferCreate(renderer_->getContext(), VK_COMMAND_BUFFER_LEVEL_PRIMARY, waitSemaphorePtr, waitStagePtr, dependencyCount, &signalSemaphore, 1u, commandType, &commandBuffer_);
+}
 
 void command_buffer_t::clearRenderTargets(core::maths::vec4 color)
 {
@@ -95,6 +100,11 @@ void command_buffer_t::clearRenderTargets(core::maths::vec4 color)
 
 void command_buffer_t::beginCommandBuffer()
 {  
+  createCommandBuffer();
+
+  if (commandBuffer_.handle == VK_NULL_HANDLE)
+    return;
+
   render::context_t& context = renderer_->getContext();
 
   frame_buffer_t* frameBuffer = renderer_->getFrameBuffer(frameBuffer_);
@@ -120,11 +130,15 @@ void command_buffer_t::beginCommandBuffer()
 
 void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* passName)
 {
+  if (!renderer_) return;
+
   camera_t* camera = renderer_->getActiveCamera();
 
   beginCommandBuffer();
   
-  
+  if (commandBuffer_.handle == VK_NULL_HANDLE)
+    return;
+
   for (uint32_t i = 0; i < actorCount; ++i)
   {
     material_t* material = renderer_->getMaterial(actors[i].getMaterial());
@@ -167,11 +181,10 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
   render::commandBufferEnd(commandBuffer_);
 }
 
-
 void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle_t materialHandle, const char* pass)
 {
   bkk::core::render::texture_t texture = {};
-  if (renderTarget != core::NULL_HANDLE)
+  if (renderer_  && renderTarget != core::NULL_HANDLE)
   {
     texture = renderer_->getRenderTarget(renderTarget)->getColorBuffer();    
   }
@@ -181,6 +194,8 @@ void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle
 
 void command_buffer_t::blit(const bkk::core::render::texture_t& texture, material_handle_t materialHandle, const char* pass)
 {
+  if (!renderer_) return;
+
   material_t* material = nullptr;
   if (materialHandle != NULL_HANDLE)
   {
@@ -222,31 +237,40 @@ void command_buffer_t::blit(const bkk::core::render::texture_t& texture, materia
 
 void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
 {
+  if (!renderer_) return;
+
   compute_material_t* computeMaterialPtr = renderer_->getComputeMaterial(computeMaterial);
   if (computeMaterialPtr == nullptr)
     return;
 
+  createCommandBuffer();
   computeMaterialPtr->dispatch(commandBuffer_, pass, groupSizeX, groupSizeY, groupSizeZ);
 }
 
 void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, const char* pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
 {
+  if (!renderer_) return;
+  
   compute_material_t* computeMaterialPtr = renderer_->getComputeMaterial(computeMaterial);
   if (computeMaterialPtr == nullptr)
     return;
 
+  createCommandBuffer();
   computeMaterialPtr->dispatch(commandBuffer_, pass, groupSizeX, groupSizeY, groupSizeZ);
 }
 
 void command_buffer_t::submit()
 {
-  render::context_t& context = renderer_->getContext();  
-  render::commandBufferSubmit(context, commandBuffer_);
+  if (renderer_ && commandBuffer_.handle != VK_NULL_HANDLE)
+  {
+    render::context_t& context = renderer_->getContext();
+    render::commandBufferSubmit(context, commandBuffer_);
+  }
 }
 
 void command_buffer_t::release()
 {
-  if (!released_)
+  if (renderer_ && !released_)
   {    
     renderer_->releaseCommandBuffer(this);
     released_ = true;
@@ -255,7 +279,7 @@ void command_buffer_t::release()
 
 void command_buffer_t::cleanup()
 {
-  if (commandBuffer_.handle != VK_NULL_HANDLE)
+  if (renderer_ && commandBuffer_.handle != VK_NULL_HANDLE)
   {
     render::context_t& context = renderer_->getContext();
     core::render::commandBufferDestroy(context, &commandBuffer_);
@@ -265,10 +289,10 @@ void command_buffer_t::cleanup()
   }
 }
 
-VkSemaphore* command_buffer_t::getSemaphore() 
+VkSemaphore command_buffer_t::getSemaphore() 
 { 
-  if( frameBuffer_ == renderer_->getBackBuffer() )
+  if(renderer_ && frameBuffer_ == renderer_->getBackBuffer() )
     return renderer_->getRenderCompleteSemaphore();
 
-  return &semaphore_; 
+  return semaphore_; 
 }

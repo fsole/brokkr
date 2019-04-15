@@ -370,9 +370,9 @@ frame_buffer_handle_t renderer_t::getBackBuffer()
   return backBuffer_;
 }
 
-VkSemaphore* renderer_t::getRenderCompleteSemaphore()
+VkSemaphore renderer_t::getRenderCompleteSemaphore()
 {
-  return &renderComplete_;
+  return renderComplete_;
 }
 
 render::descriptor_set_layout_t renderer_t::getGlobalsDescriptorSetLayout()

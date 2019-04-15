@@ -182,7 +182,8 @@ public:
     int count = renderer.getVisibleActors(camera_, &visibleActors);
 
     //Render scene
-    command_buffer_t renderSceneCmd(&renderer, sceneFBO_);
+    command_buffer_t renderSceneCmd(&renderer);
+    renderSceneCmd.setFrameBuffer(sceneFBO_);
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
     renderSceneCmd.submit();
@@ -194,7 +195,8 @@ public:
       ssaoMaterialPtr->setProperty("globals.radius", &ssaoRadius_);
       ssaoMaterialPtr->setProperty("globals.bias", &ssaoBias_);      
 
-      command_buffer_t ssaoPass = command_buffer_t(&renderer, ssaoFBO_);
+      command_buffer_t ssaoPass = command_buffer_t(&renderer);
+      ssaoPass.setFrameBuffer(ssaoFBO_);
       ssaoPass.blit(NULL_HANDLE, ssaoMaterial_);
       ssaoPass.submit();
       ssaoPass.release();

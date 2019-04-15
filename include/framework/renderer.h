@@ -79,7 +79,7 @@ namespace bkk
         int getVisibleActors(camera_handle_t camera, actor_t** actors);
 
         frame_buffer_handle_t getBackBuffer();
-        VkSemaphore* getRenderCompleteSemaphore();
+        VkSemaphore getRenderCompleteSemaphore();
         core::render::descriptor_set_layout_t getGlobalsDescriptorSetLayout();
         core::render::descriptor_set_layout_t getObjectDescriptorSetLayout();
         core::render::descriptor_pool_t getDescriptorPool();
