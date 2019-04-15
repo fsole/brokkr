@@ -107,12 +107,12 @@ public:
 
     //Run simulation compute shaders
     u32 groupSizeX = (maxParticleCount_ + 63) / 64;
-    command_buffer_t computeDensity(&renderer, command_buffer_t::COMPUTE);
+    command_buffer_t computeDensity(&renderer);
     computeDensity.dispatchCompute(computeMaterial_, "computeDensity", groupSizeX, 1u, 1u);
     computeDensity.submit();
     computeDensity.release();
 
-    command_buffer_t updateParticles(&renderer, command_buffer_t::COMPUTE);
+    command_buffer_t updateParticles(&renderer);
     updateParticles.setDependencies( &computeDensity, 1u );
     updateParticles.dispatchCompute(computeMaterial_, "updateParticles", groupSizeX, 1u, 1u);
     updateParticles.submit();
@@ -122,7 +122,7 @@ public:
     renderer.setupCamera(camera_);
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera_, &visibleActors);
-    command_buffer_t renderSceneCmd(&renderer, command_buffer_t::GRAPHICS);
+    command_buffer_t renderSceneCmd(&renderer);
     renderSceneCmd.setDependencies(&updateParticles, 1u);
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");

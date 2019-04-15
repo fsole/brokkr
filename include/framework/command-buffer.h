@@ -26,14 +26,8 @@ namespace bkk
     class command_buffer_t
     {
       public:
-        
-        enum type_e {
-          GRAPHICS,
-          COMPUTE
-        };
-
         command_buffer_t();
-        command_buffer_t(renderer_t* renderer, type_e type = GRAPHICS );
+        command_buffer_t(renderer_t* renderer );
         ~command_buffer_t();
         
         void setDependencies(command_buffer_t* prevCommandBuffers, uint32_t count);
@@ -55,12 +49,15 @@ namespace bkk
         VkSemaphore getSemaphore();
 
       private:
+        enum type_e {
+          GRAPHICS,
+          COMPUTE
+        };
+
         void beginCommandBuffer();
-        
-        void createCommandBuffer();
+        void createCommandBuffer(type_e type);
 
         renderer_t* renderer_;
-        type_e type_;
         std::vector<command_buffer_t> dependencies_;
         core::render::command_buffer_t commandBuffer_;
         VkSemaphore semaphore_;

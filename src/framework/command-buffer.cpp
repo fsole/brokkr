@@ -21,7 +21,6 @@ using namespace bkk::framework;
 
 command_buffer_t::command_buffer_t()
   :renderer_(nullptr),
-  type_(GRAPHICS),
   frameBuffer_(NULL_HANDLE),
   commandBuffer_(),
   semaphore_(),
@@ -30,9 +29,8 @@ command_buffer_t::command_buffer_t()
   released_()
 {}
 
-command_buffer_t::command_buffer_t(renderer_t* renderer, type_e type )
+command_buffer_t::command_buffer_t(renderer_t* renderer )
 :renderer_(renderer),
- type_(type),
  commandBuffer_(),
  semaphore_(render::semaphoreCreate(renderer->getContext())),
  frameBuffer_(renderer->getBackBuffer()),
@@ -62,7 +60,7 @@ void command_buffer_t::setDependencies(command_buffer_t* prevCommandBuffers, uin
     dependencies_[i] = prevCommandBuffers[i];
 }
 
-void command_buffer_t::createCommandBuffer()
+void command_buffer_t::createCommandBuffer(type_e type)
 {
   if (commandBuffer_.handle != VK_NULL_HANDLE)
     return;
@@ -83,7 +81,7 @@ void command_buffer_t::createCommandBuffer()
     waitStage[i] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
   }
   
-  core::render::command_buffer_t::type_e commandType = type_ == GRAPHICS ?
+  core::render::command_buffer_t::type_e commandType = type == GRAPHICS ?
     core::render::command_buffer_t::GRAPHICS :
     core::render::command_buffer_t::COMPUTE;
   VkSemaphore* waitSemaphorePtr = dependencyCount == 0 ? nullptr : &waitSemaphores[0];
@@ -100,7 +98,7 @@ void command_buffer_t::clearRenderTargets(core::maths::vec4 color)
 
 void command_buffer_t::beginCommandBuffer()
 {  
-  createCommandBuffer();
+  createCommandBuffer(GRAPHICS);
 
   if (commandBuffer_.handle == VK_NULL_HANDLE)
     return;
@@ -243,7 +241,7 @@ void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial
   if (computeMaterialPtr == nullptr)
     return;
 
-  createCommandBuffer();
+  createCommandBuffer(COMPUTE);
   computeMaterialPtr->dispatch(commandBuffer_, pass, groupSizeX, groupSizeY, groupSizeZ);
 }
 
@@ -255,7 +253,7 @@ void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial
   if (computeMaterialPtr == nullptr)
     return;
 
-  createCommandBuffer();
+  createCommandBuffer(COMPUTE);
   computeMaterialPtr->dispatch(commandBuffer_, pass, groupSizeX, groupSizeY, groupSizeZ);
 }
 
