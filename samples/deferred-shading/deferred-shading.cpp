@@ -278,7 +278,7 @@ public:
 
     //Create globals uniform buffer    
     sceneUniforms_.projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
-    invertMatrix(sceneUniforms_.projectionMatrix, sceneUniforms_.projectionInverseMatrix);
+    invertMatrix(sceneUniforms_.projectionMatrix, &sceneUniforms_.projectionInverseMatrix);
     sceneUniforms_.viewMatrix = camera_.getViewMatrix();
     sceneUniforms_.imageSize = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
     render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER, (void*)&sceneUniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
@@ -773,9 +773,12 @@ private:
 
     render::commandBufferBegin(context, commandBuffer_);
     {
+      render::commandBufferDebugMarkerBegin(context, commandBuffer_, "GBuffer pass");
       render::commandBufferRenderPassBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
 
       //GBuffer pass
+
+      
       render::graphicsPipelineBind(commandBuffer_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
       descriptorSets[0] = globalsDescriptorSet_;
@@ -789,10 +792,11 @@ private:
         mesh::draw(commandBuffer_, *mesh);
         ++objectIter;
       }
-
-      render::commandBufferNextSubpass(commandBuffer_);
-            
+      render::commandBufferDebugMarkerEnd(context, commandBuffer_);
+      
       //Light pass      
+      render::commandBufferDebugMarkerBegin(context, commandBuffer_, "Light pass");
+      render::commandBufferNextSubpass(commandBuffer_);
       render::graphicsPipelineBind(commandBuffer_, lightPipeline_);
       descriptorSets[1] = lightPassTexturesDescriptorSet_;
       packed_freelist_iterator_t<light_t> lightIter = light_.begin();
@@ -806,7 +810,8 @@ private:
 
       render::commandBufferRenderPassEnd(commandBuffer_);
     }
-    
+    render::commandBufferDebugMarkerEnd(context, commandBuffer_);
+
     render::commandBufferEnd(commandBuffer_);
     render::commandBufferSubmit(context, commandBuffer_);
   }
@@ -820,12 +825,14 @@ private:
     for (uint32_t i(0); i<count; ++i)
     {
       render::beginPresentationCommandBuffer(context, i, nullptr);
+      render::commandBufferDebugMarkerBegin(context, commandBuffers[i], "Presentation");
       render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
       render::descriptorSetBind(commandBuffers[i], presentationPipelineLayout_, 0u, &presentationDescriptorSet_[currentPresentationDescriptorSet_], 1u);
       mesh::draw(commandBuffers[i], fullScreenQuad_);
 
       framework::gui::draw(context, commandBuffers[i]);
 
+      render::commandBufferDebugMarkerEnd(context, commandBuffers[i]);
       render::endPresentationCommandBuffer(context, i);
     }
   }

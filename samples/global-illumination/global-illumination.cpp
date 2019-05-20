@@ -649,7 +649,7 @@ public:
     uniforms_.viewToWorldMatrix = camera_.getWorldMatrix();
     uniforms_.imageSize = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
     uniforms_.projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.01f, 10.0f);
-    invertMatrix(uniforms_.projectionMatrix, uniforms_.projectionInverseMatrix);
+    invertMatrix(uniforms_.projectionMatrix, &uniforms_.projectionInverseMatrix);
     render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER, (void*)&uniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
 
     //Create global descriptor set (Scene uniforms)   
@@ -775,7 +775,7 @@ public:
       mat4 lightViewMatrix;
       quat orientation(vec3(0.0f, 0.0f, 1.0f), lightDirection);
       mat4 lightModelMatrix = maths::createTransform(position, VEC3_ONE, orientation);
-      invertMatrix(lightModelMatrix, lightViewMatrix);
+      invertMatrix(lightModelMatrix, &lightViewMatrix);
 
       directionalLight_->uniforms.worldToClipSpace = lightViewMatrix * orthographicProjectionMatrix(-1.0f, 1.0f, 1.0f, -1.0f, 0.01f, 2.0f);
       directionalLight_->uniforms.shadowMapSize = vec4((float)shadowMapSize_, (float)shadowMapSize_, 1.0f / (float)shadowMapSize_, 1.0f / (float)shadowMapSize_);

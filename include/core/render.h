@@ -150,6 +150,9 @@ namespace bkk
       void commandBufferEnd(const command_buffer_t& commandBuffer);
       void commandBufferSubmit(const context_t& context, const command_buffer_t& commandBuffer);
 
+      void commandBufferDebugMarkerBegin(const context_t& context, const command_buffer_t& commandBuffer, const char* markerName);
+      void commandBufferDebugMarkerEnd(const context_t& context, const command_buffer_t& commandBuffer);
+
       VkSemaphore semaphoreCreate(const context_t& context);
       void semaphoreDestroy(const context_t& context, VkSemaphore semaphore);
 

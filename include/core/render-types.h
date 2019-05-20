@@ -119,17 +119,20 @@ namespace bkk
         VkDebugReportCallbackEXT debugCallback;
 
         //Imported functions
-        PFN_vkGetPhysicalDeviceSurfaceSupportKHR vkGetPhysicalDeviceSurfaceSupportKHR;
-        PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR vkGetPhysicalDeviceSurfaceCapabilitiesKHR;
-        PFN_vkGetPhysicalDeviceSurfaceFormatsKHR vkGetPhysicalDeviceSurfaceFormatsKHR;
-        PFN_vkGetPhysicalDeviceSurfacePresentModesKHR vkGetPhysicalDeviceSurfacePresentModesKHR;
-        PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT;
-        PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT;
-        PFN_vkCreateSwapchainKHR vkCreateSwapchainKHR;
-        PFN_vkDestroySwapchainKHR vkDestroySwapchainKHR;
-        PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR;
-        PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR;
-        PFN_vkQueuePresentKHR vkQueuePresentKHR;
+        PFN_vkGetPhysicalDeviceSurfaceSupportKHR vkGetPhysicalDeviceSurfaceSupportKHR = nullptr;
+        PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR vkGetPhysicalDeviceSurfaceCapabilitiesKHR = nullptr;
+        PFN_vkGetPhysicalDeviceSurfaceFormatsKHR vkGetPhysicalDeviceSurfaceFormatsKHR = nullptr;
+        PFN_vkGetPhysicalDeviceSurfacePresentModesKHR vkGetPhysicalDeviceSurfacePresentModesKHR = nullptr;
+        PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT = nullptr;
+        PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT = nullptr;
+
+        PFN_vkCreateSwapchainKHR vkCreateSwapchainKHR = nullptr;
+        PFN_vkDestroySwapchainKHR vkDestroySwapchainKHR = nullptr;
+        PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR = nullptr;
+        PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR = nullptr;
+        PFN_vkQueuePresentKHR vkQueuePresentKHR = nullptr;
+        PFN_vkCmdDebugMarkerBeginEXT vkCmdDebugMarkerBeginEXT = nullptr;
+        PFN_vkCmdDebugMarkerEndEXT vkCmdDebugMarkerEndEXT = nullptr;
       };
 
       struct texture_t

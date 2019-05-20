@@ -343,7 +343,7 @@ struct TXAA_sample_t : public framework::application_t
     
     //Create globals uniform buffer    
     sceneUniforms_.projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.1f, 100.0f);
-    invertMatrix(sceneUniforms_.projectionMatrix, sceneUniforms_.projectionInverseMatrix);
+    invertMatrix(sceneUniforms_.projectionMatrix, &sceneUniforms_.projectionInverseMatrix);
     sceneUniforms_.viewMatrix = camera_.getViewMatrix();
     sceneUniforms_.imageSize = vec4((f32)size.x, (f32)size.y, 1.0f / (f32)size.x, 1.0f / (f32)size.y);
     render::gpuBufferCreate(context, render::gpu_buffer_t::UNIFORM_BUFFER, (void*)&sceneUniforms_, sizeof(scene_uniforms_t), &allocator_, &globalsUbo_);
@@ -483,7 +483,7 @@ struct TXAA_sample_t : public framework::application_t
 
     uvec2 windowSize = getWindowSize();
     sceneUniforms_.projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)windowSize.x / (f32)windowSize.y, 0.1f, 100.0f);
-    invertMatrix(sceneUniforms_.projectionMatrix, sceneUniforms_.projectionInverseMatrix);
+    invertMatrix(sceneUniforms_.projectionMatrix, &sceneUniforms_.projectionInverseMatrix);
 
     //Update global matrices
     sceneUniforms_.prevViewProjection = sceneUniforms_.viewMatrix * sceneUniforms_.projectionMatrix;

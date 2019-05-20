@@ -38,8 +38,8 @@ void camera_t::update(renderer_t* renderer)
     uniforms_.projection = maths::orthographicProjectionMatrix(-fov_, fov_, fov_, -fov_, nearPlane_, farPlane_);
   }
 
-  maths::invertMatrix(uniforms_.projection, uniforms_.projectionInverse);
-  maths::invertMatrix(uniforms_.viewToWorld, uniforms_.worldToView);
+  maths::invertMatrix(uniforms_.projection, &uniforms_.projectionInverse);
+  maths::invertMatrix(uniforms_.viewToWorld, &uniforms_.worldToView);
 
   render::context_t& context = renderer->getContext();
   if (uniformBuffer_.handle == VK_NULL_HANDLE)
@@ -149,7 +149,7 @@ void orbiting_camera_controller_t::Update()
   maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), angle_.x);
 
   maths::mat4 tx = maths::createTransform(maths::vec3(0.0f, 0.0f, offset_), maths::VEC3_ONE, maths::QUAT_UNIT) * maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, orientation) * maths::createTransform(target_, maths::VEC3_ONE, maths::QUAT_UNIT);
-  maths::invertMatrix(tx, view_);
+  maths::invertMatrix(tx, &view_);
 
   if (cameraHandle_ != bkk::core::NULL_HANDLE)
   {
@@ -216,7 +216,7 @@ void free_camera_controller_t::Update()
 {
   maths::quat orientation = maths::quaternionFromAxisAngle(maths::vec3(1.0f, 0.0f, 0.0f), angle_.x) * maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), angle_.y);
   tx_ = maths::createTransform(position_, maths::VEC3_ONE, orientation);
-  maths::invertMatrix(tx_, view_);
+  maths::invertMatrix(tx_, &view_);
 
   if (cameraHandle_ != bkk::core::NULL_HANDLE)
   {

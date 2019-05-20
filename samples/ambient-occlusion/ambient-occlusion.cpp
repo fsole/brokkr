@@ -65,11 +65,11 @@ public:
     mat4 planeTransform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(20.0f, 20.0f, 20.0f), quaternionFromAxisAngle(vec3(1, 0, 0), degreeToRadian(90.0f)));
     renderer.actorCreate("plane", plane, planeMaterial, planeTransform);
 
-    generateSSAOResources();
-
     //create camera
     camera_ = renderer.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 100.0f));
     cameraController_.setCameraHandle(camera_, &renderer);
+
+    generateSSAOResources();
   }
 
   void generateSSAOResources()

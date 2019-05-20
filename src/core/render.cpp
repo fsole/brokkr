@@ -34,12 +34,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugReportFlagsEXT flags,
   return VK_FALSE;
 }
   
-static VkDeviceSize GetNextMultiple(VkDeviceSize from, VkDeviceSize multiple)
+static VkDeviceSize getNextMultiple(VkDeviceSize from, VkDeviceSize multiple)
 {
   return ((from + multiple - 1) / multiple) * multiple;
 }
 
-static int32_t GetQueueIndex(const VkPhysicalDevice* physicalDevice, VkQueueFlagBits queueType)
+static int32_t getQueueIndex(const VkPhysicalDevice* physicalDevice, VkQueueFlagBits queueType)
 {
   //Get number of queue families
   uint32_t queueFamilyPropertyCount = 0;
@@ -62,7 +62,20 @@ static int32_t GetQueueIndex(const VkPhysicalDevice* physicalDevice, VkQueueFlag
   return -1;
 }
 
-static VkRenderPass CreatePresentationRenderPass(VkDevice device, VkFormat imageFormat, VkFormat depthStencilFormat)
+static bool extensionIsPresent( const char* extensionName, VkPhysicalDevice physicalDevice)
+{
+  uint32_t extensionCount;
+  vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
+  std::vector<VkExtensionProperties> extensions(extensionCount);
+  vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensions.data());
+  for (auto extension : extensions) {
+    if (strcmp(extension.extensionName, extensionName) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+static VkRenderPass createPresentationRenderPass(VkDevice device, VkFormat imageFormat, VkFormat depthStencilFormat)
 {
   VkAttachmentDescription attachmentDescription[2] = {};
   attachmentDescription[0].samples = VK_SAMPLE_COUNT_1_BIT;
@@ -111,7 +124,7 @@ static VkRenderPass CreatePresentationRenderPass(VkDevice device, VkFormat image
   return result;
 }
 
-static VkInstance CreateInstance(const char* applicationName, const char* engineName)
+static VkInstance createInstance(const char* applicationName, const char* engineName)
 {
   VkInstanceCreateInfo instanceCreateInfo = {};
   instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -133,6 +146,7 @@ static VkInstance CreateInstance(const char* applicationName, const char* engine
   instanceExtensions.push_back("VK_EXT_debug_report");
 #endif
 
+  
   //Enable extensions and layers
   instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions.data();
   instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
@@ -155,7 +169,7 @@ static VkInstance CreateInstance(const char* applicationName, const char* engine
   return instance;
 }
 
-static void CreateDeviceAndQueues(VkInstance instance,
+static void createDeviceAndQueues(VkInstance instance,
   VkPhysicalDevice* physicalDevice,
   VkDevice* logicalDevice,
   queue_t* graphicsQueue,
@@ -173,8 +187,8 @@ static void CreateDeviceAndQueues(VkInstance instance,
   computeQueue->queueIndex  = -1;
   for (uint32_t i(0); i < physicalDeviceCount; ++i)
   {
-    graphicsQueue->queueIndex  = GetQueueIndex(&devices[i], VK_QUEUE_GRAPHICS_BIT);
-    computeQueue->queueIndex  = GetQueueIndex(&devices[i], VK_QUEUE_COMPUTE_BIT);
+    graphicsQueue->queueIndex  = getQueueIndex(&devices[i], VK_QUEUE_GRAPHICS_BIT);
+    computeQueue->queueIndex  = getQueueIndex(&devices[i], VK_QUEUE_COMPUTE_BIT);
     if (graphicsQueue->queueIndex  != -1 && computeQueue->queueIndex != -1)
     {
       *physicalDevice = devices[i];
@@ -200,10 +214,14 @@ static void CreateDeviceAndQueues(VkInstance instance,
   deviceCreateInfo.ppEnabledLayerNames = NULL;
   deviceCreateInfo.enabledLayerCount = 0u;
 
-  const char* deviceExtensions = "VK_KHR_swapchain";
+  std::vector<const char*> deviceExtensions;
+  deviceExtensions.push_back("VK_KHR_swapchain");
 
-  deviceCreateInfo.ppEnabledExtensionNames = &deviceExtensions;
-  deviceCreateInfo.enabledExtensionCount = 1u;
+  if (extensionIsPresent("VK_EXT_debug_marker", *physicalDevice))
+    deviceExtensions.push_back("VK_EXT_debug_marker");
+
+  deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
+  deviceCreateInfo.enabledExtensionCount = (uint32_t)deviceExtensions.size();
 
   *logicalDevice = nullptr;
   vkCreateDevice(*physicalDevice, &deviceCreateInfo, nullptr, logicalDevice);
@@ -218,7 +236,7 @@ static void CreateDeviceAndQueues(VkInstance instance,
   assert(computeQueue->handle);
 }
 
-static VkBool32 GetDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat *depthFormat)
+static VkBool32 getDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat *depthFormat)
 {
   VkFormat depthFormats[] = { VK_FORMAT_D32_SFLOAT_S8_UINT,
                               VK_FORMAT_D32_SFLOAT,
@@ -241,7 +259,7 @@ static VkBool32 GetDepthStencilFormat(VkPhysicalDevice physicalDevice, VkFormat 
 }
 
 
-static void CreateDepthStencilBuffer(const context_t* context, uint32_t width, uint32_t height, VkFormat format, depth_stencil_buffer_t* depthStencilBuffer)
+static void createDepthStencilBuffer(const context_t* context, uint32_t width, uint32_t height, VkFormat format, depth_stencil_buffer_t* depthStencilBuffer)
 {
   depthStencilBuffer->format = format;
 
@@ -335,7 +353,7 @@ static void CreateDepthStencilBuffer(const context_t* context, uint32_t width, u
 }
 
 
-static void CreateSurface(VkInstance instance, VkPhysicalDevice physicalDevice, const window::window_t& window, const context_t& context, surface_t* surface)
+static void createSurface(VkInstance instance, VkPhysicalDevice physicalDevice, const window::window_t& window, const context_t& context, surface_t* surface)
 {
 #ifdef WIN32
   VkWin32SurfaceCreateInfoKHR surfaceCreateInfo = {};
@@ -386,7 +404,7 @@ static void CreateSurface(VkInstance instance, VkPhysicalDevice physicalDevice, 
   surface->colorSpace = surfaceFormats.front().colorSpace;
 }
 
-static void CreateSwapChain(context_t* context,
+static void createSwapChain(context_t* context,
   uint32_t width, uint32_t height,
   uint32_t imageCount)
 {
@@ -454,11 +472,11 @@ static void CreateSwapChain(context_t* context,
 
   //Create depth stencil buffer (shared by all the framebuffers)
   VkFormat depthStencilFormat = VK_FORMAT_UNDEFINED;
-  GetDepthStencilFormat(context->physicalDevice, &depthStencilFormat);
-  CreateDepthStencilBuffer(context, width, height, depthStencilFormat, &context->swapChain.depthStencil);
+  getDepthStencilFormat(context->physicalDevice, &depthStencilFormat);
+  createDepthStencilBuffer(context, width, height, depthStencilFormat, &context->swapChain.depthStencil);
 
   //Create the presentation render pass
-  context->swapChain.renderPass = CreatePresentationRenderPass(context->device, context->surface.imageFormat, depthStencilFormat);
+  context->swapChain.renderPass = createPresentationRenderPass(context->device, context->surface.imageFormat, depthStencilFormat);
 
   //Create frame buffers
   context->swapChain.frameBuffer.resize(imageCount);
@@ -475,12 +493,11 @@ static void CreateSwapChain(context_t* context,
     framebufferCreateInfo.height = height;
     framebufferCreateInfo.layers = 1;
     framebufferCreateInfo.renderPass = context->swapChain.renderPass;
-
     vkCreateFramebuffer(context->device, &framebufferCreateInfo, nullptr, &context->swapChain.frameBuffer[i]);
   }
 }
 
-static VkCommandPool CreateCommandPool(VkDevice device, uint32_t queueIndex)
+static VkCommandPool createCommandPool(VkDevice device, uint32_t queueIndex)
 {
   VkCommandPool pool;
   VkCommandPoolCreateInfo commandPoolCreateInfo = {};
@@ -492,21 +509,22 @@ static VkCommandPool CreateCommandPool(VkDevice device, uint32_t queueIndex)
   return pool;
 }
 
-
-static void ImportFunctions(VkInstance instance, VkDevice device, context_t* context )
+static void importFunctions(VkInstance instance, VkDevice device, context_t* context )
 {
   context->vkGetPhysicalDeviceSurfaceSupportKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceSupportKHR>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceSurfaceSupportKHR"));
   context->vkGetPhysicalDeviceSurfaceCapabilitiesKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"));
   context->vkGetPhysicalDeviceSurfaceFormatsKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceFormatsKHR>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceSurfaceFormatsKHR"));
   context->vkGetPhysicalDeviceSurfacePresentModesKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfacePresentModesKHR>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceSurfacePresentModesKHR"));
   context->vkCreateDebugReportCallbackEXT = reinterpret_cast<PFN_vkCreateDebugReportCallbackEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT"));
-  context->vkDestroyDebugReportCallbackEXT = reinterpret_cast<PFN_vkDestroyDebugReportCallbackEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT"));
+  context->vkDestroyDebugReportCallbackEXT = reinterpret_cast<PFN_vkDestroyDebugReportCallbackEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT"));  
 
   context->vkCreateSwapchainKHR = reinterpret_cast<PFN_vkCreateSwapchainKHR>(vkGetDeviceProcAddr(device, "vkCreateSwapchainKHR"));
   context->vkDestroySwapchainKHR = reinterpret_cast<PFN_vkDestroySwapchainKHR>(vkGetDeviceProcAddr(device, "vkDestroySwapchainKHR"));
   context->vkGetSwapchainImagesKHR = reinterpret_cast<PFN_vkGetSwapchainImagesKHR>(vkGetDeviceProcAddr(device, "vkGetSwapchainImagesKHR"));
   context->vkAcquireNextImageKHR = reinterpret_cast<PFN_vkAcquireNextImageKHR>(vkGetDeviceProcAddr(device, "vkAcquireNextImageKHR"));
   context->vkQueuePresentKHR = reinterpret_cast<PFN_vkQueuePresentKHR>(vkGetDeviceProcAddr(device, "vkQueuePresentKHR"));
+  context->vkCmdDebugMarkerBeginEXT = reinterpret_cast<PFN_vkCmdDebugMarkerBeginEXT>(vkGetDeviceProcAddr(device, "vkCmdDebugMarkerBeginEXT"));
+  context->vkCmdDebugMarkerEndEXT = reinterpret_cast<PFN_vkCmdDebugMarkerEndEXT>(vkGetDeviceProcAddr(device, "vkCmdDebugMarkerEndEXT"));
 }
 
 /*********************
@@ -519,15 +537,15 @@ void render::contextCreate(const char* applicationName,
   uint32_t swapChainImageCount,
   context_t* context)
 {
-  context->instance = CreateInstance(applicationName, engineName);
-  CreateDeviceAndQueues(context->instance, &context->physicalDevice, &context->device, &context->graphicsQueue, &context->computeQueue);
+  context->instance = createInstance(applicationName, engineName);
+  createDeviceAndQueues(context->instance, &context->physicalDevice, &context->device, &context->graphicsQueue, &context->computeQueue);
 
   //Get memory properties of the physical device
   vkGetPhysicalDeviceMemoryProperties(context->physicalDevice, &context->memoryProperties);
 
-  context->commandPool = CreateCommandPool(context->device, context->graphicsQueue.queueIndex);
+  context->commandPool = createCommandPool(context->device, context->graphicsQueue.queueIndex);
   
-  ImportFunctions(context->instance, context->device, context);
+  importFunctions(context->instance, context->device, context);
 
 #ifdef VK_DEBUG_LAYERS
   VkDebugReportCallbackCreateInfoEXT createInfo = {};
@@ -537,9 +555,8 @@ void render::contextCreate(const char* applicationName,
   context->vkCreateDebugReportCallbackEXT(context->instance, &createInfo, nullptr, &context->debugCallback);
 #endif
 
-  CreateSurface(context->instance, context->physicalDevice, window, *context, &context->surface);
-
-  CreateSwapChain(context, window.width, window.height, swapChainImageCount);
+  createSurface(context->instance, context->physicalDevice, window, *context, &context->surface);
+  createSwapChain(context, window.width, window.height, swapChainImageCount);
 }
 
 void render::contextDestroy(context_t* context)
@@ -594,8 +611,7 @@ void render::swapchainResize(context_t* context, uint32_t width, uint32_t height
   //Recreate swapchain with the new size
   vkDestroyRenderPass(context->device, context->swapChain.renderPass, nullptr);
   vkDestroySwapchainKHR(context->device, context->swapChain.handle, nullptr);
-  CreateSwapChain(context, width, height, context->swapChain.imageCount);
-
+  createSwapChain(context, width, height, context->swapChain.imageCount);
 }
 
 void render::contextFlush(const context_t& context)
@@ -854,7 +870,7 @@ gpu_memory_t render::gpuMemoryAllocate(const context_t& context,
   }
   else
   {
-    VkDeviceSize offset = GetNextMultiple(allocator->head, alignment);
+    VkDeviceSize offset = getNextMultiple(allocator->head, alignment);
     if (size <= allocator->size - offset)
     {
       result.handle = allocator->memory;
@@ -2208,8 +2224,7 @@ void render::vertexFormatDestroy(vertex_format_t* format)
 
 void render::depthStencilBufferCreate(const context_t& context, uint32_t width, uint32_t height, depth_stencil_buffer_t* depthStencilBuffer)
 {
-  CreateDepthStencilBuffer(&context, width, height, context.swapChain.depthStencil.format, depthStencilBuffer);
-  
+  createDepthStencilBuffer(&context, width, height, context.swapChain.depthStencil.format, depthStencilBuffer);
   
   //Create sampler
   texture_sampler_t defaultSampler;
@@ -2546,6 +2561,25 @@ void render::commandBufferSubmit(const context_t& context, const command_buffer_
   {
     vkQueueSubmit(context.computeQueue.handle, 1, &submitInfo, commandBuffer.fence);
   }
+}
+
+void render::commandBufferDebugMarkerBegin(const context_t& context, const command_buffer_t& commandBuffer, const char* markerName)
+{
+  if (context.vkCmdDebugMarkerBeginEXT != nullptr)
+  {
+    float color[4] = { 0.0f, 1.0f, 0.0f, 1.0f };
+    VkDebugMarkerMarkerInfoEXT markerInfo = { VK_STRUCTURE_TYPE_DEBUG_MARKER_MARKER_INFO_EXT,
+                                              nullptr,
+                                              markerName };
+
+    context.vkCmdDebugMarkerBeginEXT(commandBuffer.handle, &markerInfo);
+  }
+}
+
+void render::commandBufferDebugMarkerEnd(const context_t& context, const command_buffer_t& commandBuffer)
+{
+  if (context.vkCmdDebugMarkerEndEXT != nullptr)
+    context.vkCmdDebugMarkerEndEXT(commandBuffer.handle);
 }
 
 VkSemaphore render::semaphoreCreate(const context_t& context)

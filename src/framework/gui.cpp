@@ -196,95 +196,101 @@ void gui::draw(const render::context_t& context, render::command_buffer_t comman
   size_t vertex_size = draw_data->TotalVtxCount * sizeof(ImDrawVert);
   size_t index_size = draw_data->TotalIdxCount * sizeof(ImDrawIdx);
 
-  if (vertex_size == 0 || index_size == 0)
-    return;
-
-  if(gGuiContext.vertexBuffer.memory.size < vertex_size)
+  if (vertex_size > 0 && index_size > 0)
   {
-    render::contextFlush(context);
-    if (gGuiContext.vertexBuffer.handle != VK_NULL_HANDLE)
-      render::gpuBufferDestroy(context, nullptr, &gGuiContext.vertexBuffer);
+    render::commandBufferDebugMarkerBegin(context, commandBuffer, "ImGui_draw");
 
-    render::gpuBufferCreate(context, render::gpu_buffer_t::VERTEX_BUFFER, nullptr, vertex_size, nullptr, &gGuiContext.vertexBuffer);
-  }
-
-  if( gGuiContext.indexBuffer.memory.size < index_size)
-  {
-    render::contextFlush(context);
-    if (gGuiContext.indexBuffer.handle != VK_NULL_HANDLE)
-      render::gpuBufferDestroy(context, nullptr, &gGuiContext.indexBuffer);
-
-    render::gpuBufferCreate(context, render::gpu_buffer_t::INDEX_BUFFER, nullptr, index_size, nullptr, &gGuiContext.indexBuffer);
-  }
-
-  ImDrawVert* vertexData = (ImDrawVert*)render::gpuBufferMap(context, gGuiContext.vertexBuffer);
-  ImDrawIdx* indexData = (ImDrawIdx*)render::gpuBufferMap(context, gGuiContext.indexBuffer);
-  for (int n = 0; n < draw_data->CmdListsCount; n++)
-  {
-    const ImDrawList* cmd_list = draw_data->CmdLists[n];
-    memcpy(vertexData, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-    memcpy(indexData, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-    vertexData += cmd_list->VtxBuffer.Size;
-    indexData += cmd_list->IdxBuffer.Size;
-  }
-
-  //Flush buffers
-  VkMappedMemoryRange range[2] = {};
-  range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-  range[0].memory = gGuiContext.vertexBuffer.memory.handle;
-  range[0].size = VK_WHOLE_SIZE;
-  range[1].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-  range[1].memory = gGuiContext.indexBuffer.memory.handle;
-  range[1].size = VK_WHOLE_SIZE;
-  vkFlushMappedMemoryRanges(context.device, 2u, range);
-  render::gpuBufferUnmap(context, gGuiContext.vertexBuffer);
-  render::gpuBufferUnmap(context, gGuiContext.indexBuffer);
-  
-  VkBuffer vertex_buffers[3] = { gGuiContext.vertexBuffer.handle,gGuiContext.vertexBuffer.handle,gGuiContext.vertexBuffer.handle };
-  VkDeviceSize vertex_offsets[3] = {};
-  vkCmdBindVertexBuffers(commandBuffer.handle, 0, 3, vertex_buffers, vertex_offsets);
-  vkCmdBindIndexBuffer(commandBuffer.handle, gGuiContext.indexBuffer.handle, 0, VK_INDEX_TYPE_UINT16);
-
-  gGuiContext.scaleAndOffset.x = 2.0f / draw_data->DisplaySize.x;
-  gGuiContext.scaleAndOffset.y = 2.0f / draw_data->DisplaySize.y;
-  gGuiContext.scaleAndOffset.z = -1.0f - draw_data->DisplayPos.x * gGuiContext.scaleAndOffset.x;
-  gGuiContext.scaleAndOffset.w = -1.0f - draw_data->DisplayPos.y * gGuiContext.scaleAndOffset.y;
-
-  render::graphicsPipelineBind(commandBuffer, gGuiContext.pipeline);
-  render::descriptorSetBind(commandBuffer, gGuiContext.pipelineLayout, 0, &gGuiContext.descriptorSet, 1u);
-  render::pushConstants(commandBuffer, gGuiContext.pipelineLayout, 0u, &gGuiContext.scaleAndOffset);
-
-  int vertexOffset = 0;
-  int indexOffset = 0;
-  ImVec2 display_pos = draw_data->DisplayPos;
-  for (int n = 0; n < draw_data->CmdListsCount; n++)
-  {
-    const ImDrawList* cmd_list = draw_data->CmdLists[n];
-    for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+    if (gGuiContext.vertexBuffer.memory.size < vertex_size)
     {
-      const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
-      if (pcmd->UserCallback)
-      {
-        pcmd->UserCallback(cmd_list, pcmd);
-      }
-      else
-      {
-        // Apply scissor/clipping rectangle
-        // FIXME: We could clamp width/height based on clamped min/max values.
-        VkRect2D scissor;
-        scissor.offset.x = (int32_t)(pcmd->ClipRect.x - display_pos.x) > 0 ? (int32_t)(pcmd->ClipRect.x - display_pos.x) : 0;
-        scissor.offset.y = (int32_t)(pcmd->ClipRect.y - display_pos.y) > 0 ? (int32_t)(pcmd->ClipRect.y - display_pos.y) : 0;
-        scissor.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
-        scissor.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y + 1); // FIXME: Why +1 here?
-        vkCmdSetScissor(commandBuffer.handle, 0, 1, &scissor);
+      render::contextFlush(context);
+      if (gGuiContext.vertexBuffer.handle != VK_NULL_HANDLE)
+        render::gpuBufferDestroy(context, nullptr, &gGuiContext.vertexBuffer);
 
-        // Draw
-        vkCmdDrawIndexed(commandBuffer.handle, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
-      }
-      indexOffset += pcmd->ElemCount;
+      render::gpuBufferCreate(context, render::gpu_buffer_t::VERTEX_BUFFER, nullptr, vertex_size, nullptr, &gGuiContext.vertexBuffer);
     }
-    vertexOffset += cmd_list->VtxBuffer.Size;
+
+    if (gGuiContext.indexBuffer.memory.size < index_size)
+    {
+      render::contextFlush(context);
+      if (gGuiContext.indexBuffer.handle != VK_NULL_HANDLE)
+        render::gpuBufferDestroy(context, nullptr, &gGuiContext.indexBuffer);
+
+      render::gpuBufferCreate(context, render::gpu_buffer_t::INDEX_BUFFER, nullptr, index_size, nullptr, &gGuiContext.indexBuffer);
+    }
+
+    ImDrawVert* vertexData = (ImDrawVert*)render::gpuBufferMap(context, gGuiContext.vertexBuffer);
+    ImDrawIdx* indexData = (ImDrawIdx*)render::gpuBufferMap(context, gGuiContext.indexBuffer);
+    for (int n = 0; n < draw_data->CmdListsCount; n++)
+    {
+      const ImDrawList* cmd_list = draw_data->CmdLists[n];
+      memcpy(vertexData, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+      memcpy(indexData, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+      vertexData += cmd_list->VtxBuffer.Size;
+      indexData += cmd_list->IdxBuffer.Size;
+    }
+
+    //Flush buffers
+    VkMappedMemoryRange range[2] = {};
+    range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+    range[0].memory = gGuiContext.vertexBuffer.memory.handle;
+    range[0].size = VK_WHOLE_SIZE;
+    range[1].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+    range[1].memory = gGuiContext.indexBuffer.memory.handle;
+    range[1].size = VK_WHOLE_SIZE;
+    vkFlushMappedMemoryRanges(context.device, 2u, range);
+    render::gpuBufferUnmap(context, gGuiContext.vertexBuffer);
+    render::gpuBufferUnmap(context, gGuiContext.indexBuffer);
+
+    VkBuffer vertex_buffers[3] = { gGuiContext.vertexBuffer.handle,gGuiContext.vertexBuffer.handle,gGuiContext.vertexBuffer.handle };
+    VkDeviceSize vertex_offsets[3] = {};
+    vkCmdBindVertexBuffers(commandBuffer.handle, 0, 3, vertex_buffers, vertex_offsets);
+    vkCmdBindIndexBuffer(commandBuffer.handle, gGuiContext.indexBuffer.handle, 0, VK_INDEX_TYPE_UINT16);
+
+    gGuiContext.scaleAndOffset.x = 2.0f / draw_data->DisplaySize.x;
+    gGuiContext.scaleAndOffset.y = 2.0f / draw_data->DisplaySize.y;
+    gGuiContext.scaleAndOffset.z = -1.0f - draw_data->DisplayPos.x * gGuiContext.scaleAndOffset.x;
+    gGuiContext.scaleAndOffset.w = -1.0f - draw_data->DisplayPos.y * gGuiContext.scaleAndOffset.y;
+
+    render::graphicsPipelineBind(commandBuffer, gGuiContext.pipeline);
+    render::descriptorSetBind(commandBuffer, gGuiContext.pipelineLayout, 0, &gGuiContext.descriptorSet, 1u);
+    render::pushConstants(commandBuffer, gGuiContext.pipelineLayout, 0u, &gGuiContext.scaleAndOffset);
+
+    int vertexOffset = 0;
+    int indexOffset = 0;
+    ImVec2 display_pos = draw_data->DisplayPos;
+    for (int n = 0; n < draw_data->CmdListsCount; n++)
+    {
+      const ImDrawList* cmd_list = draw_data->CmdLists[n];
+      for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+      {
+        const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
+        if (pcmd->UserCallback)
+        {
+          pcmd->UserCallback(cmd_list, pcmd);
+        }
+        else
+        {
+          // Apply scissor/clipping rectangle
+          // FIXME: We could clamp width/height based on clamped min/max values.
+          VkRect2D scissor;
+          scissor.offset.x = (int32_t)(pcmd->ClipRect.x - display_pos.x) > 0 ? (int32_t)(pcmd->ClipRect.x - display_pos.x) : 0;
+          scissor.offset.y = (int32_t)(pcmd->ClipRect.y - display_pos.y) > 0 ? (int32_t)(pcmd->ClipRect.y - display_pos.y) : 0;
+          scissor.extent.width = (uint32_t)(pcmd->ClipRect.z - pcmd->ClipRect.x);
+          scissor.extent.height = (uint32_t)(pcmd->ClipRect.w - pcmd->ClipRect.y + 1); // FIXME: Why +1 here?
+          vkCmdSetScissor(commandBuffer.handle, 0, 1, &scissor);
+
+          // Draw
+          vkCmdDrawIndexed(commandBuffer.handle, pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
+        }
+        indexOffset += pcmd->ElemCount;
+      }
+      vertexOffset += cmd_list->VtxBuffer.Size;
+    }
+
+    render::commandBufferDebugMarkerEnd(context, commandBuffer);
   }
+
+  
 }
 
 void gui::updateMousePosition(float x, float y)
