@@ -74,7 +74,7 @@ public:
 
     //create camera
     uvec2 imageSize(1200u, 800u);
-    camera_ = renderer.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 500.0f));
+    camera_ = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 500.0f));
     cameraController_.setCameraHandle(camera_, &renderer);
   }
 

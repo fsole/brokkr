@@ -136,7 +136,7 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
   
   shader_handle_t shader = shaderCreate("../../shaders/textureBlit.shader");
   textureBlit_ = materialCreate(shader);
-  mesh_handle_t quad = addMesh( mesh::fullScreenQuad(context_) );
+  mesh_handle_t quad = meshAdd( mesh::fullScreenQuad(context_) );
   rootActor_ = actorCreate("Root", quad, textureBlit_);
 }
 
@@ -150,15 +150,34 @@ shader_handle_t renderer_t::shaderCreate(const char* file)
   return shaders_.add(shader_t(file, this));
 }
 
+void renderer_t::shaderDestroy(shader_handle_t handle)
+{
+  shader_t* shader = shaders_.get(handle);
+  if (shader != nullptr)
+  {
+    shader->destroy(this);
+    shaders_.remove(handle);
+  }
+}
+
 shader_t* renderer_t::getShader(shader_handle_t handle)
 {
   return shaders_.get(handle);
 }
 
-
 material_handle_t renderer_t::materialCreate(shader_handle_t shader)
 {
   return materials_.add(material_t(shader, this));
+}
+
+void renderer_t::materialDestroy(material_handle_t handle)
+{
+  material_t* material = materials_.get(handle);
+  if (material != nullptr)
+  {
+    material->destroy(this);
+    materials_.remove(handle);
+  }
 }
 
 material_t* renderer_t::getMaterial(material_handle_t handle)
@@ -169,6 +188,16 @@ material_t* renderer_t::getMaterial(material_handle_t handle)
 compute_material_handle_t renderer_t::computeMaterialCreate(shader_handle_t shader)
 {
   return computeMaterials_.add(compute_material_t(shader, this));
+}
+
+void renderer_t::computeMaterialDestroy(compute_material_handle_t handle)
+{
+  compute_material_t* material = computeMaterials_.get(handle);
+  if (material != nullptr)
+  {
+    material->destroy(this);
+    computeMaterials_.remove(handle);
+  }
 }
 
 compute_material_t* renderer_t::getComputeMaterial(compute_material_handle_t handle)
@@ -182,6 +211,16 @@ render_target_handle_t renderer_t::renderTargetCreate(uint32_t width, uint32_t h
 {
   return renderTargets_.add(
     render_target_t(width, height, format, depthBuffer, this));
+}
+
+void renderer_t::renderTargetDestroy(render_target_handle_t handle)
+{
+  render_target_t* renderTarget = renderTargets_.get(handle);
+  if (renderTarget != nullptr)
+  {
+    renderTarget->destroy(this);
+    renderTargets_.remove(handle);
+  }
 }
 
 render_target_t* renderer_t::getRenderTarget(render_target_handle_t handle)
@@ -201,8 +240,17 @@ frame_buffer_t* renderer_t::getFrameBuffer(frame_buffer_handle_t handle)
   return framebuffers_.get(handle);
 }
 
+void renderer_t::frameBufferDestroy(frame_buffer_handle_t handle)
+{
+  frame_buffer_t* framebuffer = framebuffers_.get(handle);
+  if (framebuffer != nullptr)
+  {
+    framebuffer->destroy(this);
+    framebuffers_.remove(handle);
+  }
+}
 
-mesh_handle_t renderer_t::addMesh(const mesh::mesh_t& mesh)
+mesh_handle_t renderer_t::meshAdd(const mesh::mesh_t& mesh)
 {
   return meshes_.add(mesh);
 }
@@ -211,7 +259,17 @@ mesh_handle_t renderer_t::meshCreate(const char* file, mesh::export_flags_e expo
 {
   mesh::mesh_t mesh;
   mesh::createFromFile(context_, file, exportFlags, nullptr, submesh, &mesh);
-  return addMesh(mesh);
+  return meshAdd(mesh);
+}
+
+void renderer_t::meshDestroy(mesh_handle_t handle)
+{
+  core::mesh::mesh_t* mesh = meshes_.get(handle);
+  if (mesh != nullptr)
+  {
+    mesh::destroy(context_, mesh);
+    meshes_.remove(handle);
+  }
 }
 
 mesh::mesh_t* renderer_t::getMesh(mesh_handle_t handle)
@@ -225,6 +283,16 @@ actor_handle_t renderer_t::actorCreate(const char* name, mesh_handle_t mesh, mat
 
   return actors_.add(
     actor_t(name, mesh, transformHandle, material, instanceCount, this) );
+}
+
+void renderer_t::actorDestroy(actor_handle_t handle)
+{
+  actor_t* actor = actors_.get(handle);
+  if (actor != nullptr)
+  {
+    actor->destroy(this);
+    actors_.remove(handle);
+  }
 }
 
 actor_t* renderer_t::getActor(actor_handle_t handle)
@@ -242,9 +310,19 @@ void renderer_t::actorSetTransform(actor_handle_t actor, const maths::mat4& newT
   transformManager_.setTransform(actors_.get(actor)->getTransform(), newTransform);
 }
 
-camera_handle_t renderer_t::addCamera(const camera_t& camera)
+camera_handle_t renderer_t::cameraAdd(const camera_t& camera)
 {
   return cameras_.add(camera);
+}
+
+void renderer_t::cameraDestroy(camera_handle_t handle)
+{
+  camera_t* camera = cameras_.get(handle);
+  if (camera != nullptr)
+  {
+    camera->destroy(this);
+    cameras_.remove(handle);
+  }
 }
 
 camera_t* renderer_t::getCamera(camera_handle_t handle)

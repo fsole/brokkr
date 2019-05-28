@@ -41,7 +41,7 @@ public:
     //create meshes
     mesh_handle_t teapot = renderer.meshCreate("../resources/teapot.obj", mesh::EXPORT_ALL);    
     mesh_handle_t buddha = renderer.meshCreate("../resources/buddha.obj", mesh::EXPORT_ALL);
-    mesh_handle_t plane = renderer.addMesh(mesh::unitQuad(getRenderContext()));
+    mesh_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
 
     //create materials
     shader_handle_t shader = renderer.shaderCreate("../ambient-occlusion/simple.shader");
@@ -66,7 +66,7 @@ public:
     renderer.actorCreate("plane", plane, planeMaterial, planeTransform);
 
     //create camera
-    camera_ = renderer.addCamera(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 100.0f));
+    camera_ = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 100.0f));
     cameraController_.setCameraHandle(camera_, &renderer);
 
     generateSSAOResources();

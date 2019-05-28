@@ -48,31 +48,39 @@ namespace bkk
         core::render::context_t& getContext();
 
         shader_handle_t shaderCreate(const char* file);
+        void shaderDestroy(shader_handle_t handle);
         shader_t* getShader(shader_handle_t handle);
 
         material_handle_t materialCreate(shader_handle_t shader);
+        void materialDestroy(material_handle_t handle);
         material_t* getMaterial(material_handle_t handle);
 
         compute_material_handle_t computeMaterialCreate(shader_handle_t shader);
+        void computeMaterialDestroy(compute_material_handle_t handle);
         compute_material_t* getComputeMaterial(compute_material_handle_t handle);
 
         render_target_handle_t renderTargetCreate(uint32_t width, uint32_t height,VkFormat format,bool depthBuffer);
+        void renderTargetDestroy(render_target_handle_t handle);
         render_target_t* getRenderTarget(render_target_handle_t handle);
 
         frame_buffer_handle_t frameBufferCreate(render_target_handle_t* renderTargets, uint32_t targetCount,VkImageLayout* initialLayouts = nullptr, VkImageLayout* finalLayouts = nullptr);
+        void frameBufferDestroy(frame_buffer_handle_t handle);
         frame_buffer_t* getFrameBuffer(frame_buffer_handle_t handle);
 
-        mesh_handle_t addMesh(const core::mesh::mesh_t& mesh);
+        mesh_handle_t meshAdd(const core::mesh::mesh_t& mesh);
         mesh_handle_t meshCreate(const char* file, core::mesh::export_flags_e exportFlags, core::render::gpu_memory_allocator_t* allocator = nullptr, uint32_t submesh = 0);
+        void meshDestroy(mesh_handle_t handle);
         core::mesh::mesh_t* getMesh(mesh_handle_t handle);
 
         actor_handle_t actorCreate(const char* name, mesh_handle_t mesh, material_handle_t material, core::maths::mat4 transform = core::maths::mat4(), uint32_t instanceCount = 1);
+        void actorDestroy(actor_handle_t handle);
         actor_t* getActor(actor_handle_t handle);        
         void actorSetParent(actor_handle_t actor, actor_handle_t parent);
         void actorSetTransform(actor_handle_t actor, const core::maths::mat4& newTransform);
         actor_handle_t getRootActor() { return rootActor_; }
 
-        camera_handle_t addCamera(const camera_t& camera);
+        camera_handle_t cameraAdd(const camera_t& camera);
+        void cameraDestroy(camera_handle_t handle);
         camera_t* getCamera(camera_handle_t handle);
         camera_t* getActiveCamera();
         bool setupCamera(camera_handle_t camera);
