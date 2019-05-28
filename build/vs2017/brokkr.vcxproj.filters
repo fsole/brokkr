@@ -104,9 +104,6 @@
     <ClInclude Include="..\..\include\framework\render-target.h">
       <Filter>Header Files\framework</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\core\hash-table.h">
-      <Filter>Header Files\core</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\framework\frame-buffer.h">
       <Filter>Header Files\framework</Filter>
     </ClInclude>
@@ -121,6 +118,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\framework\compute-material.h">
       <Filter>Header Files\framework</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\core\dictionary.h">
+      <Filter>Header Files\core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

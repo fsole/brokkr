@@ -16,7 +16,7 @@
 #include "core/maths.h"
 #include "core/render.h"
 #include "core/packed-freelist.h"
-#include "core/hash-table.h"
+#include "core/dictionary.h"
 
 #include "framework/frame-buffer.h"
 
@@ -133,7 +133,7 @@ namespace bkk
       std::vector<core::render::pipeline_layout_t> pipelineLayouts_;
       std::vector<core::render::graphics_pipeline_t::description_t> graphicsPipelineDescriptions_;
 
-      core::hash_table_t<frame_buffer_handle_t, std::vector<core::render::graphics_pipeline_t> > graphicsPipelines_;
+      core::dictionary_t<frame_buffer_handle_t, std::vector<core::render::graphics_pipeline_t> > graphicsPipelines_;
       std::vector<core::render::compute_pipeline_t> computePipelines_;
     };
 

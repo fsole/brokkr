@@ -106,7 +106,7 @@
     <ClInclude Include="..\..\external\pugixml\pugiconfig.hpp" />
     <ClInclude Include="..\..\external\pugixml\pugixml.hpp" />
     <ClInclude Include="..\..\include\core\dynamic-array.h" />
-    <ClInclude Include="..\..\include\core\hash-table.h" />
+    <ClInclude Include="..\..\include\core\dictionary.h" />
     <ClInclude Include="..\..\include\core\image.h" />
     <ClInclude Include="..\..\include\core\maths.h" />
     <ClInclude Include="..\..\include\core\mesh.h" />
