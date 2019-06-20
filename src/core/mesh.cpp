@@ -24,25 +24,19 @@ using namespace bkk::core;
 using namespace bkk::core::mesh;
 using namespace bkk::core::maths;
 
-//Helper functions
-static size_t GetNextMultiple(size_t from, size_t multiple)
-{
-  return ((from + multiple - 1) / multiple) * multiple;
-}
-
-static void CountNodes(aiNode* node, u32& total)
+static void countNodes(aiNode* node, u32& total)
 {
   if (node)
   {
     total++;
     for (u32 i(0); i<node->mNumChildren; ++i)
     {
-      CountNodes(node->mChildren[i], total);
+      countNodes(node->mChildren[i], total);
     }
   }
 }
 
-static void TraverseScene(const aiNode* pNode, std::map<std::string, bkk_handle_t>& nodeNameToHandle,  const aiMesh* mesh, skeleton_t* skeleton, u32& boneIndex, bkk_handle_t parentHandle)
+static void traverseScene(const aiNode* pNode, std::map<std::string, bkk_handle_t>& nodeNameToHandle,  const aiMesh* mesh, skeleton_t* skeleton, u32& boneIndex, bkk_handle_t parentHandle)
 {
   std::string nodeName = pNode->mName.data;
 
@@ -70,14 +64,14 @@ static void TraverseScene(const aiNode* pNode, std::map<std::string, bkk_handle_
   //Recurse on the children
   for (u32 i(0); i<pNode->mNumChildren; ++i)
   {
-    TraverseScene(pNode->mChildren[i], nodeNameToHandle, mesh, skeleton, boneIndex, nodeHandle);
+    traverseScene(pNode->mChildren[i], nodeNameToHandle, mesh, skeleton, boneIndex, nodeHandle);
   }
 }
 
-static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std::string, bkk_handle_t>& nodeNameToHandle,  skeleton_t* skeleton)
+static void loadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std::string, bkk_handle_t>& nodeNameToHandle,  skeleton_t* skeleton)
 {
   u32 nodeCount(0);
-  CountNodes(scene->mRootNode, nodeCount);
+  countNodes(scene->mRootNode, nodeCount);
 
   skeleton->bones = new bkk_handle_t[mesh->mNumBones];
   skeleton->bindPose = new maths::mat4[mesh->mNumBones];
@@ -89,12 +83,12 @@ static void LoadSkeleton(const aiScene* scene, const aiMesh* mesh, std::map<std:
   skeleton->nodeCount = nodeCount;
 
   u32 boneIndex = 0;
-  TraverseScene(scene->mRootNode, nodeNameToHandle, mesh, skeleton, boneIndex, BKK_NULL_HANDLE);
+  traverseScene(scene->mRootNode, nodeNameToHandle, mesh, skeleton, boneIndex, BKK_NULL_HANDLE);
 
   skeleton->txManager.update();
 }
 
-static void LoadAnimation(const aiScene* scene, u32 animationIndex, std::map<std::string, bkk_handle_t>& nodeNameToIndex, u32 boneCount, skeletal_animation_t* animation)
+static void loadAnimation(const aiScene* scene, u32 animationIndex, std::map<std::string, bkk_handle_t>& nodeNameToIndex, u32 boneCount, skeletal_animation_t* animation)
 {
   const aiAnimation* pAnimation = scene->mAnimations[animationIndex];
 
@@ -310,7 +304,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     if (boneCount > 0)
     {
       mesh->skeleton = new skeleton_t;
-      LoadSkeleton(scene, aimesh, nodeNameToHandle, mesh->skeleton);
+      loadSkeleton(scene, aimesh, nodeNameToHandle, mesh->skeleton);
     }
 
     //Read weights and bone indices for each vertex
@@ -356,7 +350,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
       mesh->animations = new skeletal_animation_t[mesh->animationCount];
       for (u32 i(0); i < mesh->animationCount; ++i)
       {
-        LoadAnimation(scene, i, nodeNameToHandle, boneCount, &mesh->animations[i]);
+        loadAnimation(scene, i, nodeNameToHandle, boneCount, &mesh->animations[i]);
       }
     }
   }
