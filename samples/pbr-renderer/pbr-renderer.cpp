@@ -474,14 +474,14 @@ struct pbr_renderer_t : public framework::application_t
     buildPresentationCommandBuffers();
   }
 
-  core::handle_t addMesh(const char* url)
+  core::bkk_handle_t addMesh(const char* url)
   {
     mesh::mesh_t mesh;
     mesh::createFromFile(getRenderContext(), url, mesh::EXPORT_NORMALS, &allocator_, 0u, &mesh);
     return mesh_.add(mesh);
   }
 
-  core::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness)
+  core::bkk_handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness)
   {
     render::context_t& context = getRenderContext();
 
@@ -500,11 +500,11 @@ struct pbr_renderer_t : public framework::application_t
     return material_.add(material);
   }
 
-  core::handle_t addObject(core::handle_t meshId, core::handle_t materialId, const maths::mat4& transform)
+  core::bkk_handle_t addObject(core::bkk_handle_t meshId, core::bkk_handle_t materialId, const maths::mat4& transform)
   {
     render::context_t& context = getRenderContext();
 
-    core::handle_t transformId = transformManager_.createTransform(transform);
+    core::bkk_handle_t transformId = transformManager_.createTransform(transform);
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
@@ -518,7 +518,7 @@ struct pbr_renderer_t : public framework::application_t
     return object_.add(object);
   }
 
-  core::handle_t addLight(const maths::vec3& position, float radius, const maths::vec3& color)
+  core::bkk_handle_t addLight(const maths::vec3& position, float radius, const maths::vec3& color)
   {
     render::context_t& context = getRenderContext();
 
@@ -1010,9 +1010,9 @@ private:
 
   struct object_t
   {
-    core::handle_t mesh;
-    core::handle_t material;
-    core::handle_t transform;
+    core::bkk_handle_t mesh;
+    core::bkk_handle_t material;
+    core::bkk_handle_t transform;
     render::gpu_buffer_t ubo;
     render::descriptor_set_t descriptorSet;
   };
@@ -1099,10 +1099,10 @@ int main()
   pbr_renderer_t renderer;
 
   //Generate scene
-  core::handle_t sphere = renderer.addMesh("../resources/sphere_hipoly.obj");  
+  core::bkk_handle_t sphere = renderer.addMesh("../resources/sphere_hipoly.obj");  
   u32 roughnessSamples = 9;
-  std::vector<core::handle_t> materials(roughnessSamples*roughnessSamples);
-  std::vector<core::handle_t> objects(roughnessSamples*roughnessSamples);
+  std::vector<core::bkk_handle_t> materials(roughnessSamples*roughnessSamples);
+  std::vector<core::bkk_handle_t> objects(roughnessSamples*roughnessSamples);
   float roughness = 1.0f / roughnessSamples;
   float F0 = 1.0f / roughnessSamples;
 

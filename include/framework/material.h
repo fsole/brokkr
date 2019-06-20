@@ -13,7 +13,7 @@
 
 #include "core/maths.h"
 #include "core/render.h"
-#include "core/packed-freelist.h"
+#include "core/handle.h"
 
 #include "framework/shader.h"
 #include "framework/frame-buffer.h"
@@ -22,7 +22,7 @@ namespace bkk
 {
   namespace framework
   {
-    typedef bkk::core::handle_t material_handle_t;
+    typedef bkk::core::bkk_handle_t material_bkk_handle_t;
 
     class renderer_t;
     
@@ -30,7 +30,7 @@ namespace bkk
     {
       public:
         material_t();
-        material_t(shader_handle_t shader, renderer_t* renderer );
+        material_t(shader_bkk_handle_t shader, renderer_t* renderer );
 
         bool setProperty(const char* property, float value);
         bool setProperty(const char* property, uint32_t value);
@@ -43,17 +43,17 @@ namespace bkk
         
         bool setBuffer(const char* property, core::render::gpu_buffer_t buffer);
         bool setTexture(const char* property, core::render::texture_t texture );
-        bool setTexture(const char* property, render_target_handle_t randerTarget);
+        bool setTexture(const char* property, render_target_bkk_handle_t randerTarget);
         
         void destroy(renderer_t* renderer);
 
-        core::render::graphics_pipeline_t getPipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer);
+        core::render::graphics_pipeline_t getPipeline(const char* name, frame_buffer_bkk_handle_t framebuffer, renderer_t* renderer);
         core::render::descriptor_set_t getDescriptorSet(const char* pass = nullptr);
         core::render::descriptor_set_t getDescriptorSet(uint32_t pass);
 
       protected:
         renderer_t* renderer_;
-        shader_handle_t shader_;
+        shader_bkk_handle_t shader_;
 
         std::vector<uint8_t*> bufferData_;
         std::vector<size_t> bufferDataSize_;

@@ -334,7 +334,7 @@ public:
     initializeOffscreenPass(context, size);    
   }
 
-  core::handle_t addQuadMesh()
+  core::bkk_handle_t addQuadMesh()
   {
     struct Vertex
     {
@@ -359,14 +359,14 @@ public:
     return mesh_.add( mesh );
   }
 
-  core::handle_t addMesh(const char* url )
+  core::bkk_handle_t addMesh(const char* url )
   {
     mesh::mesh_t mesh;
     mesh::createFromFile( getRenderContext(), url, mesh::EXPORT_NORMALS, &allocator_, 0u, &mesh);
     return mesh_.add( mesh );
   }
 
-  core::handle_t addMaterial( const vec3& albedo, float metallic, const vec3& F0, float roughness )
+  core::bkk_handle_t addMaterial( const vec3& albedo, float metallic, const vec3& F0, float roughness )
   {
     render::context_t& context = getRenderContext();
 
@@ -385,11 +385,11 @@ public:
     return material_.add( material );
   }
 
-  core::handle_t addObject( core::handle_t meshId, core::handle_t materialId, const maths::mat4& transform )
+  core::bkk_handle_t addObject( core::bkk_handle_t meshId, core::bkk_handle_t materialId, const maths::mat4& transform )
   {
     render::context_t& context = getRenderContext();
 
-    core::handle_t transformId = transformManager_.createTransform( transform );
+    core::bkk_handle_t transformId = transformManager_.createTransform( transform );
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
@@ -403,7 +403,7 @@ public:
     return object_.add( object );
   }
 
-  core::handle_t addLight(const maths::vec3& position,float radius, const maths::vec3& color )
+  core::bkk_handle_t addLight(const maths::vec3& position,float radius, const maths::vec3& color )
   {
     render::context_t& context = getRenderContext();
 
@@ -908,9 +908,9 @@ private:
 
   struct object_t
   {
-    core::handle_t mesh;
-    core::handle_t material;
-    core::handle_t transform;
+    core::bkk_handle_t mesh;
+    core::bkk_handle_t material;
+    core::bkk_handle_t transform;
     render::gpu_buffer_t ubo;
     render::descriptor_set_t descriptorSet;
   };
@@ -989,22 +989,22 @@ int main()
   deferred_shading_sample_t scene;
   
   //Materials  
-  core::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f),0.7f);
-  core::handle_t redWall = scene.addMaterial( vec3(0.5f,0.0f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
-  core::handle_t greenWall = scene.addMaterial( vec3(0.0f,0.5f,0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
-  core::handle_t gold = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.000f, 0.766f, 0.336f), 0.3f);
-  core::handle_t silver = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(0.972f, 0.960f, 0.915f), 0.3f);
-  core::handle_t copper = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.0f, 0.437f, 0.338f), 0.3f);
-  core::handle_t redPlastic = scene.addMaterial(vec3(1.0f, 0.0f, 0.0f), 0.0f, vec3(0.05f, 0.05f, 0.05f), 0.4f);
-  core::handle_t bluePlastic = scene.addMaterial(vec3(0.0f, 0.0f, 1.0f), 0.0f, vec3(0.05f, 0.05f, 0.05f), 0.4f);
+  core::bkk_handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f),0.7f);
+  core::bkk_handle_t redWall = scene.addMaterial( vec3(0.5f,0.0f,0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
+  core::bkk_handle_t greenWall = scene.addMaterial( vec3(0.0f,0.5f,0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
+  core::bkk_handle_t gold = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.000f, 0.766f, 0.336f), 0.3f);
+  core::bkk_handle_t silver = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(0.972f, 0.960f, 0.915f), 0.3f);
+  core::bkk_handle_t copper = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.0f, 0.437f, 0.338f), 0.3f);
+  core::bkk_handle_t redPlastic = scene.addMaterial(vec3(1.0f, 0.0f, 0.0f), 0.0f, vec3(0.05f, 0.05f, 0.05f), 0.4f);
+  core::bkk_handle_t bluePlastic = scene.addMaterial(vec3(0.0f, 0.0f, 1.0f), 0.0f, vec3(0.05f, 0.05f, 0.05f), 0.4f);
 
   //Meshes
-  core::handle_t bunny = scene.addMesh( "../resources/bunny.ply" );
-  core::handle_t dragon = scene.addMesh("../resources/dragon.obj");
-  core::handle_t buddha = scene.addMesh("../resources/buddha.obj");
-  core::handle_t armadillo = scene.addMesh("../resources/armadillo.obj");
-  core::handle_t teapot = scene.addMesh("../resources/teapot.obj");
-  core::handle_t quad = scene.addQuadMesh();
+  core::bkk_handle_t bunny = scene.addMesh( "../resources/bunny.ply" );
+  core::bkk_handle_t dragon = scene.addMesh("../resources/dragon.obj");
+  core::bkk_handle_t buddha = scene.addMesh("../resources/buddha.obj");
+  core::bkk_handle_t armadillo = scene.addMesh("../resources/armadillo.obj");
+  core::bkk_handle_t teapot = scene.addMesh("../resources/teapot.obj");
+  core::bkk_handle_t quad = scene.addQuadMesh();
 
 
   //Objects

@@ -11,10 +11,10 @@
 
 using namespace bkk::core;
 
-handle_t transform_manager_t::createTransform( const maths::mat4& transform )
+bkk_handle_t transform_manager_t::createTransform( const maths::mat4& transform )
 {
-  handle_t id = transform_.add( transform );
-  if( id.index_ >= parent_.size() )
+  bkk_handle_t id = transform_.add( transform );
+  if( id.index >= parent_.size() )
   {
     //Resize vectors
     uint32_t newSize = (uint32_t)parent_.size() + 1u;
@@ -22,13 +22,13 @@ handle_t transform_manager_t::createTransform( const maths::mat4& transform )
     world_.resize( newSize );
   }
 
-  parent_[id.index_] = NULL_HANDLE;
+  parent_[id.index] = BKK_NULL_HANDLE;
   hierarchy_changed_ = true;
 
   return id;
 }
 
-bool transform_manager_t::destroyTransform( handle_t id )
+bool transform_manager_t::destroyTransform( bkk_handle_t id )
 {
   hierarchy_changed_ = true;
 
@@ -37,7 +37,7 @@ bool transform_manager_t::destroyTransform( handle_t id )
   if( transform_.getIndexFromId( id, &index ) && index < lastTransform )
   {
     {
-      handle_t temp = parent_[index];
+      bkk_handle_t temp = parent_[index];
       parent_[index] = parent_[lastTransform];
       parent_[lastTransform] = temp;
     }
@@ -52,12 +52,12 @@ bool transform_manager_t::destroyTransform( handle_t id )
   return transform_.remove( id );
 }
 
-maths::mat4* transform_manager_t::getTransform( handle_t id )
+maths::mat4* transform_manager_t::getTransform( bkk_handle_t id )
 {
   return transform_.get(id);
 }
 
-bool transform_manager_t::setTransform( handle_t id, const maths::mat4& transform )
+bool transform_manager_t::setTransform( bkk_handle_t id, const maths::mat4& transform )
 {
   maths::mat4* t = transform_.get(id);
   if( t )
@@ -69,7 +69,7 @@ bool transform_manager_t::setTransform( handle_t id, const maths::mat4& transfor
   return false;
 }
 
-bool transform_manager_t::setParent( handle_t id, handle_t parentId )
+bool transform_manager_t::setParent( bkk_handle_t id, bkk_handle_t parentId )
 {
   hierarchy_changed_ = true;
   uint32_t index;
@@ -82,7 +82,7 @@ bool transform_manager_t::setParent( handle_t id, handle_t parentId )
   return false;
 }
 
-handle_t transform_manager_t::getParent( handle_t id )
+bkk_handle_t transform_manager_t::getParent( bkk_handle_t id )
 {
   uint32_t index;
   if( transform_.getIndexFromId( id, &index ) )
@@ -90,10 +90,10 @@ handle_t transform_manager_t::getParent( handle_t id )
     return parent_[index];
   }
 
-  return NULL_HANDLE;
+  return BKK_NULL_HANDLE;
 }
 
-maths::mat4* transform_manager_t::getWorldMatrix( handle_t id )
+maths::mat4* transform_manager_t::getWorldMatrix( bkk_handle_t id )
 {
   uint32_t index;
   transform_.getIndexFromId( id, &index );
@@ -109,19 +109,19 @@ maths::mat4* transform_manager_t::getWorldMatrix( handle_t id )
 void transform_manager_t::sortTransforms()
 {
   //1.Sort based on tree depth level to make sure we compute parent transform before its children
-  struct transform_handle_t
+  struct transform_bkk_handle_t
   {
-    handle_t id;
-    handle_t parent;
+    bkk_handle_t id;
+    bkk_handle_t parent;
     u32 level;
-    bool operator<(const transform_handle_t& item) const{ return level < item.level; }
+    bool operator<(const transform_bkk_handle_t& item) const{ return level < item.level; }
   };
 
   u32 count( transform_.getElementCount() );
-  std::vector<transform_handle_t> orderedTransform(count);
+  std::vector<transform_bkk_handle_t> orderedTransform(count);
   for( u32 i(0); i<count; ++i )
   {
-    handle_t parentId = parent_[i];
+    bkk_handle_t parentId = parent_[i];
     orderedTransform[i] = {transform_.getIdFromIndex( i ), parentId, 0};
 
     u32 parentIndex;

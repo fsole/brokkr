@@ -549,7 +549,7 @@ public:
     load(url);
   }
     
-  core::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness,std::string diffuseMap)
+  core::bkk_handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness,std::string diffuseMap)
   {
     render::context_t& context = getRenderContext();
 
@@ -582,11 +582,11 @@ public:
     return material_.add(material);
   }
 
-  core::handle_t addObject(core::handle_t meshId, core::handle_t materialId, const maths::mat4& transform)
+  core::bkk_handle_t addObject(core::bkk_handle_t meshId, core::bkk_handle_t materialId, const maths::mat4& transform)
   {
     render::context_t& context = getRenderContext();
 
-    core::handle_t transformId = transformManager_.createTransform(transform);
+    core::bkk_handle_t transformId = transformManager_.createTransform(transform);
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
@@ -632,7 +632,7 @@ public:
     }
   }
 
-  core::handle_t addPointLight(const maths::vec3& position, float radius, const maths::vec3& color)
+  core::bkk_handle_t addPointLight(const maths::vec3& position, float radius, const maths::vec3& color)
   {
     render::context_t& context = getRenderContext();
 
@@ -868,7 +868,7 @@ private:
     //Meshes
     mesh::mesh_t* mesh = nullptr;
     uint32_t meshCount = mesh::createFromFile(context, url, mesh::EXPORT_ALL, &allocator_, &mesh);
-    std::vector<core::handle_t> meshHandles(meshCount);
+    std::vector<core::bkk_handle_t> meshHandles(meshCount);
     for (u32 i(0); i < meshCount; ++i)
     {
       meshHandles[i] = mesh_.add(mesh[i]);
@@ -879,7 +879,7 @@ private:
     mesh::material_data_t* materials;
     uint32_t* materialIndex;
     uint32_t materialCount = mesh::loadMaterialData(url, &materialIndex, &materials);
-    std::vector<core::handle_t> materialHandles(materialCount);
+    std::vector<core::bkk_handle_t> materialHandles(materialCount);
 
     std::string modelPath = url;
     modelPath = modelPath.substr(0u, modelPath.find_last_of('/') + 1);
@@ -1299,9 +1299,9 @@ private:
 
   struct object_t
   {
-    core::handle_t mesh;
-    core::handle_t material;
-    core::handle_t transform;
+    core::bkk_handle_t mesh;
+    core::bkk_handle_t material;
+    core::bkk_handle_t transform;
     render::gpu_buffer_t ubo;
     render::descriptor_set_t descriptorSet;
   };

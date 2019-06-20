@@ -198,7 +198,7 @@ void gui::draw(const render::context_t& context, render::command_buffer_t comman
 
   if (vertex_size > 0 && index_size > 0)
   {
-    render::commandBufferDebugMarkerBegin(context, commandBuffer, "ImGui_draw");
+    render::commandBufferDebugMarkerBegin(context, commandBuffer, "gui::draw");
 
     if (gGuiContext.vertexBuffer.memory.size < vertex_size)
     {

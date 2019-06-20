@@ -122,6 +122,9 @@
     <ClInclude Include="..\..\include\core\dictionary.h">
       <Filter>Header Files\core</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\core\handle.h">
+      <Filter>Header Files\core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\core\image.cpp">

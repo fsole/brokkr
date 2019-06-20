@@ -16,12 +16,12 @@ using namespace bkk::framework;
 using namespace bkk::core;
 
 material_t::material_t()
-:shader_(core::NULL_HANDLE),
+:shader_(core::BKK_NULL_HANDLE),
  renderer_(nullptr)
 {
 }
 
-material_t::material_t(shader_handle_t shaderHandle, renderer_t* renderer)
+material_t::material_t(shader_bkk_handle_t shaderHandle, renderer_t* renderer)
 :shader_(shaderHandle),
  renderer_(renderer)
 {
@@ -87,7 +87,7 @@ void material_t::destroy(renderer_t* renderer)
   }
 }
 
-render::graphics_pipeline_t material_t::getPipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer)
+render::graphics_pipeline_t material_t::getPipeline(const char* name, frame_buffer_bkk_handle_t framebuffer, renderer_t* renderer)
 {
   shader_t* shader = renderer->getShader(shader_);
   if (shader)
@@ -212,7 +212,7 @@ bool material_t::setBuffer(const char* property, render::gpu_buffer_t buffer)
   return true;
 }
 
-bool material_t::setTexture(const char* property, render_target_handle_t randerTarget)
+bool material_t::setTexture(const char* property, render_target_bkk_handle_t randerTarget)
 {
   render_target_t* targetPtr = renderer_->getRenderTarget(randerTarget);
   if (targetPtr != nullptr)

@@ -7,7 +7,7 @@
 */
 
 #include "core/maths.h"
-#include "core/packed-freelist.h"
+#include "core/handle.h"
 
 #include "framework/camera.h"
 #include "framework/actor.h"
@@ -115,13 +115,13 @@ orbiting_camera_controller_t::orbiting_camera_controller_t(const maths::vec3& ta
  offset_(offset),
  angle_(angle),
  rotationSensitivity_(rotationSensitivity),
- cameraHandle_(bkk::core::NULL_HANDLE),
+ cameraHandle_(bkk::core::BKK_NULL_HANDLE),
  renderer_(nullptr)
 {
   Update();
 }
 
-void orbiting_camera_controller_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
+void orbiting_camera_controller_t::setCameraHandle(camera_bkk_handle_t cameraHandle, renderer_t* renderer)
 {
   cameraHandle_ = cameraHandle;
   renderer_ = renderer;
@@ -151,7 +151,7 @@ void orbiting_camera_controller_t::Update()
   maths::mat4 tx = maths::createTransform(maths::vec3(0.0f, 0.0f, offset_), maths::VEC3_ONE, maths::QUAT_UNIT) * maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, orientation) * maths::createTransform(target_, maths::VEC3_ONE, maths::QUAT_UNIT);
   maths::invertMatrix(tx, &view_);
 
-  if (cameraHandle_ != bkk::core::NULL_HANDLE)
+  if (cameraHandle_ != bkk::core::BKK_NULL_HANDLE)
   {
     camera_t* camera = renderer_->getCamera(cameraHandle_);
     if (camera)
@@ -170,7 +170,7 @@ free_camera_controller_t::free_camera_controller_t()
  angle_(0.0f, 0.0f),
  velocity_(1.0f),
  rotationSensitivity_(0.01f),
- cameraHandle_(bkk::core::NULL_HANDLE),
+ cameraHandle_(bkk::core::BKK_NULL_HANDLE),
  renderer_(nullptr)
 {
   Update();
@@ -181,13 +181,13 @@ free_camera_controller_t::free_camera_controller_t(const maths::vec3& position, 
   angle_(angle),
   velocity_(velocity),
   rotationSensitivity_(rotationSensitivity),
-  cameraHandle_(bkk::core::NULL_HANDLE),
+  cameraHandle_(bkk::core::BKK_NULL_HANDLE),
   renderer_(nullptr)
 {
   Update();
 }
 
-void free_camera_controller_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
+void free_camera_controller_t::setCameraHandle(camera_bkk_handle_t cameraHandle, renderer_t* renderer)
 {
   cameraHandle_ = cameraHandle;
   renderer_ = renderer;
@@ -218,7 +218,7 @@ void free_camera_controller_t::Update()
   tx_ = maths::createTransform(position_, maths::VEC3_ONE, orientation);
   maths::invertMatrix(tx_, &view_);
 
-  if (cameraHandle_ != bkk::core::NULL_HANDLE)
+  if (cameraHandle_ != bkk::core::BKK_NULL_HANDLE)
   {
     camera_t* camera = renderer_->getCamera(cameraHandle_);
     if (camera)

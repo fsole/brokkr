@@ -382,7 +382,7 @@ struct TXAA_sample_t : public framework::application_t
     initializeOffscreenPass(context, size);
   }
 
-  core::handle_t addQuadMesh()
+  core::bkk_handle_t addQuadMesh()
   {
     struct Vertex
     {
@@ -407,14 +407,14 @@ struct TXAA_sample_t : public framework::application_t
     return mesh_.add(mesh);
   }
 
-  core::handle_t addMesh(const char* url)
+  core::bkk_handle_t addMesh(const char* url)
   {
     mesh::mesh_t mesh;
     mesh::createFromFile(getRenderContext(), url, mesh::EXPORT_NORMALS, &allocator_, 0u, &mesh);
     return mesh_.add(mesh);
   }
 
-  core::handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness)
+  core::bkk_handle_t addMaterial(const vec3& albedo, float metallic, const vec3& F0, float roughness)
   {
     render::context_t& context = getRenderContext();
 
@@ -433,11 +433,11 @@ struct TXAA_sample_t : public framework::application_t
     return material_.add(material);
   }
 
-  core::handle_t addObject(core::handle_t meshId, core::handle_t materialId, const maths::mat4& transform)
+  core::bkk_handle_t addObject(core::bkk_handle_t meshId, core::bkk_handle_t materialId, const maths::mat4& transform)
   {
     render::context_t& context = getRenderContext();
 
-    core::handle_t transformId = transformManager_.createTransform(transform);
+    core::bkk_handle_t transformId = transformManager_.createTransform(transform);
 
     //Create uniform buffer and descriptor set
     render::gpu_buffer_t ubo;
@@ -451,7 +451,7 @@ struct TXAA_sample_t : public framework::application_t
     return object_.add(object);
   }
 
-  core::handle_t addLight(const maths::vec3& position, float radius, const maths::vec3& color)
+  core::bkk_handle_t addLight(const maths::vec3& position, float radius, const maths::vec3& color)
   {
     render::context_t& context = getRenderContext();
 
@@ -1010,9 +1010,9 @@ private:
 
   struct object_t
   {
-    core::handle_t mesh;
-    core::handle_t material;
-    core::handle_t transform;
+    core::bkk_handle_t mesh;
+    core::bkk_handle_t material;
+    core::bkk_handle_t transform;
     render::gpu_buffer_t ubo;
     render::descriptor_set_t descriptorSet;
   };
@@ -1105,14 +1105,14 @@ int main()
   TXAA_sample_t scene;
 
   //Materials  
-  core::handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
-  core::handle_t redWall = scene.addMaterial(vec3(0.5f, 0.0f, 0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
-  core::handle_t greenWall = scene.addMaterial(vec3(0.0f, 0.5f, 0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
-  core::handle_t gold = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.000f, 0.766f, 0.336f), 0.3f);
+  core::bkk_handle_t wall = scene.addMaterial(vec3(0.5f, 0.5f, 0.5f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
+  core::bkk_handle_t redWall = scene.addMaterial(vec3(0.5f, 0.0f, 0.0f), 0.0f, vec3(0.04f, 0.04f, 0.04f), 0.7f);
+  core::bkk_handle_t greenWall = scene.addMaterial(vec3(0.0f, 0.5f, 0.0f), 0.0f, vec3(0.004f, 0.004f, 0.004f), 0.7f);
+  core::bkk_handle_t gold = scene.addMaterial(vec3(0.0f, 0.0f, 0.0f), 1.0f, vec3(1.000f, 0.766f, 0.336f), 0.3f);
 
   //Meshes
-  core::handle_t teapot = scene.addMesh("../resources/teapot.obj");
-  core::handle_t quad = scene.addQuadMesh();
+  core::bkk_handle_t teapot = scene.addMesh("../resources/teapot.obj");
+  core::bkk_handle_t quad = scene.addQuadMesh();
  
   //Objects
   scene.addObject(quad, wall, maths::createTransform(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(5.0f, 5.0f, 5.0f), maths::QUAT_UNIT));

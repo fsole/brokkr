@@ -33,8 +33,8 @@ namespace bkk
 
   namespace framework
   {
-    typedef core::handle_t mesh_handle_t;
-    typedef core::handle_t camera_handle_t;
+    typedef core::bkk_handle_t mesh_bkk_handle_t;
+    typedef core::bkk_handle_t camera_bkk_handle_t;
 
     class command_buffer_t;
 
@@ -47,46 +47,46 @@ namespace bkk
         void initialize(const char* title, uint32_t imageCount, const core::window::window_t& window);
         core::render::context_t& getContext();
 
-        shader_handle_t shaderCreate(const char* file);
-        void shaderDestroy(shader_handle_t handle);
-        shader_t* getShader(shader_handle_t handle);
+        shader_bkk_handle_t shaderCreate(const char* file);
+        void shaderDestroy(shader_bkk_handle_t handle);
+        shader_t* getShader(shader_bkk_handle_t handle);
 
-        material_handle_t materialCreate(shader_handle_t shader);
-        void materialDestroy(material_handle_t handle);
-        material_t* getMaterial(material_handle_t handle);
+        material_bkk_handle_t materialCreate(shader_bkk_handle_t shader);
+        void materialDestroy(material_bkk_handle_t handle);
+        material_t* getMaterial(material_bkk_handle_t handle);
 
-        compute_material_handle_t computeMaterialCreate(shader_handle_t shader);
-        void computeMaterialDestroy(compute_material_handle_t handle);
-        compute_material_t* getComputeMaterial(compute_material_handle_t handle);
+        compute_material_bkk_handle_t computeMaterialCreate(shader_bkk_handle_t shader);
+        void computeMaterialDestroy(compute_material_bkk_handle_t handle);
+        compute_material_t* getComputeMaterial(compute_material_bkk_handle_t handle);
 
-        render_target_handle_t renderTargetCreate(uint32_t width, uint32_t height,VkFormat format,bool depthBuffer);
-        void renderTargetDestroy(render_target_handle_t handle);
-        render_target_t* getRenderTarget(render_target_handle_t handle);
+        render_target_bkk_handle_t renderTargetCreate(uint32_t width, uint32_t height,VkFormat format,bool depthBuffer);
+        void renderTargetDestroy(render_target_bkk_handle_t handle);
+        render_target_t* getRenderTarget(render_target_bkk_handle_t handle);
 
-        frame_buffer_handle_t frameBufferCreate(render_target_handle_t* renderTargets, uint32_t targetCount,VkImageLayout* initialLayouts = nullptr, VkImageLayout* finalLayouts = nullptr);
-        void frameBufferDestroy(frame_buffer_handle_t handle);
-        frame_buffer_t* getFrameBuffer(frame_buffer_handle_t handle);
+        frame_buffer_bkk_handle_t frameBufferCreate(render_target_bkk_handle_t* renderTargets, uint32_t targetCount,VkImageLayout* initialLayouts = nullptr, VkImageLayout* finalLayouts = nullptr);
+        void frameBufferDestroy(frame_buffer_bkk_handle_t handle);
+        frame_buffer_t* getFrameBuffer(frame_buffer_bkk_handle_t handle);
 
-        mesh_handle_t meshAdd(const core::mesh::mesh_t& mesh);
-        mesh_handle_t meshCreate(const char* file, core::mesh::export_flags_e exportFlags, core::render::gpu_memory_allocator_t* allocator = nullptr, uint32_t submesh = 0);
-        void meshDestroy(mesh_handle_t handle);
-        core::mesh::mesh_t* getMesh(mesh_handle_t handle);
+        mesh_bkk_handle_t meshAdd(const core::mesh::mesh_t& mesh);
+        mesh_bkk_handle_t meshCreate(const char* file, core::mesh::export_flags_e exportFlags, core::render::gpu_memory_allocator_t* allocator = nullptr, uint32_t submesh = 0);
+        void meshDestroy(mesh_bkk_handle_t handle);
+        core::mesh::mesh_t* getMesh(mesh_bkk_handle_t handle);
 
-        actor_handle_t actorCreate(const char* name, mesh_handle_t mesh, material_handle_t material, core::maths::mat4 transform = core::maths::mat4(), uint32_t instanceCount = 1);
-        void actorDestroy(actor_handle_t handle);
-        actor_t* getActor(actor_handle_t handle);        
-        void actorSetParent(actor_handle_t actor, actor_handle_t parent);
-        void actorSetTransform(actor_handle_t actor, const core::maths::mat4& newTransform);
-        actor_handle_t getRootActor() { return rootActor_; }
+        actor_bkk_handle_t actorCreate(const char* name, mesh_bkk_handle_t mesh, material_bkk_handle_t material, core::maths::mat4 transform = core::maths::mat4(), uint32_t instanceCount = 1);
+        void actorDestroy(actor_bkk_handle_t handle);
+        actor_t* getActor(actor_bkk_handle_t handle);        
+        void actorSetParent(actor_bkk_handle_t actor, actor_bkk_handle_t parent);
+        void actorSetTransform(actor_bkk_handle_t actor, const core::maths::mat4& newTransform);
+        actor_bkk_handle_t getRootActor() { return rootActor_; }
 
-        camera_handle_t cameraAdd(const camera_t& camera);
-        void cameraDestroy(camera_handle_t handle);
-        camera_t* getCamera(camera_handle_t handle);
+        camera_bkk_handle_t cameraAdd(const camera_t& camera);
+        void cameraDestroy(camera_bkk_handle_t handle);
+        camera_t* getCamera(camera_bkk_handle_t handle);
         camera_t* getActiveCamera();
-        bool setupCamera(camera_handle_t camera);
-        int getVisibleActors(camera_handle_t camera, actor_t** actors);
+        bool setupCamera(camera_bkk_handle_t camera);
+        int getVisibleActors(camera_bkk_handle_t camera, actor_t** actors);
 
-        frame_buffer_handle_t getBackBuffer();
+        frame_buffer_bkk_handle_t getBackBuffer();
         VkSemaphore getRenderCompleteSemaphore();
         core::render::descriptor_set_layout_t getGlobalsDescriptorSetLayout();
         core::render::descriptor_set_layout_t getObjectDescriptorSetLayout();
@@ -114,9 +114,9 @@ namespace bkk
         core::packed_freelist_t<render_target_t> renderTargets_;
         core::packed_freelist_t<frame_buffer_t> framebuffers_;
         
-        frame_buffer_handle_t backBuffer_;
-        camera_handle_t activeCamera_;
-        actor_handle_t rootActor_;
+        frame_buffer_bkk_handle_t backBuffer_;
+        camera_bkk_handle_t activeCamera_;
+        actor_bkk_handle_t rootActor_;
 
         core::render::descriptor_set_layout_t globalsDescriptorSetLayout_;
         core::render::descriptor_set_layout_t objectDescriptorSetLayout_;
@@ -130,7 +130,7 @@ namespace bkk
         bkk::core::render::graphics_pipeline_t presentationPipeline_;
 
         //Texture blit resources
-        material_handle_t textureBlit_;
+        material_bkk_handle_t textureBlit_;
         bkk::core::render::descriptor_set_layout_t textureBlitDescriptorSetLayout_;
         bkk::core::render::pipeline_layout_t textureBlitPipelineLayout_;
         bkk::core::render::shader_t textureBlitVertexShader_;

@@ -21,7 +21,7 @@ using namespace bkk::framework;
 
 command_buffer_t::command_buffer_t()
   :renderer_(nullptr),
-  frameBuffer_(NULL_HANDLE),
+  frameBuffer_(BKK_NULL_HANDLE),
   commandBuffer_(),
   semaphore_(),
   clearColor_(),
@@ -42,9 +42,9 @@ command_buffer_t::command_buffer_t(renderer_t* renderer )
 command_buffer_t::~command_buffer_t()
 {}
 
-void command_buffer_t::setFrameBuffer(frame_buffer_handle_t framebuffer)
+void command_buffer_t::setFrameBuffer(frame_buffer_bkk_handle_t framebuffer)
 {
-  if (framebuffer == NULL_HANDLE)
+  if (framebuffer == BKK_NULL_HANDLE)
   {
     frameBuffer_ = renderer_->getBackBuffer();
   }
@@ -179,10 +179,10 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
   render::commandBufferEnd(commandBuffer_);
 }
 
-void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle_t materialHandle, const char* pass)
+void command_buffer_t::blit(render_target_bkk_handle_t renderTarget, material_bkk_handle_t materialHandle, const char* pass)
 {
   bkk::core::render::texture_t texture = {};
-  if (renderer_  && renderTarget != core::NULL_HANDLE)
+  if (renderer_  && renderTarget != core::BKK_NULL_HANDLE)
   {
     texture = renderer_->getRenderTarget(renderTarget)->getColorBuffer();    
   }
@@ -190,12 +190,12 @@ void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle
   blit(texture, materialHandle, pass);
 }
 
-void command_buffer_t::blit(const bkk::core::render::texture_t& texture, material_handle_t materialHandle, const char* pass)
+void command_buffer_t::blit(const bkk::core::render::texture_t& texture, material_bkk_handle_t materialHandle, const char* pass)
 {
   if (!renderer_) return;
 
   material_t* material = nullptr;
-  if (materialHandle != NULL_HANDLE)
+  if (materialHandle != BKK_NULL_HANDLE)
   {
     material = renderer_->getMaterial(materialHandle);
   }
@@ -233,7 +233,7 @@ void command_buffer_t::blit(const bkk::core::render::texture_t& texture, materia
   render::commandBufferEnd(commandBuffer_);
 }
 
-void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
+void command_buffer_t::dispatchCompute(compute_material_bkk_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
 {
   if (!renderer_) return;
 
@@ -245,7 +245,7 @@ void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial
   computeMaterialPtr->dispatch(commandBuffer_, pass, groupSizeX, groupSizeY, groupSizeZ);
 }
 
-void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, const char* pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
+void command_buffer_t::dispatchCompute(compute_material_bkk_handle_t computeMaterial, const char* pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
 {
   if (!renderer_) return;
   

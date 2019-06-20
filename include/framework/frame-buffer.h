@@ -18,13 +18,13 @@ namespace bkk
   {
     class renderer;
 
-    typedef bkk::core::handle_t frame_buffer_handle_t;
+    typedef bkk::core::bkk_handle_t frame_buffer_bkk_handle_t;
 
     class frame_buffer_t
     {
       public:
         frame_buffer_t();
-        frame_buffer_t(render_target_handle_t* renderTargets, uint32_t targetCount,
+        frame_buffer_t(render_target_bkk_handle_t* renderTargets, uint32_t targetCount,
           VkImageLayout* initialLayouts, VkImageLayout* finalLayouts, renderer_t* renderer );
 
         void destroy(renderer_t* renderer);
@@ -45,7 +45,7 @@ namespace bkk
         uint32_t height_;
         uint32_t targetCount_;
 
-        render_target_handle_t* renderTargets_;
+        render_target_bkk_handle_t* renderTargets_;
       };
 
   }//framework

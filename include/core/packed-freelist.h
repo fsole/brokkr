@@ -9,7 +9,8 @@
 #ifndef PACKED_FREELIST_H
 #define PACKED_FREELIST_H
 
-#include "core/dynamic-array.h"
+#include "core/handle.h"
+
 #include <assert.h>
 #include <vector>
 
@@ -17,23 +18,6 @@ namespace bkk
 {
   namespace core
   {
-    struct handle_t
-    {
-      uint16_t index_;
-      uint16_t generation_;
-
-      bool operator==(const handle_t& handle) const
-      {
-        return (index_ == handle.index_) && (generation_ == handle.generation_);
-      }
-
-      bool operator!=(const handle_t& handle) const
-      {
-        return (index_ != handle.index_) || (generation_ != handle.generation_);
-      }
-    };
-
-    static const handle_t NULL_HANDLE = { 65535u,65535u };
 
     template <typename T> class packed_freelist_iterator_t;
 
@@ -43,7 +27,7 @@ namespace bkk
     public:
       packed_freelist_t() :headFreeList_(0u), elementCount_(0u) {}
 
-      handle_t add(const T& data)
+      bkk_handle_t add(const T& data)
       {
         assert(elementCount_ < 65535u);
 
@@ -68,16 +52,16 @@ namespace bkk
 
         //Update the free list
         uint16_t index = headFreeList_;
-        headFreeList_ = freeList_[headFreeList_].index_;
-        freeList_[index].index_ = elementCount_;
+        headFreeList_ = freeList_[headFreeList_].index;
+        freeList_[index].index = elementCount_;
 
-        handle_t id = { index, freeList_[index].generation_ };
+        bkk_handle_t id = { index, freeList_[index].generation };
         id_[elementCount_] = id;
         ++elementCount_;
         return id;
       }
 
-      T* get(handle_t id)
+      T* get(bkk_handle_t id)
       {
         uint32_t index;
         if (getIndexFromId(id, &index))
@@ -87,14 +71,14 @@ namespace bkk
         return nullptr;
       }
 
-      void swap(handle_t id0, handle_t id1)
+      void swap(bkk_handle_t id0, bkk_handle_t id1)
       {
         uint32_t index0;
         uint32_t index1;
         if (getIndexFromId(id0, &index0) && getIndexFromId(id1, &index1) && index0 != index1)
         {
-          freeList_[id0.index_].index_ = index1;
-          freeList_[id1.index_].index_ = index0;
+          freeList_[id0.index].index = index1;
+          freeList_[id1.index].index = index0;
 
           //Swap data
           T dataTmp = data_[index0];
@@ -102,13 +86,13 @@ namespace bkk
           data_[index1] = dataTmp;
 
           //Swap id
-          handle_t idTmp = id_[index0];
+          bkk_handle_t idTmp = id_[index0];
           id_[index0] = id_[index1];
           id_[index1] = idTmp;
         }
       }
 
-      bool remove(handle_t id)
+      bool remove(bkk_handle_t id)
       {
         uint32_t index;
         if (getIndexFromId(id, &index))
@@ -121,9 +105,9 @@ namespace bkk
           }
 
           //2. Update the free list
-          freeList_[id.index_].index_ = headFreeList_;
-          freeList_[id.index_].generation_++;
-          headFreeList_ = id.index_;
+          freeList_[id.index].index = headFreeList_;
+          freeList_[id.index].generation++;
+          headFreeList_ = id.index;
 
           --elementCount_;
           return true;
@@ -132,16 +116,16 @@ namespace bkk
         return false;
       }
 
-      handle_t getIdFromIndex(uint32_t index) const
+      bkk_handle_t getIdFromIndex(uint32_t index) const
       {
         return id_[index];
       }
 
-      bool getIndexFromId(handle_t id, uint32_t* index) const
+      bool getIndexFromId(bkk_handle_t id, uint32_t* index) const
       {
-        if (id.index_ < freeList_.size() && id.generation_ == freeList_[id.index_].generation_)
+        if (id.index < freeList_.size() && id.generation == freeList_[id.index].generation)
         {
-          *index = freeList_[id.index_].index_;
+          *index = freeList_[id.index].index;
           return true;
         }
 
@@ -171,11 +155,11 @@ namespace bkk
 
     private:
 
-      std::vector<handle_t> freeList_;  // Free list of IDs (vector with holes)
+      std::vector<bkk_handle_t> freeList_;  // Free list of IDs (vector with holes)
       uint16_t headFreeList_;           // Head of the free list (fist free element in freeList_)
 
       std::vector<T> data_;             // Packed data
-      std::vector<handle_t> id_;        // Id of each packed element (Needed to go from index to ID)
+      std::vector<bkk_handle_t> id_;        // Id of each packed element (Needed to go from index to ID)
       uint16_t elementCount_;           // Number of packed elements
     };
 

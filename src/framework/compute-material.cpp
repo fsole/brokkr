@@ -17,7 +17,7 @@ compute_material_t::compute_material_t()
 {
 }
 
-compute_material_t::compute_material_t(shader_handle_t shaderHandle, renderer_t* renderer)
+compute_material_t::compute_material_t(shader_bkk_handle_t shaderHandle, renderer_t* renderer)
 :material_t(shaderHandle, renderer)
 {
 }

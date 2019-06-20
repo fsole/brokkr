@@ -831,7 +831,7 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
   return false;
 }
 
-core::render::graphics_pipeline_t shader_t::getPipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer)
+core::render::graphics_pipeline_t shader_t::getPipeline(const char* name, frame_buffer_bkk_handle_t framebuffer, renderer_t* renderer)
 {
   uint64_t passName = hashString(name);
   for (uint32_t i(0); i < pass_.size(); ++i)
@@ -844,7 +844,7 @@ core::render::graphics_pipeline_t shader_t::getPipeline(const char* name, frame_
   return nullPipeline;
 }
 
-core::render::graphics_pipeline_t shader_t::getPipeline(uint32_t pass, frame_buffer_handle_t fb, renderer_t* renderer)
+core::render::graphics_pipeline_t shader_t::getPipeline(uint32_t pass, frame_buffer_bkk_handle_t fb, renderer_t* renderer)
 {
   std::vector<core::render::graphics_pipeline_t>* pipelines = graphicsPipelines_.get(fb);
   if (pipelines)

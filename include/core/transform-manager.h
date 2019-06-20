@@ -21,16 +21,16 @@ namespace bkk
     class transform_manager_t
     {
     public:
-      handle_t createTransform(const maths::mat4& transform);
-      bool destroyTransform(handle_t id);
+      bkk_handle_t createTransform(const maths::mat4& transform);
+      bool destroyTransform(bkk_handle_t id);
 
-      maths::mat4* getTransform(handle_t id);
-      bool setTransform(handle_t id, const maths::mat4& transform);
+      maths::mat4* getTransform(bkk_handle_t id);
+      bool setTransform(bkk_handle_t id, const maths::mat4& transform);
 
-      bool setParent(handle_t id, handle_t parentId);
-      handle_t getParent(handle_t id);
+      bool setParent(bkk_handle_t id, bkk_handle_t parentId);
+      bkk_handle_t getParent(bkk_handle_t id);
 
-      maths::mat4* getWorldMatrix(handle_t id);
+      maths::mat4* getWorldMatrix(bkk_handle_t id);
 
       void update();
 
@@ -40,7 +40,7 @@ namespace bkk
       void sortTransforms();
 
       packed_freelist_t<maths::mat4> transform_;
-      std::vector<handle_t> parent_;
+      std::vector<bkk_handle_t> parent_;
       std::vector<maths::mat4> world_;
 
       bool hierarchy_changed_;

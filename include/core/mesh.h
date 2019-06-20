@@ -29,7 +29,7 @@ namespace bkk
       {
         transform_manager_t txManager;
 
-        handle_t* bones;
+        bkk_handle_t* bones;
         maths::mat4* bindPose;
 
         maths::mat4 rootBoneInverseTransform;
@@ -51,7 +51,7 @@ namespace bkk
         u32 nodeCount;
         f32 duration;  //In ms
 
-        handle_t* nodes;    //Handles of animated nodes
+        bkk_handle_t* nodes;    //Handles of animated nodes
         bone_transform_t* data;
       };
 

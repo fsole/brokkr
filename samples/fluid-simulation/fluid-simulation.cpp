@@ -47,7 +47,7 @@ public:
 
     //Create and configure compute material
     renderer_t& renderer = getRenderer();
-    shader_handle_t computeShader = renderer.shaderCreate("../fluid-simulation/fluid-simulation.shader");
+    shader_bkk_handle_t computeShader = renderer.shaderCreate("../fluid-simulation/fluid-simulation.shader");
     computeMaterial_ = renderer.computeMaterialCreate(computeShader);
     compute_material_t* computePtr = renderer.getComputeMaterial(computeMaterial_);    
     computePtr->setProperty("globals.gravity", gravity_);
@@ -65,9 +65,9 @@ public:
     computePtr->setBuffer("particlesState", particleStateBuffer_);
 
     //Create particle actor
-    mesh_handle_t particleMesh = renderer.meshCreate("../resources/sphere.obj", mesh::EXPORT_ALL);
-    shader_handle_t shader = renderer.shaderCreate("../fluid-simulation/particles.shader");
-    material_handle_t particleMaterial = renderer.materialCreate(shader);
+    mesh_bkk_handle_t particleMesh = renderer.meshCreate("../resources/sphere.obj", mesh::EXPORT_ALL);
+    shader_bkk_handle_t shader = renderer.shaderCreate("../fluid-simulation/particles.shader");
+    material_bkk_handle_t particleMaterial = renderer.materialCreate(shader);
     material_t* particleMaterialPtr = renderer.getMaterial(particleMaterial);
     particleMaterialPtr->setBuffer("particles", particleBuffer_);
     renderer.actorCreate("particles", particleMesh, particleMaterial, mat4(), maxParticleCount_);
@@ -215,11 +215,11 @@ private:
     f32 padding;
   };
 
-  compute_material_handle_t computeMaterial_;    
+  compute_material_bkk_handle_t computeMaterial_;    
   render::gpu_buffer_t particleBuffer_;
   render::gpu_buffer_t particleStateBuffer_;
 
-  camera_handle_t camera_;
+  camera_bkk_handle_t camera_;
   orbiting_camera_controller_t cameraController_;
 
   //Simulation parameters

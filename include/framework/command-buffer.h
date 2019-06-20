@@ -31,16 +31,16 @@ namespace bkk
         ~command_buffer_t();
         
         void setDependencies(command_buffer_t* prevCommandBuffers, uint32_t count);
-        void setFrameBuffer(frame_buffer_handle_t frameBuffer);
+        void setFrameBuffer(frame_buffer_bkk_handle_t frameBuffer);
 
         void clearRenderTargets(core::maths::vec4 color);
         
         void render(actor_t* actors, uint32_t actorCount, const char* passName );
-        void blit(render_target_handle_t renderTarget, material_handle_t materialHandle = core::NULL_HANDLE, const char* pass = nullptr);
-        void blit(const bkk::core::render::texture_t& texture, material_handle_t materialHandle = core::NULL_HANDLE, const char* pass = nullptr);
+        void blit(render_target_bkk_handle_t renderTarget, material_bkk_handle_t materialHandle = core::BKK_NULL_HANDLE, const char* pass = nullptr);
+        void blit(const bkk::core::render::texture_t& texture, material_bkk_handle_t materialHandle = core::BKK_NULL_HANDLE, const char* pass = nullptr);
         
-        void dispatchCompute(compute_material_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ);
-        void dispatchCompute(compute_material_handle_t computeMaterial, const char* pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ);
+        void dispatchCompute(compute_material_bkk_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ);
+        void dispatchCompute(compute_material_bkk_handle_t computeMaterial, const char* pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ);
 
         void submit();
         void release();
@@ -61,7 +61,7 @@ namespace bkk
         std::vector<command_buffer_t> dependencies_;
         core::render::command_buffer_t commandBuffer_;
         VkSemaphore semaphore_;
-        frame_buffer_handle_t frameBuffer_;
+        frame_buffer_bkk_handle_t frameBuffer_;
         core::maths::vec4 clearColor_;
         bool clear_;
         bool released_;
