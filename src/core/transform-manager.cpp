@@ -109,16 +109,16 @@ maths::mat4* transform_manager_t::getWorldMatrix( bkk_handle_t id )
 void transform_manager_t::sortTransforms()
 {
   //1.Sort based on tree depth level to make sure we compute parent transform before its children
-  struct transform_bkk_handle_t
+  struct transform_handle_t
   {
     bkk_handle_t id;
     bkk_handle_t parent;
     u32 level;
-    bool operator<(const transform_bkk_handle_t& item) const{ return level < item.level; }
+    bool operator<(const transform_handle_t& item) const{ return level < item.level; }
   };
 
   u32 count( transform_.getElementCount() );
-  std::vector<transform_bkk_handle_t> orderedTransform(count);
+  std::vector<transform_handle_t> orderedTransform(count);
   for( u32 i(0); i<count; ++i )
   {
     bkk_handle_t parentId = parent_[i];

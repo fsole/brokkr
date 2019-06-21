@@ -35,24 +35,24 @@ public:
     //create scene framebuffer
     colorRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R8G8B8A8_UNORM, true);
     normalDepthRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
-    render_target_bkk_handle_t targets[] = { colorRT_, normalDepthRT_ };
+    render_target_handle_t targets[] = { colorRT_, normalDepthRT_ };
     sceneFBO_ = renderer.frameBufferCreate(targets, 2u);
 
     //create meshes
-    mesh_bkk_handle_t teapot = renderer.meshCreate("../resources/teapot.obj", mesh::EXPORT_ALL);    
-    mesh_bkk_handle_t buddha = renderer.meshCreate("../resources/buddha.obj", mesh::EXPORT_ALL);
-    mesh_bkk_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
+    mesh_handle_t teapot = renderer.meshCreate("../resources/teapot.obj", mesh::EXPORT_ALL);    
+    mesh_handle_t buddha = renderer.meshCreate("../resources/buddha.obj", mesh::EXPORT_ALL);
+    mesh_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
 
     //create materials
-    shader_bkk_handle_t shader = renderer.shaderCreate("../ambient-occlusion/simple.shader");
+    shader_handle_t shader = renderer.shaderCreate("../ambient-occlusion/simple.shader");
 
-    material_bkk_handle_t teapotMaterial = renderer.materialCreate(shader);
+    material_handle_t teapotMaterial = renderer.materialCreate(shader);
     renderer.getMaterial(teapotMaterial)->setProperty("globals.albedo", vec4(1.0f, 0.1f, 0.1f, 1.0f));
 
-    material_bkk_handle_t buddhaMaterial = renderer.materialCreate(shader);
+    material_handle_t buddhaMaterial = renderer.materialCreate(shader);
     renderer.getMaterial(buddhaMaterial)->setProperty("globals.albedo", vec4(0.1f, 1.0f, 0.1f, 1.0f));
 
-    material_bkk_handle_t planeMaterial = renderer.materialCreate(shader);
+    material_handle_t planeMaterial = renderer.materialCreate(shader);
     renderer.getMaterial(planeMaterial)->setProperty("globals.albedo", vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
     //create actors
@@ -112,7 +112,7 @@ public:
     ssaoFBO_ = renderer.frameBufferCreate(&ssaoRT_, 1u);
 
     //Create and configure ssao material 
-    shader_bkk_handle_t ssaoShader = renderer.shaderCreate("../ambient-occlusion/ssao.shader");
+    shader_handle_t ssaoShader = renderer.shaderCreate("../ambient-occlusion/ssao.shader");
     ssaoMaterial_ = renderer.materialCreate(ssaoShader);
     material_t* ssaoMaterialPtr = renderer.getMaterial(ssaoMaterial_);
     ssaoMaterialPtr->setProperty("globals.sampleCount", &ssaoSampleCount_);
@@ -121,7 +121,7 @@ public:
     ssaoMaterialPtr->setTexture("ssaoNoise", ssaoNoise_);    
 
     //Create and configure blur material
-    shader_bkk_handle_t blurShader = renderer.shaderCreate("../ambient-occlusion/blur.shader");
+    shader_handle_t blurShader = renderer.shaderCreate("../ambient-occlusion/blur.shader");
     blurMaterial_ = renderer.materialCreate(blurShader);
     renderer.getMaterial(blurMaterial_)->setTexture("sceneColorTexture", colorRT_);
   }
@@ -186,8 +186,7 @@ public:
     renderSceneCmd.setFrameBuffer(sceneFBO_);
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
-    renderSceneCmd.submit();
-    renderSceneCmd.release();
+    renderSceneCmd.submitAndRelease();
 
     if (ssaoEnabled_)
     {
@@ -198,20 +197,17 @@ public:
       command_buffer_t ssaoPass = command_buffer_t(&renderer);
       ssaoPass.setFrameBuffer(ssaoFBO_);
       ssaoPass.blit(BKK_NULL_HANDLE, ssaoMaterial_);
-      ssaoPass.submit();
-      ssaoPass.release();
+      ssaoPass.submitAndRelease();
 
       command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
       blitToBackbufferCmd.blit(ssaoRT_, blurMaterial_);
-      blitToBackbufferCmd.submit();
-      blitToBackbufferCmd.release();
+      blitToBackbufferCmd.submitAndRelease();
     }
     else
     {
       command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
       blitToBackbufferCmd.blit(colorRT_);
-      blitToBackbufferCmd.submit();
-      blitToBackbufferCmd.release();
+      blitToBackbufferCmd.submitAndRelease();
     }
 
     presentFrame();
@@ -231,11 +227,11 @@ public:
 
 private:
 
-  frame_buffer_bkk_handle_t sceneFBO_;
-  render_target_bkk_handle_t colorRT_;
-  render_target_bkk_handle_t normalDepthRT_;
+  frame_buffer_handle_t sceneFBO_;
+  render_target_handle_t colorRT_;
+  render_target_handle_t normalDepthRT_;
 
-  camera_bkk_handle_t camera_;
+  camera_handle_t camera_;
   free_camera_controller_t cameraController_;
 
   //SSAO
@@ -243,16 +239,14 @@ private:
   uint32_t ssaoSampleCount_;
   float ssaoRadius_;
   float ssaoBias_;
-  frame_buffer_bkk_handle_t ssaoFBO_;
-  render_target_bkk_handle_t ssaoRT_;
-  material_bkk_handle_t ssaoMaterial_;
+  frame_buffer_handle_t ssaoFBO_;
+  render_target_handle_t ssaoRT_;
+  material_handle_t ssaoMaterial_;
   render::gpu_buffer_t ssaoKernelBuffer_;
   render::texture_t ssaoNoise_;
-  material_bkk_handle_t blurMaterial_;
+  material_handle_t blurMaterial_;
 };
 
-
-typedef uint32_t my_bkk_handle_t;
 int main()
 {
   ambient_occlusion_sample_t sample;

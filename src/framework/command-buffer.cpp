@@ -42,7 +42,7 @@ command_buffer_t::command_buffer_t(renderer_t* renderer )
 command_buffer_t::~command_buffer_t()
 {}
 
-void command_buffer_t::setFrameBuffer(frame_buffer_bkk_handle_t framebuffer)
+void command_buffer_t::setFrameBuffer(frame_buffer_handle_t framebuffer)
 {
   if (framebuffer == BKK_NULL_HANDLE)
   {
@@ -179,7 +179,7 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
   render::commandBufferEnd(commandBuffer_);
 }
 
-void command_buffer_t::blit(render_target_bkk_handle_t renderTarget, material_bkk_handle_t materialHandle, const char* pass)
+void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle_t materialHandle, const char* pass)
 {
   bkk::core::render::texture_t texture = {};
   if (renderer_  && renderTarget != core::BKK_NULL_HANDLE)
@@ -190,7 +190,7 @@ void command_buffer_t::blit(render_target_bkk_handle_t renderTarget, material_bk
   blit(texture, materialHandle, pass);
 }
 
-void command_buffer_t::blit(const bkk::core::render::texture_t& texture, material_bkk_handle_t materialHandle, const char* pass)
+void command_buffer_t::blit(const bkk::core::render::texture_t& texture, material_handle_t materialHandle, const char* pass)
 {
   if (!renderer_) return;
 
@@ -233,7 +233,7 @@ void command_buffer_t::blit(const bkk::core::render::texture_t& texture, materia
   render::commandBufferEnd(commandBuffer_);
 }
 
-void command_buffer_t::dispatchCompute(compute_material_bkk_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
+void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
 {
   if (!renderer_) return;
 
@@ -245,7 +245,7 @@ void command_buffer_t::dispatchCompute(compute_material_bkk_handle_t computeMate
   computeMaterialPtr->dispatch(commandBuffer_, pass, groupSizeX, groupSizeY, groupSizeZ);
 }
 
-void command_buffer_t::dispatchCompute(compute_material_bkk_handle_t computeMaterial, const char* pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
+void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, const char* pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
 {
   if (!renderer_) return;
   
@@ -270,6 +270,17 @@ void command_buffer_t::release()
 {
   if (renderer_ && !released_)
   {    
+    renderer_->releaseCommandBuffer(this);
+    released_ = true;
+  }
+}
+
+void command_buffer_t::submitAndRelease()
+{
+  if (renderer_ && commandBuffer_.handle != VK_NULL_HANDLE)
+  {
+    render::context_t& context = renderer_->getContext();
+    render::commandBufferSubmit(context, commandBuffer_);
     renderer_->releaseCommandBuffer(this);
     released_ = true;
   }

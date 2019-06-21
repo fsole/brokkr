@@ -121,7 +121,7 @@ orbiting_camera_controller_t::orbiting_camera_controller_t(const maths::vec3& ta
   Update();
 }
 
-void orbiting_camera_controller_t::setCameraHandle(camera_bkk_handle_t cameraHandle, renderer_t* renderer)
+void orbiting_camera_controller_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
 {
   cameraHandle_ = cameraHandle;
   renderer_ = renderer;
@@ -187,7 +187,7 @@ free_camera_controller_t::free_camera_controller_t(const maths::vec3& position, 
   Update();
 }
 
-void free_camera_controller_t::setCameraHandle(camera_bkk_handle_t cameraHandle, renderer_t* renderer)
+void free_camera_controller_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
 {
   cameraHandle_ = cameraHandle;
   renderer_ = renderer;

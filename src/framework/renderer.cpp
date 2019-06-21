@@ -134,9 +134,9 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
     &globalDescriptorPool_);
 
   
-  shader_bkk_handle_t shader = shaderCreate("../../shaders/textureBlit.shader");
+  shader_handle_t shader = shaderCreate("../../shaders/textureBlit.shader");
   textureBlit_ = materialCreate(shader);
-  mesh_bkk_handle_t quad = meshAdd( mesh::fullScreenQuad(context_) );
+  mesh_handle_t quad = meshAdd( mesh::fullScreenQuad(context_) );
   rootActor_ = actorCreate("Root", quad, textureBlit_);
 }
 
@@ -145,12 +145,12 @@ render::context_t& renderer_t::getContext()
   return context_;
 }
 
-shader_bkk_handle_t renderer_t::shaderCreate(const char* file)
+shader_handle_t renderer_t::shaderCreate(const char* file)
 {
   return shaders_.add(shader_t(file, this));
 }
 
-void renderer_t::shaderDestroy(shader_bkk_handle_t handle)
+void renderer_t::shaderDestroy(shader_handle_t handle)
 {
   shader_t* shader = shaders_.get(handle);
   if (shader != nullptr)
@@ -160,17 +160,17 @@ void renderer_t::shaderDestroy(shader_bkk_handle_t handle)
   }
 }
 
-shader_t* renderer_t::getShader(shader_bkk_handle_t handle)
+shader_t* renderer_t::getShader(shader_handle_t handle)
 {
   return shaders_.get(handle);
 }
 
-material_bkk_handle_t renderer_t::materialCreate(shader_bkk_handle_t shader)
+material_handle_t renderer_t::materialCreate(shader_handle_t shader)
 {
   return materials_.add(material_t(shader, this));
 }
 
-void renderer_t::materialDestroy(material_bkk_handle_t handle)
+void renderer_t::materialDestroy(material_handle_t handle)
 {
   material_t* material = materials_.get(handle);
   if (material != nullptr)
@@ -180,17 +180,17 @@ void renderer_t::materialDestroy(material_bkk_handle_t handle)
   }
 }
 
-material_t* renderer_t::getMaterial(material_bkk_handle_t handle)
+material_t* renderer_t::getMaterial(material_handle_t handle)
 {
   return materials_.get(handle);
 }
 
-compute_material_bkk_handle_t renderer_t::computeMaterialCreate(shader_bkk_handle_t shader)
+compute_material_handle_t renderer_t::computeMaterialCreate(shader_handle_t shader)
 {
   return computeMaterials_.add(compute_material_t(shader, this));
 }
 
-void renderer_t::computeMaterialDestroy(compute_material_bkk_handle_t handle)
+void renderer_t::computeMaterialDestroy(compute_material_handle_t handle)
 {
   compute_material_t* material = computeMaterials_.get(handle);
   if (material != nullptr)
@@ -200,12 +200,12 @@ void renderer_t::computeMaterialDestroy(compute_material_bkk_handle_t handle)
   }
 }
 
-compute_material_t* renderer_t::getComputeMaterial(compute_material_bkk_handle_t handle)
+compute_material_t* renderer_t::getComputeMaterial(compute_material_handle_t handle)
 {
   return computeMaterials_.get(handle);
 }
 
-render_target_bkk_handle_t renderer_t::renderTargetCreate(uint32_t width, uint32_t height,
+render_target_handle_t renderer_t::renderTargetCreate(uint32_t width, uint32_t height,
   VkFormat format,
   bool depthBuffer)
 {
@@ -213,7 +213,7 @@ render_target_bkk_handle_t renderer_t::renderTargetCreate(uint32_t width, uint32
     render_target_t(width, height, format, depthBuffer, this));
 }
 
-void renderer_t::renderTargetDestroy(render_target_bkk_handle_t handle)
+void renderer_t::renderTargetDestroy(render_target_handle_t handle)
 {
   render_target_t* renderTarget = renderTargets_.get(handle);
   if (renderTarget != nullptr)
@@ -223,24 +223,24 @@ void renderer_t::renderTargetDestroy(render_target_bkk_handle_t handle)
   }
 }
 
-render_target_t* renderer_t::getRenderTarget(render_target_bkk_handle_t handle)
+render_target_t* renderer_t::getRenderTarget(render_target_handle_t handle)
 {
   return renderTargets_.get(handle);
 }
 
-frame_buffer_bkk_handle_t renderer_t::frameBufferCreate(render_target_bkk_handle_t* renderTargets, uint32_t targetCount,
+frame_buffer_handle_t renderer_t::frameBufferCreate(render_target_handle_t* renderTargets, uint32_t targetCount,
   VkImageLayout* initialLayouts, VkImageLayout* finalLayouts)
 {
   return framebuffers_.add(
     frame_buffer_t( renderTargets, targetCount, initialLayouts, finalLayouts, this) );
 }
 
-frame_buffer_t* renderer_t::getFrameBuffer(frame_buffer_bkk_handle_t handle)
+frame_buffer_t* renderer_t::getFrameBuffer(frame_buffer_handle_t handle)
 {
   return framebuffers_.get(handle);
 }
 
-void renderer_t::frameBufferDestroy(frame_buffer_bkk_handle_t handle)
+void renderer_t::frameBufferDestroy(frame_buffer_handle_t handle)
 {
   frame_buffer_t* framebuffer = framebuffers_.get(handle);
   if (framebuffer != nullptr)
@@ -250,19 +250,19 @@ void renderer_t::frameBufferDestroy(frame_buffer_bkk_handle_t handle)
   }
 }
 
-mesh_bkk_handle_t renderer_t::meshAdd(const mesh::mesh_t& mesh)
+mesh_handle_t renderer_t::meshAdd(const mesh::mesh_t& mesh)
 {
   return meshes_.add(mesh);
 }
 
-mesh_bkk_handle_t renderer_t::meshCreate(const char* file, mesh::export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t submesh)
+mesh_handle_t renderer_t::meshCreate(const char* file, mesh::export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t submesh)
 {
   mesh::mesh_t mesh;
   mesh::createFromFile(context_, file, exportFlags, nullptr, submesh, &mesh);
   return meshAdd(mesh);
 }
 
-void renderer_t::meshDestroy(mesh_bkk_handle_t handle)
+void renderer_t::meshDestroy(mesh_handle_t handle)
 {
   core::mesh::mesh_t* mesh = meshes_.get(handle);
   if (mesh != nullptr)
@@ -272,12 +272,12 @@ void renderer_t::meshDestroy(mesh_bkk_handle_t handle)
   }
 }
 
-mesh::mesh_t* renderer_t::getMesh(mesh_bkk_handle_t handle)
+mesh::mesh_t* renderer_t::getMesh(mesh_handle_t handle)
 {
   return meshes_.get(handle);
 }
 
-actor_bkk_handle_t renderer_t::actorCreate(const char* name, mesh_bkk_handle_t mesh, material_bkk_handle_t material, maths::mat4 transform, uint32_t instanceCount)
+actor_handle_t renderer_t::actorCreate(const char* name, mesh_handle_t mesh, material_handle_t material, maths::mat4 transform, uint32_t instanceCount)
 {
   bkk::core::bkk_handle_t transformHandle = transformManager_.createTransform(transform);
 
@@ -285,7 +285,7 @@ actor_bkk_handle_t renderer_t::actorCreate(const char* name, mesh_bkk_handle_t m
     actor_t(name, mesh, transformHandle, material, instanceCount, this) );
 }
 
-void renderer_t::actorDestroy(actor_bkk_handle_t handle)
+void renderer_t::actorDestroy(actor_handle_t handle)
 {
   actor_t* actor = actors_.get(handle);
   if (actor != nullptr)
@@ -295,27 +295,27 @@ void renderer_t::actorDestroy(actor_bkk_handle_t handle)
   }
 }
 
-actor_t* renderer_t::getActor(actor_bkk_handle_t handle)
+actor_t* renderer_t::getActor(actor_handle_t handle)
 {
   return actors_.get(handle);
 }
 
-void renderer_t::actorSetParent(actor_bkk_handle_t actor, actor_bkk_handle_t parent)
+void renderer_t::actorSetParent(actor_handle_t actor, actor_handle_t parent)
 {
   transformManager_.setParent(actors_.get(actor)->getTransform(), actors_.get(parent)->getTransform());
 }
 
-void renderer_t::actorSetTransform(actor_bkk_handle_t actor, const maths::mat4& newTransform)
+void renderer_t::actorSetTransform(actor_handle_t actor, const maths::mat4& newTransform)
 {
   transformManager_.setTransform(actors_.get(actor)->getTransform(), newTransform);
 }
 
-camera_bkk_handle_t renderer_t::cameraAdd(const camera_t& camera)
+camera_handle_t renderer_t::cameraAdd(const camera_t& camera)
 {
   return cameras_.add(camera);
 }
 
-void renderer_t::cameraDestroy(camera_bkk_handle_t handle)
+void renderer_t::cameraDestroy(camera_handle_t handle)
 {
   camera_t* camera = cameras_.get(handle);
   if (camera != nullptr)
@@ -325,7 +325,7 @@ void renderer_t::cameraDestroy(camera_bkk_handle_t handle)
   }
 }
 
-camera_t* renderer_t::getCamera(camera_bkk_handle_t handle)
+camera_t* renderer_t::getCamera(camera_handle_t handle)
 {
   return cameras_.get(handle);
 }
@@ -335,7 +335,7 @@ camera_t* renderer_t::getActiveCamera()
   return cameras_.get(activeCamera_);
 }
 
-bool renderer_t::setupCamera(camera_bkk_handle_t handle)
+bool renderer_t::setupCamera(camera_handle_t handle)
 {
   camera_t* camera = cameras_.get(handle);
   if (!camera)
@@ -353,7 +353,7 @@ bool renderer_t::setupCamera(camera_bkk_handle_t handle)
   return true;
 }
 
-int renderer_t::getVisibleActors(camera_bkk_handle_t cameraHandle, actor_t** actors)
+int renderer_t::getVisibleActors(camera_handle_t cameraHandle, actor_t** actors)
 {
   camera_t* camera = cameras_.get(cameraHandle);
   if (!camera)
@@ -392,7 +392,7 @@ void renderer_t::update()
 
 void renderer_t::createTextureBlitResources()
 {
-  render_target_bkk_handle_t colorBufferHandle = renderTargetCreate(context_.swapChain.imageWidth, context_.swapChain.imageHeight, VK_FORMAT_R32G32B32A32_SFLOAT, true);
+  render_target_handle_t colorBufferHandle = renderTargetCreate(context_.swapChain.imageWidth, context_.swapChain.imageHeight, VK_FORMAT_R32G32B32A32_SFLOAT, true);
   backBuffer_ = frameBufferCreate(&colorBufferHandle, 1u);
 
   fullScreenQuad_ = mesh::fullScreenQuad(context_);
@@ -443,7 +443,7 @@ void renderer_t::buildPresentationCommandBuffers()
   }
 }
 
-frame_buffer_bkk_handle_t renderer_t::getBackBuffer()
+frame_buffer_handle_t renderer_t::getBackBuffer()
 {
   return backBuffer_;
 }

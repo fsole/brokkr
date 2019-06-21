@@ -22,7 +22,7 @@ actor_t::actor_t()
 {
 }
 
-actor_t::actor_t(const char* name, mesh_bkk_handle_t mesh, transform_bkk_handle_t transform, material_bkk_handle_t material, uint32_t instanceCount, renderer_t* renderer)
+actor_t::actor_t(const char* name, mesh_handle_t mesh, transform_handle_t transform, material_handle_t material, uint32_t instanceCount, renderer_t* renderer)
 :name_(name), 
  mesh_(mesh), 
  transform_(transform), 

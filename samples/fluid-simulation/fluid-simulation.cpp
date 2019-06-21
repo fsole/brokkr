@@ -47,7 +47,7 @@ public:
 
     //Create and configure compute material
     renderer_t& renderer = getRenderer();
-    shader_bkk_handle_t computeShader = renderer.shaderCreate("../fluid-simulation/fluid-simulation.shader");
+    shader_handle_t computeShader = renderer.shaderCreate("../fluid-simulation/fluid-simulation.shader");
     computeMaterial_ = renderer.computeMaterialCreate(computeShader);
     compute_material_t* computePtr = renderer.getComputeMaterial(computeMaterial_);    
     computePtr->setProperty("globals.gravity", gravity_);
@@ -65,9 +65,9 @@ public:
     computePtr->setBuffer("particlesState", particleStateBuffer_);
 
     //Create particle actor
-    mesh_bkk_handle_t particleMesh = renderer.meshCreate("../resources/sphere.obj", mesh::EXPORT_ALL);
-    shader_bkk_handle_t shader = renderer.shaderCreate("../fluid-simulation/particles.shader");
-    material_bkk_handle_t particleMaterial = renderer.materialCreate(shader);
+    mesh_handle_t particleMesh = renderer.meshCreate("../resources/sphere.obj", mesh::EXPORT_ALL);
+    shader_handle_t shader = renderer.shaderCreate("../fluid-simulation/particles.shader");
+    material_handle_t particleMaterial = renderer.materialCreate(shader);
     material_t* particleMaterialPtr = renderer.getMaterial(particleMaterial);
     particleMaterialPtr->setBuffer("particles", particleBuffer_);
     renderer.actorCreate("particles", particleMesh, particleMaterial, mat4(), maxParticleCount_);
@@ -109,14 +109,12 @@ public:
     u32 groupSizeX = (maxParticleCount_ + 63) / 64;
     command_buffer_t computeDensity(&renderer);
     computeDensity.dispatchCompute(computeMaterial_, "computeDensity", groupSizeX, 1u, 1u);
-    computeDensity.submit();
-    computeDensity.release();
+    computeDensity.submitAndRelease();
 
     command_buffer_t updateParticles(&renderer);
     updateParticles.setDependencies( &computeDensity, 1u );
     updateParticles.dispatchCompute(computeMaterial_, "updateParticles", groupSizeX, 1u, 1u);
-    updateParticles.submit();
-    updateParticles.release();
+    updateParticles.submitAndRelease();
 
     //Render particles
     renderer.setupCamera(camera_);
@@ -126,8 +124,7 @@ public:
     renderSceneCmd.setDependencies(&updateParticles, 1u);
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
-    renderSceneCmd.submit();
-    renderSceneCmd.release();
+    renderSceneCmd.submitAndRelease();
 
     presentFrame();
   }
@@ -215,11 +212,11 @@ private:
     f32 padding;
   };
 
-  compute_material_bkk_handle_t computeMaterial_;    
+  compute_material_handle_t computeMaterial_;    
   render::gpu_buffer_t particleBuffer_;
   render::gpu_buffer_t particleStateBuffer_;
 
-  camera_bkk_handle_t camera_;
+  camera_handle_t camera_;
   orbiting_camera_controller_t cameraController_;
 
   //Simulation parameters

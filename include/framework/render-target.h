@@ -19,7 +19,7 @@ namespace bkk
   namespace framework
   {
     class renderer_t;
-    typedef bkk::core::bkk_handle_t render_target_bkk_handle_t;
+    typedef bkk::core::bkk_handle_t render_target_handle_t;
 
     class render_target_t
     {

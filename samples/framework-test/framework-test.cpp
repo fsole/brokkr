@@ -47,17 +47,17 @@ public:
     render::brdfConvolution(getRenderContext(), 512u, &brdfLut_);
     image::free(&cubemapImage);
 
-    shader_bkk_handle_t skyboxShader = renderer.shaderCreate("../../shaders/sky-box.shader");
+    shader_handle_t skyboxShader = renderer.shaderCreate("../../shaders/sky-box.shader");
     skyboxMaterial_ = renderer.materialCreate(skyboxShader);
     renderer.getMaterial(skyboxMaterial_)->setTexture("CubeMap", skybox_);
 
     //create meshes
-    mesh_bkk_handle_t teapot = renderer.meshCreate("../resources/teapot.obj", mesh::EXPORT_ALL);
-    mesh_bkk_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
+    mesh_handle_t teapot = renderer.meshCreate("../resources/teapot.obj", mesh::EXPORT_ALL);
+    mesh_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
 
     //create materials
-    shader_bkk_handle_t shader = renderer.shaderCreate("../framework-test/pbr.shader");
-    material_bkk_handle_t material0 = renderer.materialCreate(shader);
+    shader_handle_t shader = renderer.shaderCreate("../framework-test/pbr.shader");
+    material_handle_t material0 = renderer.materialCreate(shader);
     material_t* materialPtr = renderer.getMaterial(material0);
     materialPtr->setProperty("globals.albedo", maths::vec3(0.1f, 0.1f, 0.1f));
     materialPtr->setProperty("globals.F0", maths::vec3(0.9f, 0.9f, 0.9f));
@@ -68,7 +68,7 @@ public:
     materialPtr->setTexture("brdfLUT", brdfLut_);
     materialPtr->setBuffer("lights", lightBuffer_);
 
-    material_bkk_handle_t material1 = renderer.materialCreate(shader);
+    material_handle_t material1 = renderer.materialCreate(shader);
     materialPtr = renderer.getMaterial(material1);
     materialPtr->setProperty("globals.albedo", maths::vec3(0.5f, 0.5f, 0.5f));
     materialPtr->setProperty("globals.F0", maths::vec3(0.6f, 0.6f, 0.6f));
@@ -79,7 +79,7 @@ public:
     materialPtr->setTexture("brdfLUT", brdfLut_);
     materialPtr->setBuffer("lights", lightBuffer_);
 
-    material_bkk_handle_t material2 = renderer.materialCreate(shader);
+    material_handle_t material2 = renderer.materialCreate(shader);
     materialPtr = renderer.getMaterial(material2);
     materialPtr->setProperty("globals.albedo", maths::vec3(0.1f, 0.1f, 0.1f));
     materialPtr->setProperty("globals.F0", maths::vec3(0.0f, 0.0f, 0.0f));
@@ -107,9 +107,9 @@ public:
     blurVerticalFBO_ = renderer.frameBufferCreate(&blurVerticalRT_, 1u);
     bloomRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
     bloomFBO_ = renderer.frameBufferCreate(&bloomRT_, 1u);
-    shader_bkk_handle_t bloomShader = renderer.shaderCreate("../framework-test/bloom.shader");
+    shader_handle_t bloomShader = renderer.shaderCreate("../framework-test/bloom.shader");
     bloomMaterial_ = renderer.materialCreate(bloomShader);
-    shader_bkk_handle_t blendShader = renderer.shaderCreate("../framework-test/blend.shader");
+    shader_handle_t blendShader = renderer.shaderCreate("../framework-test/blend.shader");
     blendMaterial_ = renderer.materialCreate(blendShader);
     material_t* blendMaterial = renderer.getMaterial(blendMaterial_);
     blendMaterial->setTexture("bloomBlur", renderer.getRenderTarget(bloomRT_)->getColorBuffer());
@@ -211,16 +211,14 @@ public:
     renderSceneCmd.setFrameBuffer(sceneFBO_);
     renderSceneCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
-    renderSceneCmd.submit();
-    renderSceneCmd.release();
+    renderSceneCmd.submitAndRelease();
     
     //Render skybox
     command_buffer_t renderSkyboxCmd = command_buffer_t(&renderer);
     renderSkyboxCmd.setFrameBuffer(sceneFBO_);
     renderSkyboxCmd.setDependencies(&renderSceneCmd, 1u);
     renderSkyboxCmd.blit(bkk::core::BKK_NULL_HANDLE, skyboxMaterial_ );
-    renderSkyboxCmd.submit();
-    renderSkyboxCmd.release();
+    renderSkyboxCmd.submitAndRelease();
     
     if (bloomEnabled_)
     {
@@ -233,8 +231,7 @@ public:
       extractBrightPixelsCmd.setDependencies(&renderSkyboxCmd, 1u);
       extractBrightPixelsCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       extractBrightPixelsCmd.blit(sceneRT_ , bloomMaterial_, "extractBrightPixels" );
-      extractBrightPixelsCmd.submit();
-      extractBrightPixelsCmd.release();
+      extractBrightPixelsCmd.submitAndRelease();
       
       //Blur vertical pass
       command_buffer_t blurVerticalCmd = command_buffer_t(&renderer);
@@ -242,8 +239,7 @@ public:
       blurVerticalCmd.setDependencies(&extractBrightPixelsCmd, 1u);
       blurVerticalCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blurVerticalCmd.blit(brightPixelsRT_, bloomMaterial_, "blurVertical");
-      blurVerticalCmd.submit();
-      blurVerticalCmd.release();
+      blurVerticalCmd.submitAndRelease();
 
       //Blur horizontal pass
       command_buffer_t blurHorizontalCmd = command_buffer_t(&renderer);
@@ -251,16 +247,14 @@ public:
       blurHorizontalCmd.setDependencies(&blurVerticalCmd, 1u);
       blurHorizontalCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blurHorizontalCmd.blit(blurVerticalRT_, bloomMaterial_, "blurHorizontal");
-      blurHorizontalCmd.submit();
-      blurHorizontalCmd.release();
+      blurHorizontalCmd.submitAndRelease();
 
       //Blend bloom and scene render targets
       command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
       blitToBackbufferCmd.setDependencies(&blurHorizontalCmd, 1u);
       blitToBackbufferCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blitToBackbufferCmd.blit(sceneRT_, blendMaterial_, "blend" );
-      blitToBackbufferCmd.submit();
-      blitToBackbufferCmd.release();
+      blitToBackbufferCmd.submitAndRelease();
     }
     else
     {
@@ -268,8 +262,7 @@ public:
       command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
       blitToBackbufferCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
       blitToBackbufferCmd.blit(sceneRT_, blendMaterial_);
-      blitToBackbufferCmd.submit();
-      blitToBackbufferCmd.release();
+      blitToBackbufferCmd.submitAndRelease();
     }
 
     presentFrame();
@@ -300,27 +293,27 @@ private:
     float radius;
   };
 
-  frame_buffer_bkk_handle_t sceneFBO_;
-  render_target_bkk_handle_t sceneRT_;  
+  frame_buffer_handle_t sceneFBO_;
+  render_target_handle_t sceneRT_;  
   render::gpu_buffer_t lightBuffer_;
-  material_bkk_handle_t skyboxMaterial_;
+  material_handle_t skyboxMaterial_;
   render::texture_t skybox_;
   render::texture_t irradianceMap_;
   render::texture_t specularMap_;
   render::texture_t brdfLut_;
 
   bool bloomEnabled_;
-  material_bkk_handle_t bloomMaterial_;
-  material_bkk_handle_t blendMaterial_;
-  frame_buffer_bkk_handle_t bloomFBO_;
-  render_target_bkk_handle_t bloomRT_;
-  frame_buffer_bkk_handle_t blurVerticalFBO_;
-  render_target_bkk_handle_t blurVerticalRT_;
-  frame_buffer_bkk_handle_t brightPixelsRT_;
-  render_target_bkk_handle_t brightPixelsFBO_;
+  material_handle_t bloomMaterial_;
+  material_handle_t blendMaterial_;
+  frame_buffer_handle_t bloomFBO_;
+  render_target_handle_t bloomRT_;
+  frame_buffer_handle_t blurVerticalFBO_;
+  render_target_handle_t blurVerticalRT_;
+  frame_buffer_handle_t brightPixelsRT_;
+  render_target_handle_t brightPixelsFBO_;
   float bloomTreshold_;
 
-  camera_bkk_handle_t camera_;
+  camera_handle_t camera_;
   free_camera_controller_t cameraController_;
 
   float lightIntensity_;

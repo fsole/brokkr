@@ -26,7 +26,7 @@ namespace bkk
   {
     class renderer_t;
 
-    typedef bkk::core::bkk_handle_t shader_bkk_handle_t;
+    typedef bkk::core::bkk_handle_t shader_handle_t;
 
     struct texture_desc_t
     {
@@ -101,8 +101,8 @@ namespace bkk
       bool initializeFromFile(const char* file, renderer_t* renderer);
       void destroy(renderer_t* renderer);
 
-      core::render::graphics_pipeline_t getPipeline(const char* name, frame_buffer_bkk_handle_t framebuffer, renderer_t* renderer);
-      core::render::graphics_pipeline_t getPipeline(uint32_t pass, frame_buffer_bkk_handle_t, renderer_t* renderer);
+      core::render::graphics_pipeline_t getPipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer);
+      core::render::graphics_pipeline_t getPipeline(uint32_t pass, frame_buffer_handle_t, renderer_t* renderer);
         
       core::render::descriptor_set_layout_t getDescriptorSetLayout();
       const std::vector<texture_desc_t>& getTextureDescriptions() const;
@@ -133,7 +133,7 @@ namespace bkk
       std::vector<core::render::pipeline_layout_t> pipelineLayouts_;
       std::vector<core::render::graphics_pipeline_t::description_t> graphicsPipelineDescriptions_;
 
-      core::dictionary_t<frame_buffer_bkk_handle_t, std::vector<core::render::graphics_pipeline_t> > graphicsPipelines_;
+      core::dictionary_t<frame_buffer_handle_t, std::vector<core::render::graphics_pipeline_t> > graphicsPipelines_;
       std::vector<core::render::compute_pipeline_t> computePipelines_;
     };
 

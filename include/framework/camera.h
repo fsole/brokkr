@@ -19,7 +19,7 @@ namespace bkk
   {
     class actor_t;
     class renderer_t;
-    typedef core::bkk_handle_t camera_bkk_handle_t;
+    typedef core::bkk_handle_t camera_handle_t;
 
     class camera_t
     {
@@ -71,7 +71,7 @@ namespace bkk
       orbiting_camera_controller_t();
       orbiting_camera_controller_t(const core::maths::vec3& target, const f32 offset, const core::maths::vec2& angle, f32 rotationSensitivity);
       
-      void setCameraHandle(camera_bkk_handle_t cameraHandle, renderer_t* renderer);
+      void setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer);
 
       void Move(f32 amount);
       void Rotate(f32 angleY, f32 angleZ);
@@ -86,7 +86,7 @@ namespace bkk
       core::maths::vec2 angle_;
       f32 rotationSensitivity_;
 
-      camera_bkk_handle_t cameraHandle_;
+      camera_handle_t cameraHandle_;
       renderer_t* renderer_;
     };
 
@@ -96,7 +96,7 @@ namespace bkk
       free_camera_controller_t();
       free_camera_controller_t(const core::maths::vec3& position, const core::maths::vec2& angle, f32 velocity, f32 rotationSensitivity);
 
-      void setCameraHandle(camera_bkk_handle_t cameraHandle, renderer_t* renderer);
+      void setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer);
 
       void Move(f32 xAmount, f32 zAmount);
       void Rotate(f32 angleY, f32 angleX);
@@ -119,7 +119,7 @@ namespace bkk
       f32  velocity_; //Units per second
       f32 rotationSensitivity_;
 
-      camera_bkk_handle_t cameraHandle_;
+      camera_handle_t cameraHandle_;
       renderer_t* renderer_;
     };
 

@@ -24,12 +24,12 @@ frame_buffer_t::frame_buffer_t()
 {  
 }
 
-frame_buffer_t::frame_buffer_t(render_target_bkk_handle_t* renderTargets, uint32_t targetCount,
+frame_buffer_t::frame_buffer_t(render_target_handle_t* renderTargets, uint32_t targetCount,
   VkImageLayout* initialLayouts, VkImageLayout* finalLayouts, renderer_t* renderer)
 {
   targetCount_ = targetCount;
-  renderTargets_ = new render_target_bkk_handle_t[targetCount];
-  memcpy(renderTargets_, renderTargets, sizeof(render_target_bkk_handle_t)*targetCount);
+  renderTargets_ = new render_target_handle_t[targetCount];
+  memcpy(renderTargets_, renderTargets, sizeof(render_target_handle_t)*targetCount);
 
   std::vector<render::render_pass_t::attachment_t> attachments(targetCount);
   std::vector<VkImageView> imageViews(targetCount);  
