@@ -34,9 +34,9 @@ namespace bkk
       
       void destroy(renderer_t* renderer);
 
-      mesh_handle_t getMesh() { return mesh_; }
-      transform_handle_t getTransform() { return transform_; }
-      material_handle_t getMaterial() { return material_; }
+      mesh_handle_t getMeshHandle() { return mesh_; }
+      transform_handle_t getTransformHandle() { return transform_; }
+      material_handle_t getMaterialHandle() { return material_; }
       const char* getName() { return name_.c_str();  }
       core::render::gpu_buffer_t getUniformBuffer() { return uniformBuffer_; }
       core::render::descriptor_set_t getDescriptorSet() { return descriptorSet_; }

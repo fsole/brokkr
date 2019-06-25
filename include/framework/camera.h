@@ -34,7 +34,7 @@ namespace bkk
       camera_t(projection_mode_e projectionMode, float fov, float aspect, float nearPlane, float farPlane);
 
       void update(renderer_t* renderer);
-      void cull(actor_t* actors, uint32_t actorCount);
+      void cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount);
       void destroy(renderer_t* renderer);
 
       uint32_t getVisibleActors(actor_t** actors);
@@ -62,7 +62,7 @@ namespace bkk
       float farPlane_;
       
       uint32_t visibleActorsCount_ = 0u;
-      actor_t* visibleActors_ = nullptr;
+      std::vector<actor_t> visibleActors_;
     };
 
     class orbiting_camera_controller_t

@@ -19,12 +19,6 @@ namespace bkk
   {
     namespace mesh
     {
-      struct aabb_t
-      {
-        maths::vec3 min;
-        maths::vec3 max;
-      };
-
       struct skeleton_t
       {
         transform_manager_t txManager;
@@ -75,7 +69,7 @@ namespace bkk
 
         u32 vertexCount;
         u32 indexCount;
-        aabb_t aabb;
+        maths::aabb_t aabb;
 
         //Only used for skinned meshes
         skeleton_t* skeleton = nullptr;

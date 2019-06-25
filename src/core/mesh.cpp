@@ -693,6 +693,7 @@ mesh::mesh_t mesh::unitQuad(const render::context_t& context)
 
   mesh::mesh_t mesh;
   mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 3, nullptr, &mesh);
+  mesh.aabb = { vec3(-0.5f, -0.5f, 0.0f), vec3(0.5f, 0.5f, 0.0f) };
   return mesh;
 }
 

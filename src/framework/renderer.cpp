@@ -302,12 +302,22 @@ actor_t* renderer_t::getActor(actor_handle_t handle)
 
 void renderer_t::actorSetParent(actor_handle_t actor, actor_handle_t parent)
 {
-  transformManager_.setParent(actors_.get(actor)->getTransform(), actors_.get(parent)->getTransform());
+  transformManager_.setParent(actors_.get(actor)->getTransformHandle(), actors_.get(parent)->getTransformHandle());
+}
+
+maths::mat4* renderer_t::getTransform(transform_handle_t transform) 
+{
+  return transformManager_.getTransform(transform);
+}
+
+void renderer_t::setTransform(transform_handle_t handle, const maths::mat4& newTransform)
+{
+  transformManager_.setTransform(handle, newTransform);
 }
 
 void renderer_t::actorSetTransform(actor_handle_t actor, const maths::mat4& newTransform)
 {
-  transformManager_.setTransform(actors_.get(actor)->getTransform(), newTransform);
+  transformManager_.setTransform(actors_.get(actor)->getTransformHandle(), newTransform);
 }
 
 camera_handle_t renderer_t::cameraAdd(const camera_t& camera)
@@ -346,7 +356,7 @@ bool renderer_t::setupCamera(camera_handle_t handle)
   ////Culling
   actor_t* allActors;
   uint32_t actorCount = actors_.getData(&allActors);
-  camera->cull(allActors, actorCount);
+  camera->cull(this, allActors, actorCount);
 
   activeCamera_ = handle;
 
@@ -383,7 +393,7 @@ void renderer_t::update()
   uint32_t actorCount = actors_.getData(&actors);
   for (u32 i(0); i < actorCount; ++i)
   {
-    render::gpuBufferUpdate(context_, transformManager_.getWorldMatrix(actors[i].getTransform()), 
+    render::gpuBufferUpdate(context_, transformManager_.getWorldMatrix(actors[i].getTransformHandle()),
                                   0, sizeof(maths::mat4), &actors[i].getUniformBuffer());
   }
 

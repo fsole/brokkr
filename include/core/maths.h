@@ -35,7 +35,373 @@ namespace bkk
   {
     namespace maths
     {
-      //Utility functions
+      /*********************/
+      /* Utility functions */
+      /*********************/
+      template <typename T> inline T degreeToRadian(T angle);
+      template <typename T> inline T radianToDegree(T angle);
+      template <typename T> inline T minValue(T a, T b);
+      template <typename T> inline T maxValue(T a, T b);
+      template <typename T> inline T saturate(const T& value);
+      template <typename T> inline T clamp(const T& a, const T& b, const T& value);
+      template <typename T> inline T lerp(const T& a, const T& b, f32 t);
+      template <typename T> inline T cubicInterpolation(const T& p0, const T& p1, const T&  p2, const T&  p3, f32 progress);
+      template <typename T> inline T random(T minValue, T maxValue);
+
+      /****************/
+      /* Vector2 Base */
+      /****************/
+      template <typename T, u32 N>
+      struct Vector
+      {
+        Vector<T, N>();
+        ~Vector<T, N>();
+        T& operator[](u32 n);
+        const T& operator[](u32 n) const;
+        T data[N];
+      };
+      
+      /***********/
+      /* Vector2 */
+      /***********/
+      template <typename T>
+      struct Vector<T, 2>
+      {
+        Vector<T, 2>();
+        Vector<T, 2>(const T a, const T b);
+        Vector<T, 2>(const T a);
+
+        ~Vector<T, 2>();
+
+        T& operator[](u32 n);
+        const T& operator[](u32 n) const;
+
+        union { T data[2]; struct { T x, y; }; };
+      };
+
+      /***********/
+      /* Vector3 */
+      /***********/
+      template <typename T>
+      struct Vector<T, 3>
+      {
+        Vector<T, 3>();
+        Vector<T, 3>(const T a, const T b, const T c);
+        Vector<T, 3>(const T a);
+
+        ~Vector<T, 3>();
+
+        T& operator[](u32 n);
+        const T& operator[](u32 n) const;
+        void normalize();
+
+        union
+        {
+          T data[3];
+          struct { T x, y, z; };
+          struct { T r, g, b; };
+        };
+      };
+
+      /***********/
+      /* Vector4 */
+      /***********/
+      template <typename T>
+      struct Vector<T, 4>
+      {
+        Vector<T, 4>();
+        Vector<T, 4>(const T a, const T b, const T c, const T d);
+        Vector<T, 4>(const Vector<T, 3>& v, T d);
+        Vector<T, 4>(const T a);
+
+        ~Vector<T, 4>();
+
+        T& operator[](u32 n);
+        const T& operator[](u32 n) const;
+        void normalize();
+
+        union
+        {
+          T data[4];
+          struct { T x, y, z, w; };
+          struct { T r, g, b, a; };
+        };
+
+        Vector<T, 3>& xyz();
+        const Vector<T, 3>& xyz() const;
+      };
+
+      typedef Vector<f32, 2u> vec2;
+      typedef Vector<u32, 2u> uvec2;
+      typedef Vector<s32, 2u> ivec2;
+      typedef Vector<f32, 3u> vec3;
+      typedef Vector<u32, 3u> uvec3;
+      typedef Vector<s32, 3u> ivec3;
+      typedef Vector<f32, 4u> vec4;
+      typedef Vector<u32, 4u> uvec4;
+      typedef Vector<u32, 2u> uvec2;
+      typedef Vector<u32, 3u> uvec3;
+      typedef Vector<u32, 4u> uvec4;
+
+      static const vec3 VEC3_ZERO = vec3(0.0f, 0.0f, 0.0f);
+      static const vec3 VEC3_ONE = vec3(1.0f, 1.0f, 1.0f);
+
+      /********************/
+      /* Vector functions */
+      /********************/
+      template <typename T, u32 N>
+      inline Vector<T, N> operator+(const Vector<T, N>& v0, const Vector<T, N>& v1);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator+=(Vector<T, N>& v0, const Vector<T, N>& v1);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator-(const Vector<T, N>& v0, const Vector<T, N>& v1);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator+(const Vector<T, N>& v0, const T n);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator-(T n, const Vector<T, N>& v1);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator+(T n, const Vector<T, N>& v1);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> negate(const Vector<T, N>& v0);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator*(const Vector<T, N>& v0, const Vector<T, N>& v1);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator*(const T a, const Vector<T, N>& v0);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator*(const Vector<T, N>& v0, const T a);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator/(const Vector<T, N>& v0, const T a);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator*=(Vector<T, N>& v0, const T a);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> operator/=(Vector<T, N>& v0, const T a);
+
+      template <typename T, u32 N>
+      inline T dot(const Vector<T, N>& v0, const Vector<T, N>& v1);
+
+      template <typename T>
+      inline Vector<T, 3> cross(const Vector<T, 3>& v0, const Vector<T, 3>& v1);
+
+      template <typename T, u32 N>
+      inline f32 lengthSquared(const Vector<T, N>& v);
+
+      template <typename T, u32 N>
+      inline f32 length(const Vector<T, N>& v);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> normalize(const Vector<T, N>& v);
+
+      template <typename T, u32 N>
+      inline Vector<T, N> reflect(const Vector<T, N>& v, const Vector<T, N>& n);
+
+      /**************/
+      /* Quaternion */
+      /**************/
+      template <typename T>
+      struct Quaternion
+      {
+        Quaternion<T>();
+        Quaternion(T a, T b, T c, T d);
+        Quaternion(const Vector<T, 4>& v);
+        Quaternion(const vec3& from, const vec3& to);
+        Quaternion(const Vector<T, 3>& axis, T angle);
+
+        ~Quaternion<T>();
+
+        T& operator[](u32 n);
+        void normalize();
+        Vector<T, 4> asVec4() const;
+
+        union
+        {
+          T data[4];
+          struct { T x, y, z, w; };
+        };
+      };
+
+      typedef struct Quaternion<f32> quat;
+      static const quat QUAT_UNIT = quat(0.0f, 0.0f, 0.0f, 1.0f);
+      
+      template <typename T>
+      inline Quaternion<T> quaternionFromAxisAngle(const Vector<T, 3>& axis, T angle);
+
+      template <typename T>
+      inline Quaternion<T> operator*(const Quaternion<T>& q0, const Quaternion<T>& q1);
+
+      template <typename T>
+      inline Quaternion<T> operator*(const Quaternion<T>& v0, f32 s);
+
+      template <typename T>
+      inline Quaternion<T> operator-(const Quaternion<T>& v0);
+
+      template <typename T>
+      inline Quaternion<T> operator+(const Quaternion<T>& v0, const Quaternion<T>& v1);
+
+      template <typename T>
+      inline Quaternion<T> operator-(const Quaternion<T>& v0, const Quaternion<T>& v1);
+
+      template <typename T>
+      inline Quaternion<T> slerp(const Quaternion<T>& q0, const Quaternion<T>& q1, f32 t);
+
+      template <typename T>
+      inline Quaternion<T> conjugate(const Quaternion<T>& q);
+
+      template <typename T>
+      inline Vector<T, 4> rotate(const Vector<T, 4>& v, const Quaternion<T>& q);
+
+      template <typename T>
+      inline Vector<T, 3> rotate(const Vector<T, 3>& v, const Quaternion<T>& q);
+      
+      /***************/
+      /* Matrix Base */
+      /***************/
+      template <typename T, u32 ROWS, u32 COLUMNS>
+      struct Matrix
+      {
+        Matrix<T, ROWS, COLUMNS>();
+        ~Matrix<T, ROWS, COLUMNS>();
+        T& operator[](u32 index);
+        T data[ROWS*COLUMNS];
+      };
+
+      /***************/
+      /* 3x3 Matrix  */
+      /***************/
+      template <typename T>
+      struct Matrix<T, 3, 3>
+      {
+        Matrix<T, 3, 3>();
+
+        ~Matrix<T, 3, 3>();
+
+        T& operator[](u32 index);
+        void setIdentity();
+        void setScale(const T sx, const T sy, const T sz);
+
+        union
+        {
+          T data[9];
+          struct {
+            T c00, c10, c20,
+              c01, c11, c21,
+              c02, c12, c22;
+          };
+        };
+      };
+
+      /***************/
+      /* 4x4 Matrix  */
+      /***************/
+      template <typename T>
+      struct Matrix<T, 4, 4>
+      {
+        Matrix<T, 4, 4>();
+        Matrix<T, 4, 4>(const Matrix<T, 4, 4>& m);
+        Matrix<T, 4, 4>(const T* coefficients);
+
+        ~Matrix<T, 4, 4>();
+
+        void operator=(const Matrix<T, 4, 4>& m);
+        void operator=(const T* coefficients);
+        T& operator[](u32 index);
+        const T& operator[](u32 index) const;
+        T& operator()(u8 x, u8 y);
+        const T& operator()(u8 x, u8 y) const;
+
+        void setIdentity();
+        void setScale(const T sx, const T sy, const T sz);
+        void setTranslation(const vec3& translation);
+        vec4 getTranslation();
+        void transpose();
+        Vector<T, 4> row(unsigned int i) const;
+        Vector<T, 4> column(unsigned int i) const;
+
+        union
+        {
+          //Data stored in row major order
+          T data[16];
+          struct {
+            T c00, c10, c20, c30,
+              c01, c11, c21, c31,
+              c02, c12, c22, c32,
+              c03, c13, c23, c33;
+          };
+        };
+      };
+
+      typedef Matrix<f32, 3u, 3u> mat3;
+      typedef Matrix<f32, 4u, 4u> mat4;
+
+      /********************/
+      /* Matrix Functions */
+      /********************/
+      template <typename T>
+      inline Matrix<T, 4, 4> operator*(const Matrix<T, 4, 4>& m0, const Matrix<T, 4, 4>& m1);
+      
+      template< typename T>
+      inline Vector<T, 4> operator*(const Vector<T, 4>& v, const Matrix<T, 4, 4>& m);
+
+      template< typename T>
+      inline Vector<T, 3> operator*(const Vector<T, 3>& v, const Matrix<T, 3, 3>& m);
+
+      template <typename T>
+      inline Matrix<T, 4, 4> createTransform(const Vector<T, 3>& translation, const Vector<T, 3>& scale, const Quaternion<T>& rotation);      
+
+      template <typename T>
+      inline Matrix<T, 4, 4> invertTransform(const Matrix<T, 4, 4>& m);
+
+      template <typename T>
+      inline bool invertMatrix(const Matrix<T, 4, 4>& m, Matrix<T, 4, 4>* result);
+
+      template <typename T>
+      inline Matrix<T, 4u, 4u> perspectiveProjectionMatrix(T fov, T aspect, T n, T f);
+
+      template <typename T>
+      inline Matrix<T, 4u, 4u> lookAtMatrix(Vector<T, 3> eye, Vector<T, 3> center, Vector<T, 3> up);
+
+      template <typename T>
+      inline Matrix<T, 4, 4> orthographicProjectionMatrix(T left, T right, T bottom, T top, T nearPlane, T farPlane);    
+
+      template< typename T>
+      static void frustumPlanesFromMatrix(Matrix<T,4,4> matrix, Vector<T,4>* frustumPlanes);
+
+      /*********/
+      /* AABB  */
+      /*********/
+      template< typename T>
+      struct AABB
+      {
+        Vector<T,3> min;
+        Vector<T,3> max;
+      };
+
+      typedef AABB<f32> aabb_t;
+
+      template<typename T>
+      AABB<T> aabbTransform(const AABB<T>& aabb, const Matrix<T,4,4>& transform);
+
+      template< typename T>
+      bool aabbInFrustum(const AABB<T>& aabb, Vector<T,4>* frustumPlanes);
+
+
+      /***********************/
+      /***********************/
+      /* API Implementation  */
+      /***********************/
+      /***********************/
+
       template <typename T>
       inline T degreeToRadian(T angle)
       {
@@ -104,119 +470,120 @@ namespace bkk
 
       //Vector base
       template <typename T, u32 N>
-      struct Vector
+      Vector<T, N>::Vector()
       {
-        Vector<T, N>()
-        {
-          memset(data, 0, N * sizeof(T));
-        }
+        memset(data, 0, N * sizeof(T));
+      }
 
-        ~Vector<T, N>() {}
+      template <typename T, u32 N>
+      Vector<T, N>::~Vector() {}
 
-        T& operator[](u32 n)
-        {
-          return data[n];
-        }
+      template <typename T, u32 N>
+      T& Vector<T, N>::operator[](u32 n)
+      {
+        return data[n];
+      }
 
-        const T& operator[](u32 n) const
-        {
-          return data[n];
-        }
-
-        T data[N];
-      };
+      template <typename T, u32 N>
+      const T& Vector<T, N>::operator[](u32 n) const
+      {
+        return data[n];
+      }
 
       //Vector2
       template <typename T>
-      struct Vector<T, 2>
+      Vector<T, 2>::Vector() :x(T(0.0)), y(T(0.0)) {}
+
+      template <typename T>
+      Vector<T, 2>::Vector(const T a, const T b) : x(a), y(b) {}
+
+      template <typename T>
+      Vector<T, 2>::Vector(const T a) : x(a), y(a) {}
+
+      template <typename T>
+      Vector<T, 2>::~Vector() {}
+
+      template <typename T>
+      T& Vector<T, 2>::operator[](u32 n)
       {
-        //Constructors
-        Vector<T, 2>() : x(T(0.0)), y(T(0.0)) {}
-        Vector<T, 2>(const T a, const T b) : x(a), y(b) {}
-        Vector<T, 2>(const T a) : x(a), y(a) {}
+        return data[n];
+      }
 
-        //Destructor
-        ~Vector<T, 2>() {}
+      template <typename T>
+      const T& Vector<T, 2>::operator[](u32 n) const
+      {
+        return data[n];
+      }
 
-        T& operator[](u32 n)
-        {
-          return data[n];
-        }
-
-        const T& operator[](u32 n) const
-        {
-          return data[n];
-        }
-
-        union { T data[2]; struct { T x, y; }; };
-      };
 
       //Vector3
       template <typename T>
-      struct Vector<T, 3>
+      Vector<T, 3>::Vector() : x(T(0.0)), y(T(0.0)), z(T(0.0)) {}
+
+      template <typename T>
+      Vector<T, 3>::Vector(const T a, const T b, const T c) : x(a), y(b), z(c) {}
+
+      template <typename T>
+      Vector<T, 3>::Vector(const T a) : x(a), y(a), z(a) {}
+
+      template <typename T>
+      Vector<T, 3>::~Vector() {}
+
+      template <typename T>
+      T& Vector<T, 3>::operator[](u32 n) { return data[n]; }
+
+      template <typename T>
+      const T& Vector<T, 3>::operator[](u32 n) const { return data[n]; }
+
+      template <typename T>
+      void Vector<T, 3>::normalize()
       {
-        Vector<T, 3>() : x(T(0.0)), y(T(0.0)), z(T(0.0)) {}
-        Vector<T, 3>(const T a, const T b, const T c) : x(a), y(b), z(c) {}
-        Vector<T, 3>(const T a) : x(a), y(a), z(a) {}
-
-        ~Vector<T, 3>() {}
-
-        T& operator[](u32 n) { return data[n]; }
-        const T& operator[](u32 n) const { return data[n]; }
-
-        void normalize()
-        {
-          f32 inverselength = 1.0f / length(*this);
-          x *= inverselength;
-          y *= inverselength;
-          z *= inverselength;
-        }
-
-        union
-        {
-          T data[3];
-          struct { T x, y, z; };
-          struct { T r, g, b; };
-        };
-      };
+        f32 inverselength = 1.0f / length(*this);
+        x *= inverselength;
+        y *= inverselength;
+        z *= inverselength;
+      }
 
       //Vector4
       template <typename T>
-      struct Vector<T, 4>
+      Vector<T, 4>::Vector() : x(T(0.0)), y(T(0.0)), z(T(0.0)), w(T(0.0)) {}
+
+      template <typename T>
+      Vector<T, 4>::Vector(const T a, const T b, const T c, const T d) : x(a), y(b), z(c), w(d) {}
+
+      template <typename T>
+      Vector<T, 4>::Vector(const Vector<T, 3>& v, T d) : x(v.x), y(v.y), z(v.z), w(d) {}
+
+      template <typename T>
+      Vector<T, 4>::Vector(const T a) : x(a), y(a), z(a), w(a) {}
+
+      template <typename T>
+      Vector<T, 4>::~Vector<T, 4>() {}
+
+      template <typename T>
+      T& Vector<T, 4>::operator[](u32 n) { return data[n]; }
+
+      template <typename T>
+      const T& Vector<T, 4>::operator[](u32 n) const { return data[n]; }
+
+      template <typename T>
+      void Vector<T, 4>::normalize()
       {
-        Vector<T, 4>() : x(T(0.0)), y(T(0.0)), z(T(0.0)), w(T(0.0)) {}
-        Vector<T, 4>(const T a, const T b, const T c, const T d) : x(a), y(b), z(c), w(d) {}
-        Vector<T, 4>(const Vector<T, 3>& v, T d) : x(v.x), y(v.y), z(v.z), w(d) {}
-        Vector<T, 4>(const T a) : x(a), y(a), z(a), w(a) {}
+        f32 inverselength = 1.0f / length(*this);
+        x *= inverselength;
+        y *= inverselength;
+        z *= inverselength;
+        w *= inverselength;
+      }
 
-        ~Vector<T, 4>() {}
+      template <typename T>
+      Vector<T, 3>& Vector<T, 4>::xyz() { return reinterpret_cast<Vector<T, 3> &>(data); }
 
-        T& operator[](u32 n) { return data[n]; }
-        const T& operator[](u32 n) const { return data[n]; }
-
-        void normalize()
-        {
-          f32 inverselength = 1.0f / length(*this);
-          x *= inverselength;
-          y *= inverselength;
-          z *= inverselength;
-          w *= inverselength;
-        }
-
-        union
-        {
-          T data[4];
-          struct { T x, y, z, w; };
-          struct { T r, g, b, a; };
-        };
-
-        Vector<T, 3>& xyz() { return reinterpret_cast<Vector<T, 3> &>(data); }
-        const Vector<T, 3>& xyz() const { return reinterpret_cast<const Vector<T, 3> &>(data); }
-      };
+      template <typename T>
+      const Vector<T, 3>& Vector<T, 4>::xyz() const { return reinterpret_cast<const Vector<T, 3> &>(data); }
+      
 
       //////Vector functions
-
-      //Addition and sustraction
       template <typename T, u32 N>
       inline Vector<T, N> operator+(const Vector<T, N>& v0, const Vector<T, N>& v1)
       {
@@ -249,7 +616,6 @@ namespace bkk
         return result;
       }
 
-      //Add scalar
       template <typename T, u32 N>
       inline Vector<T, N> operator+(const Vector<T, N>& v0, const T n)
       {
@@ -289,7 +655,6 @@ namespace bkk
         return result;
       }
 
-      //Component-wise multiplication
       template <typename T, u32 N>
       inline Vector<T, N> operator*(const Vector<T, N>& v0, const Vector<T, N>& v1)
       {
@@ -301,7 +666,6 @@ namespace bkk
         return result;
       }
 
-      //Multiplication by a scalar
       template <typename T, u32 N>
       inline Vector<T, N> operator*(const T a, const Vector<T, N>& v0)
       {
@@ -313,7 +677,6 @@ namespace bkk
         return result;
       }
 
-      //Multiplication by a scalar
       template <typename T, u32 N>
       inline Vector<T, N> operator*(const Vector<T, N>& v0, const T a)
       {
@@ -325,7 +688,6 @@ namespace bkk
         return result;
       }
 
-      //Division by a scalar
       template <typename T, u32 N>
       inline Vector<T, N> operator/(const Vector<T, N>& v0, const T a)
       {
@@ -347,7 +709,16 @@ namespace bkk
         return v0;
       }
 
-      //maths::dot product
+      template <typename T, u32 N>
+      inline Vector<T, N> operator/=(Vector<T, N>& v0, const T a)
+      {
+        for (u32 i(0); i < N; ++i)
+        {
+          v0.data[i] /= a;
+        }
+        return v0;
+      }
+
       template <typename T, u32 N>
       inline T dot(const Vector<T, N>& v0, const Vector<T, N>& v1)
       {
@@ -359,7 +730,6 @@ namespace bkk
         return result;
       }
 
-      //maths::cross product. Only for 3-component vectors
       template <typename T>
       inline Vector<T, 3> cross(const Vector<T, 3>& v0, const Vector<T, 3>& v1)
       {
@@ -370,7 +740,6 @@ namespace bkk
         return result;
       }
 
-      //lengthSquared
       template <typename T, u32 N>
       inline f32 lengthSquared(const Vector<T, N>& v)
       {
@@ -382,14 +751,12 @@ namespace bkk
         return lengthSquared;
       }
 
-      //length
       template <typename T, u32 N>
       inline f32 length(const Vector<T, N>& v)
       {
         return sqrtf(lengthSquared(v));
       }
 
-      //Normalization
       template <typename T, u32 N>
       inline Vector<T, N> normalize(const Vector<T, N>& v)
       {
@@ -406,104 +773,91 @@ namespace bkk
         return result;
       }
 
-      //Reflect
       template <typename T, u32 N>
       inline Vector<T, N> reflect(const Vector<T, N>& v, const Vector<T, N>& n)
       {
-        return v - 2.0f * maths::dot(v, n) * n;
+        return v - 2.0f * dot(v, n) * n;
       }
 
-      typedef Vector<f32, 2u> vec2;
-      typedef Vector<u32, 2u> uvec2;
-      typedef Vector<s32, 2u> ivec2;
-      typedef Vector<f32, 3u> vec3;
-      typedef Vector<u32, 3u> uvec3;
-      typedef Vector<s32, 3u> ivec3;
-      typedef Vector<f32, 4u> vec4;
-      typedef Vector<u32, 4u> uvec4;
-      typedef Vector<u32, 2u> uvec2;
-      typedef Vector<u32, 3u> uvec3;
-      typedef Vector<u32, 4u> uvec4;
-
-      static const vec3 VEC3_ZERO = vec3(0.0f, 0.0f, 0.0f);
-      static const vec3 VEC3_ONE = vec3(1.0f, 1.0f, 1.0f);
+      
 
       ////// QUATERNION
+      
       template <typename T>
-      struct Quaternion
+      Quaternion<T>::Quaternion() : x(T(0.0)), y(T(0.0)), z(T(0.0)), w(T(1.0)) {}
+
+      template <typename T>
+      Quaternion<T>::Quaternion(T a, T b, T c, T d) :x(a), y(b), z(c), w(d) {}
+
+      template <typename T>
+      Quaternion<T>::Quaternion(const Vector<T, 4>& v)
+        :x(v.x), y(v.y), z(v.z), w(v.w)
+      {}
+
+      template <typename T>
+      Quaternion<T>::Quaternion(const vec3& from, const vec3& to)
       {
-        Quaternion<T>() : x(T(0.0)), y(T(0.0)), z(T(0.0)), w(T(1.0)) {}
-        Quaternion(T a, T b, T c, T d) :x(a), y(b), z(c), w(d) {}
-        Quaternion(const Vector<T, 4>& v)
-          :x(v.x), y(v.y), z(v.z), w(v.w)
-        {}
-
-        Quaternion(const vec3& v0, const vec3& v1)
+        f32 dotProduct = dot(from, to);
+        if (dotProduct > 1.0f)
         {
-          f32 dot = maths::dot(v0, v1);
-          if (dot > 1.0f)
-          {
-            x = y = z = 0.0f;
-            w = 1.0f;
-          }
-          else if (dot < -1.0f)
-          {
-            x = y = w = 0.0f;
-            z = 1.0f;
-          }
-          else
-          {
-            Vector<T, 3> cross = maths::cross(v0, v1);
-            w = 1.0f + dot;
-            x = cross.x;
-            y = cross.y;
-            z = cross.z;
-            normalize();
-          }
+          x = y = z = 0.0f;
+          w = 1.0f;
         }
-
-
-        Quaternion(const Vector<T, 3>& axis, T angle)
+        else if (dotProduct < -1.0f)
         {
-          Vector<T, 3> axisNormalized = axis;
-          axisNormalized.normalize();
-
-          const f32 halfAngle = -angle * 0.5f;
-          const f32 halfAngleSin = sinf(halfAngle);
-
-          x = axisNormalized.x * halfAngleSin;
-          y = axisNormalized.y * halfAngleSin;
-          z = axisNormalized.z * halfAngleSin;
-          w = cosf(halfAngle);
+          x = y = w = 0.0f;
+          z = 1.0f;
         }
-
-        ~Quaternion<T>() {}
-
-        T& operator[](u32 n)
+        else
         {
-          return data[n];
+          Vector<T, 3> crossProduct = cross(from, to);
+          w = 1.0f + dotProduct;
+          x = crossProduct.x;
+          y = crossProduct.y;
+          z = crossProduct.z;
+          normalize();
         }
+      }
 
-        void normalize()
-        {
-          f32 length = sqrtf(x*x + y * y + z * z + w * w);
-          x /= length;
-          y /= length;
-          z /= length;
-          w /= length;
-        }
+      template <typename T>
+      Quaternion<T>::Quaternion(const Vector<T, 3>& axis, T angle)
+      {
+        Vector<T, 3> axisNormalized = axis;
+        axisNormalized.normalize();
 
-        Vector<T, 4> AsVec4() const
-        {
-          return vec4(x, y, z, w);
-        }
+        const f32 halfAngle = -angle * 0.5f;
+        const f32 halfAngleSin = sinf(halfAngle);
 
-        union
-        {
-          T data[4];
-          struct { T x, y, z, w; };
-        };
-      };
+        x = axisNormalized.x * halfAngleSin;
+        y = axisNormalized.y * halfAngleSin;
+        z = axisNormalized.z * halfAngleSin;
+        w = cosf(halfAngle);
+      }
+
+      template <typename T>
+      Quaternion<T>::~Quaternion() {}
+
+      template <typename T>
+      T& Quaternion<T>::operator[](u32 n)
+      {
+        return data[n];
+      }
+
+      template <typename T>
+      void Quaternion<T>::normalize()
+      {
+        f32 length = sqrtf(x*x + y * y + z * z + w * w);
+        x /= length;
+        y /= length;
+        z /= length;
+        w /= length;
+      }
+
+      template <typename T>
+      Vector<T, 4> Quaternion<T>::asVec4() const
+      {
+        return vec4(x, y, z, w);
+      }
 
       //////Quaternion functions
 
@@ -584,7 +938,7 @@ namespace bkk
       inline Quaternion<T> slerp(const Quaternion<T>& q0, const Quaternion<T>& q1, f32 t)
       {
         Quaternion<T> q2;
-        float cosTheta = dot(q0.AsVec4(), q1.AsVec4());
+        float cosTheta = dot(q0.asVec4(), q1.asVec4());
         if (cosTheta < 0.0f)
         {
           cosTheta = -cosTheta;
@@ -638,179 +992,169 @@ namespace bkk
         return Vector<T, 3>(result.x, result.y, result.z);
       }
 
-      typedef struct Quaternion<f32> quat;
-      static const quat QUAT_UNIT = quat(0.0f, 0.0f, 0.0f, 1.0f);
-
       ///// MATRIX
       template <typename T, u32 ROWS, u32 COLUMNS>
-      struct Matrix
+      Matrix<T, ROWS, COLUMNS>::Matrix()
       {
-        Matrix<T, ROWS, COLUMNS>()
-        {
-          memset(data, 0, ROWS*COLUMNS * sizeof(T));
-        }
+        memset(data, 0, ROWS*COLUMNS * sizeof(T));
+      }
 
-        ~Matrix<T, ROWS, COLUMNS>() {}
+      template <typename T, u32 ROWS, u32 COLUMNS>
+      Matrix<T, ROWS, COLUMNS>::~Matrix() {}
 
-        T& operator[](u32 index)
-        {
-          return data[index];
-        }
+      template <typename T, u32 ROWS, u32 COLUMNS>
+      T& Matrix<T, ROWS, COLUMNS>::operator[](u32 index)
+      {
+        return data[index];
+      }
+      
 
-        T data[ROWS*COLUMNS];
-      };
-
-      //3x3 Matrix
       template <typename T>
-      struct Matrix<T, 3, 3>
+      Matrix<T, 3, 3>::Matrix()
       {
-        Matrix<T, 3, 3>()
-        {
-          setIdentity();
-        }
+        setIdentity();
+      }
 
-        ~Matrix<T, 3, 3>() {}
-
-        T& operator[](u32 index)
-        {
-          return data[index];
-        }
-
-        void setIdentity()
-        {
-          memset(data, 0, 9 * sizeof(T));
-          c00 = c11 = c22 = 1.0f;
-        }
-
-        void setScale(const T sx, const T sy, const T sz)
-        {
-          memset(data, 0, 9 * sizeof(T));
-          c00 = sx;
-          c11 = sy;
-          c22 = sz;
-        }
-
-        union
-        {
-          T data[9];
-          struct {
-            T c00, c10, c20,
-              c01, c11, c21,
-              c02, c12, c22;
-          };
-        };
-      };
-
-      //4x4 Matrix
       template <typename T>
-      struct Matrix<T, 4, 4>
+      Matrix<T, 3, 3>::~Matrix() {}
+
+      template <typename T>
+      T& Matrix<T, 3, 3>::operator[](u32 index)
       {
-        Matrix<T, 4, 4>()
-        {
-          setIdentity();
-        }
+        return data[index];
+      }
 
-        Matrix<T, 4, 4>(const Matrix<T, 4, 4>& m)
-        {
-          memcpy(data, m.data, 16 * sizeof(T));
-        }
+      template <typename T>
+      void Matrix<T, 3, 3>::setIdentity()
+      {
+        memset(data, 0, 9 * sizeof(T));
+        c00 = c11 = c22 = 1.0f;
+      }
 
-        Matrix<T, 4, 4>(const T* coefficients)
-        {
-          memcpy(data, coefficients, 16 * sizeof(T));
-        }
+      template <typename T>
+      void Matrix<T, 3, 3>::setScale(const T sx, const T sy, const T sz)
+      {
+        memset(data, 0, 9 * sizeof(T));
+        c00 = sx;
+        c11 = sy;
+        c22 = sz;
+      }
 
-        ~Matrix<T, 4, 4>() {}
+      template <typename T>
+      Matrix<T, 4, 4>::Matrix()
+      {
+        setIdentity();
+      }
 
-        void operator=(const Matrix<T, 4, 4>& m)
-        {
-          memcpy(data, m.data, 16 * sizeof(T));
-        }
+      template <typename T>
+      Matrix<T, 4, 4>::Matrix (const Matrix<T, 4, 4>& m)
+      {
+        memcpy(data, m.data, 16 * sizeof(T));
+      }
 
-        void operator=(const T* coefficients)
-        {
-          coefficients ?
-            memcpy(data, coefficients, 16 * sizeof(T)) :
-            memset(data, 0, 16 * sizeof(T));
-        }
+      template <typename T>
+      Matrix<T, 4, 4>::Matrix(const T* coefficients)
+      {
+        memcpy(data, coefficients, 16 * sizeof(T));
+      }
 
-        T& operator[](u32 index)
-        {
-          return data[index];
-        }
+      template <typename T>
+      Matrix<T, 4, 4>::~Matrix() {}
 
-        const T& operator[](u32 index) const
-        {
-          return data[index];
-        }
+      template <typename T>
+      void Matrix<T, 4, 4>::operator=(const Matrix<T, 4, 4>& m)
+      {
+        memcpy(data, m.data, 16 * sizeof(T));
+      }
 
-        T& operator()(u8 x, u8 y)
-        {
-          return data[x * 4 + y];
-        }
-
-        const T& operator()(u8 x, u8 y) const
-        {
-          return data[x * 4 + y];
-        }
-
-        void setIdentity()
-        {
+      template <typename T>
+      void Matrix<T, 4, 4>::operator=(const T* coefficients)
+      {
+        coefficients ?
+          memcpy(data, coefficients, 16 * sizeof(T)) :
           memset(data, 0, 16 * sizeof(T));
-          c00 = c11 = c22 = c33 = 1.0f;
-        }
+      }
 
-        void setScale(const T sx, const T sy, const T sz)
-        {
-          memset(data, 0, 9 * sizeof(T));
-          c00 = sx;
-          c11 = sy;
-          c22 = sz;
-        }
+      template <typename T>
+      T& Matrix<T, 4, 4>::operator[](u32 index)
+      {
+        return data[index];
+      }
 
-        void setTranslation(const vec3& translation)
-        {
-          data[12] = translation.x;
-          data[13] = translation.y;
-          data[14] = translation.z;
-        }
+      template <typename T>
+      const T& Matrix<T, 4, 4>::operator[](u32 index) const
+      {
+        return data[index];
+      }
 
-        vec4 getTranslation()
-        {
-          return vec4(data[12], data[13], data[14], 1.0);
-        }
+      template <typename T>
+      T& Matrix<T, 4, 4>::operator()(u8 x, u8 y)
+      {
+        return data[x * 4 + y];
+      }
 
-        void transpose()
+      template <typename T>
+      const T& Matrix<T, 4, 4>::operator()(u8 x, u8 y) const
+      {
+        return data[x * 4 + y];
+      }
+
+      template <typename T>
+      void Matrix<T, 4, 4>::setIdentity()
+      {
+        memset(data, 0, 16 * sizeof(T));
+        c00 = c11 = c22 = c33 = 1.0f;
+      }
+
+      template <typename T>
+      void Matrix<T, 4, 4>::setScale(const T sx, const T sy, const T sz)
+      {
+        memset(data, 0, 9 * sizeof(T));
+        c00 = sx;
+        c11 = sy;
+        c22 = sz;
+      }
+
+      template <typename T>
+      void Matrix<T, 4, 4>::setTranslation(const vec3& translation)
+      {
+        data[12] = translation.x;
+        data[13] = translation.y;
+        data[14] = translation.z;
+      }
+
+      template <typename T>
+      vec4 Matrix<T, 4, 4>::getTranslation()
+      {
+        return vec4(data[12], data[13], data[14], 1.0);
+      }
+
+      template <typename T>
+      void Matrix<T, 4, 4>::transpose()
+      {
+        Matrix<T, 4, 4> aux = *this;
+        for (u8 i = 0; i < 4; ++i)
         {
-          Matrix<T, 4, 4> aux = *this;
-          for (u8 i = 0; i < 4; ++i)
+          for (u8 j = 0; j < 4; ++j)
           {
-            for (u8 j = 0; j < 4; ++j)
-            {
-              data[i + j * 4] = aux[j + i * 4];
-            }
+            data[i + j * 4] = aux[j + i * 4];
           }
         }
+      }
 
-        Vector<T, 4> row(unsigned int i)
-        {
-          return Vector<T, 4>(data[4 * i], data[4 * i + 1], data[4 * i + 2], data[4 * i + 3]);
-        }
+      template <typename T>
+      Vector<T, 4> Matrix<T, 4, 4>::row(unsigned int i) const
+      {
+        return Vector<T, 4>(data[4 * i], data[4 * i + 1], data[4 * i + 2], data[4 * i + 3]);
+      }
 
-        union
-        {
-          //Data stored in row major order
-          T data[16];
-          struct {
-            T c00, c10, c20, c30,
-              c01, c11, c21, c31,
-              c02, c12, c22, c32,
-              c03, c13, c23, c33;
-          };
-        };
-      };
+      template <typename T>
+      Vector<T, 4> Matrix<T, 4, 4>::column(unsigned int i) const
+      {
+        return Vector<T, 4>(data[i], data[i+4], data[i+8], data[i+12]);
+      }
 
-      //Matrix multiplication
+
       template <typename T>
       inline Matrix<T, 4, 4> operator*(const Matrix<T, 4, 4>& m0, const Matrix<T, 4, 4>& m1)
       {
@@ -1023,10 +1367,10 @@ namespace bkk
       inline Vector<T, 4> operator*(const Vector<T, 4>& v, const Matrix<T, 4, 4>& m)
       {
         Vector<T, 4> result;
-        result.x = maths::dot(v, vec4(m.c00, m.c01, m.c02, m.c03));
-        result.y = maths::dot(v, vec4(m.c10, m.c11, m.c12, m.c13));
-        result.z = maths::dot(v, vec4(m.c20, m.c21, m.c22, m.c23));
-        result.w = maths::dot(v, vec4(m.c30, m.c31, m.c32, m.c33));
+        result.x = dot(v, vec4(m.c00, m.c01, m.c02, m.c03));
+        result.y = dot(v, vec4(m.c10, m.c11, m.c12, m.c13));
+        result.z = dot(v, vec4(m.c20, m.c21, m.c22, m.c23));
+        result.w = dot(v, vec4(m.c30, m.c31, m.c32, m.c33));
 
         return result;
       }
@@ -1035,15 +1379,62 @@ namespace bkk
       inline Vector<T, 3> operator*(const Vector<T, 3>& v, const Matrix<T, 3, 3>& m)
       {
         Vector<T, 3> result;
-        result.x = maths::dot(v, vec3(m.c00, m.c01, m.c02));
-        result.y = maths::dot(v, vec3(m.c10, m.c11, m.c12));
-        result.z = maths::dot(v, vec3(m.c20, m.c21, m.c22));
+        result.x = dot(v, vec3(m.c00, m.c01, m.c02));
+        result.y = dot(v, vec3(m.c10, m.c11, m.c12));
+        result.z = dot(v, vec3(m.c20, m.c21, m.c22));
 
         return result;
       }
 
       typedef Matrix<f32, 3u, 3u> mat3;
       typedef Matrix<f32, 4u, 4u> mat4;
+
+      //Frustum and AABB
+      template <typename T>
+      void frustumPlanesFromMatrix(Matrix<T,4,4> matrix, Vector<T,4>* frustumPlanes)
+      {
+        frustumPlanes[0] = matrix.column(3) + matrix.column(0);  //Left
+        frustumPlanes[1] = matrix.column(3) - matrix.column(0);  //Right
+        frustumPlanes[2] = matrix.column(3) + matrix.column(1);  //Bottom
+        frustumPlanes[3] = matrix.column(3) - matrix.column(1);  //Top
+        frustumPlanes[4] = matrix.column(3) + matrix.column(2);  //Near
+        frustumPlanes[5] = matrix.column(3) - matrix.column(2);  //Far
+
+        //Normalization
+        for (uint32_t i(0); i < 6; ++i)
+          frustumPlanes[i] /= length(frustumPlanes[i].xyz());;
+      }     
+
+      template <typename T>
+      AABB<T> aabbTransform(const AABB<T>& aabb, const Matrix<T,4,4>& transform)
+      {
+        Vector<T, 4> min = vec4(aabb.min, 1.0f) * transform;
+        Vector<T, 4> max = vec4(aabb.max, 1.0f) * transform;
+        return AABB<T>{ min.xyz(), max.xyz() };
+      }
+
+      template <typename T>
+      bool aabbInFrustum(const AABB<T>& aabb, Vector<T,4>* frustumPlanes)
+      {
+        uint32_t out = 0;
+        for (uint32_t i = 0; i<6; i++)
+        {
+          out =  ((dot(frustumPlanes[i], Vector<T, 4>(aabb.min.x, aabb.min.y, aabb.min.z, 1.0f)) < 0.0f) ? 1 : 0);
+          out += ((dot(frustumPlanes[i], Vector<T, 4>(aabb.min.x, aabb.min.y, aabb.max.z, 1.0f)) < 0.0f) ? 1 : 0);
+          out += ((dot(frustumPlanes[i], Vector<T, 4>(aabb.min.x, aabb.max.y, aabb.min.z, 1.0f)) < 0.0f) ? 1 : 0);
+          out += ((dot(frustumPlanes[i], Vector<T, 4>(aabb.min.x, aabb.max.y, aabb.max.z, 1.0f)) < 0.0f) ? 1 : 0);
+          out += ((dot(frustumPlanes[i], Vector<T, 4>(aabb.max.x, aabb.min.y, aabb.min.z, 1.0f)) < 0.0f) ? 1 : 0);
+          out += ((dot(frustumPlanes[i], Vector<T, 4>(aabb.max.x, aabb.min.y, aabb.max.z, 1.0f)) < 0.0f) ? 1 : 0);
+          out += ((dot(frustumPlanes[i], Vector<T, 4>(aabb.max.x, aabb.max.y, aabb.min.z, 1.0f)) < 0.0f) ? 1 : 0);
+          out += ((dot(frustumPlanes[i], Vector<T, 4>(aabb.max.x, aabb.max.y, aabb.max.z, 1.0f)) < 0.0f) ? 1 : 0);
+          
+          //If all the points of the aabb are on the wrong half-space return false
+          if (out == 8) 
+            return false;
+        }
+
+        return true;
+      }
 
     }//math
   } //core

@@ -139,8 +139,8 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
 
   for (uint32_t i = 0; i < actorCount; ++i)
   {
-    material_t* material = renderer_->getMaterial(actors[i].getMaterial());
-    core::mesh::mesh_t* mesh = renderer_->getMesh(actors[i].getMesh());
+    material_t* material = renderer_->getMaterial(actors[i].getMaterialHandle());
+    core::mesh::mesh_t* mesh = renderer_->getMesh(actors[i].getMeshHandle());
 
     if (material && mesh )
     {
@@ -211,7 +211,7 @@ void command_buffer_t::blit(const bkk::core::render::texture_t& texture, materia
   
   camera_t* camera = renderer_->getActiveCamera();
   actor_t* actor = renderer_->getActor(renderer_->getRootActor());
-  mesh::mesh_t* mesh = renderer_->getMesh(actor->getMesh());
+  mesh::mesh_t* mesh = renderer_->getMesh(actor->getMeshHandle());
 
   const char* passName = "blit";
   if (pass != nullptr)

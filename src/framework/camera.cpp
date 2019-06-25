@@ -8,6 +8,7 @@
 
 #include "core/maths.h"
 #include "core/handle.h"
+#include "core/mesh.h"
 
 #include "framework/camera.h"
 #include "framework/actor.h"
@@ -60,20 +61,29 @@ void camera_t::update(renderer_t* renderer)
   }
 }
 
-void camera_t::cull(actor_t* actors, uint32_t actorCount)
-{
-  if (visibleActors_ != nullptr)
-  {
-    delete[] visibleActors_;
-  }
+void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
+{  
+  //Extract frustum planes in world space
+  maths::vec4 frustumWS[6];
+  maths::frustumPlanesFromMatrix(uniforms_.worldToView * uniforms_.projection, &frustumWS[0]);
 
   visibleActorsCount_ = 0u;
-  visibleActors_ = new actor_t[actorCount];
+  visibleActors_.resize(actorCount);
   for (uint32_t i = 0; i < actorCount; ++i)
   {
-    visibleActors_[i] = actors[i];
-    visibleActorsCount_++;
+    mesh::mesh_t* mesh = renderer->getMesh(actors[i].getMeshHandle());
+    if (mesh)
+    {
+      //Transform aabb to world space
+      maths::aabb_t aabbWS = maths::aabbTransform(mesh->aabb, *renderer->getTransform(actors[i].getTransformHandle()));
+      if (aabbInFrustum(aabbWS, frustumWS))
+      {
+        visibleActors_[visibleActorsCount_++] = actors[i];
+      }
+    }
   }
+
+  visibleActors_.resize(visibleActorsCount_);
 }
 
 void camera_t::destroy(renderer_t* renderer)
@@ -88,7 +98,7 @@ void camera_t::destroy(renderer_t* renderer)
 
 uint32_t camera_t::getVisibleActors(actor_t** actors)
 {
-  *actors = visibleActors_;
+  *actors = visibleActors_.data();
   return visibleActorsCount_;
 }
 
