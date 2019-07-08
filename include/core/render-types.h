@@ -9,7 +9,20 @@
 #ifndef RENDER_TYPES_H
 #define RENDER_TYPES_H
 
-#include <vulkan/vulkan.h>
+#include <vulkan/vk_platform.h>
+#include <vulkan/vulkan_core.h>
+
+typedef unsigned long DWORD;
+typedef const wchar_t* LPCWSTR;
+typedef void* HANDLE;
+typedef struct HINSTANCE__* HINSTANCE;
+typedef struct HWND__* HWND;
+typedef struct HMONITOR__* HMONITOR;
+typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES;
+
+#include <vulkan/vulkan_win32.h>
+
+
 #include "vector"
 
 namespace bkk
