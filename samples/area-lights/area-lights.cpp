@@ -37,16 +37,16 @@ public:
     sceneFBO_ = renderer.frameBufferCreate(targets, 3u);
 
     //create meshes
-    mesh_handle_t nymph = renderer.meshCreate("../resources/lucy.obj", mesh::EXPORT_ALL);
+    mesh_handle_t model = renderer.meshCreate("../resources/lucy.obj", mesh::EXPORT_ALL);
     mesh_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
 
     mesh_handle_t lineLight = renderer.meshAdd(mesh::unitCube(getRenderContext()));
 
     //create materials
     shader_handle_t shader = renderer.shaderCreate("../area-lights/simple.shader");
-    material_handle_t nymphMaterial = renderer.materialCreate(shader);
-    renderer.getMaterial(nymphMaterial)->setProperty("globals.albedo", vec3(1.0f, 1.0f, 1.0f));  
-    renderer.getMaterial(nymphMaterial)->setProperty("globals.roughness", 0.5f);
+    material_handle_t modelMaterial = renderer.materialCreate(shader);
+    renderer.getMaterial(modelMaterial)->setProperty("globals.albedo", vec3(1.0f, 1.0f, 1.0f));
+    renderer.getMaterial(modelMaterial)->setProperty("globals.roughness", 0.5f);
 
     material_handle_t planeMaterial = renderer.materialCreate(shader);
     renderer.getMaterial(planeMaterial)->setProperty("globals.albedo", vec3(1.0f, 1.0f, 1.0f));
@@ -64,7 +64,7 @@ public:
 
     //create actors
     mat4 modelTransform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(0.01f), quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), degreeToRadian(-50.0f)));
-    renderer.actorCreate("model", nymph, nymphMaterial, modelTransform);
+    renderer.actorCreate("model", model, modelMaterial, modelTransform);
 
     mat4 floorTransform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(20.0f), quaternionFromAxisAngle(vec3(1, 0, 0), degreeToRadian(90.0f)));
     renderer.actorCreate("floor", plane, planeMaterial, floorTransform);
