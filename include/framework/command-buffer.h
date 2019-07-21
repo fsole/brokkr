@@ -27,7 +27,7 @@ namespace bkk
     {
       public:
         command_buffer_t();
-        command_buffer_t(renderer_t* renderer );
+        command_buffer_t(renderer_t* renderer, const char* name = nullptr );
         ~command_buffer_t();
         
         void setDependencies(command_buffer_t* prevCommandBuffers, uint32_t count);
@@ -57,9 +57,12 @@ namespace bkk
         };
 
         void beginCommandBuffer();
+        void endCommandBuffer();
         void createCommandBuffer(type_e type);
 
         renderer_t* renderer_;
+        std::string name_;
+
         std::vector<command_buffer_t> dependencies_;
         core::render::command_buffer_t commandBuffer_;
         VkSemaphore semaphore_;

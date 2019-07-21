@@ -29,18 +29,22 @@ command_buffer_t::command_buffer_t()
   released_()
 {}
 
-command_buffer_t::command_buffer_t(renderer_t* renderer )
-:renderer_(renderer),
+command_buffer_t::command_buffer_t(renderer_t* renderer, const char* name )
+:renderer_(renderer), 
  commandBuffer_(),
  semaphore_(render::semaphoreCreate(renderer->getContext())),
  frameBuffer_(renderer->getBackBuffer()),
  clearColor_(0.0f, 0.0f, 0.0f, 0.0f),
  clear_(false),
  released_(false)
-{}
+{
+  if (name)
+    name_ = name;
+}
 
 command_buffer_t::~command_buffer_t()
-{}
+{
+}
 
 void command_buffer_t::setFrameBuffer(frame_buffer_handle_t framebuffer)
 {
@@ -122,8 +126,20 @@ void command_buffer_t::beginCommandBuffer()
 
   render::commandBufferRenderPassBegin(context, &frameBuffer->getFrameBuffer(), &clearValues[0], clearValuesCount, commandBuffer_);
 
+  if (!name_.empty())
+    render::commandBufferDebugMarkerBegin(renderer_->getContext(), commandBuffer_, name_.c_str());
+
   if (clearValues)
     delete[] clearValues;
+}
+
+void command_buffer_t::endCommandBuffer()
+{
+  if (!name_.empty())
+    render::commandBufferDebugMarkerEnd(renderer_->getContext(), commandBuffer_);
+
+  render::commandBufferRenderPassEnd(commandBuffer_);
+  render::commandBufferEnd(commandBuffer_);
 }
 
 void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* passName)
@@ -175,8 +191,7 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
     }
   }
   
-  render::commandBufferRenderPassEnd(commandBuffer_);
-  render::commandBufferEnd(commandBuffer_);
+  endCommandBuffer();
 }
 
 void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle_t materialHandle, const char* pass)
@@ -229,8 +244,7 @@ void command_buffer_t::blit(const bkk::core::render::texture_t& texture, materia
 
   core::mesh::draw(commandBuffer_, *mesh);
 
-  render::commandBufferRenderPassEnd(commandBuffer_);
-  render::commandBufferEnd(commandBuffer_);
+  endCommandBuffer();
 }
 
 void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)

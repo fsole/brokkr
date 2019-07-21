@@ -144,7 +144,11 @@ namespace bkk
       typedef Vector<u32, 4u> uvec4;
 
       static const vec3 VEC3_ZERO = vec3(0.0f, 0.0f, 0.0f);
-      static const vec3 VEC3_ONE = vec3(1.0f, 1.0f, 1.0f);
+      static const vec3 VEC3_ONE = vec3(1.0f, 1.0f, 1.0f);      
+      static const vec3 VEC3_RIGHT = vec3(1.0f, 0.0f, 0.0f);
+      static const vec3 VEC3_UP = vec3(0.0f, 1.0f, 0.0f);
+      static const vec3 VEC3_FORWARD = vec3(0.0f, 0.0f, 1.0f);
+
 
       /********************/
       /* Vector functions */

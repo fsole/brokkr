@@ -21,8 +21,6 @@ typedef struct HMONITOR__* HMONITOR;
 typedef struct _SECURITY_ATTRIBUTES SECURITY_ATTRIBUTES;
 
 #include <vulkan/vulkan_win32.h>
-
-
 #include "vector"
 
 namespace bkk

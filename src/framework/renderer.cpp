@@ -305,6 +305,22 @@ void renderer_t::actorSetParent(actor_handle_t actor, actor_handle_t parent)
   transformManager_.setParent(actors_.get(actor)->getTransformHandle(), actors_.get(parent)->getTransformHandle());
 }
 
+void renderer_t::actorSetTransform(actor_handle_t handle, const maths::mat4& newTransform)
+{
+  actor_t* actor = getActor(handle);
+  if (actor)
+    transformManager_.setTransform(actor->getTransformHandle(), newTransform);
+}
+
+maths::mat4* renderer_t::actorGetTransform(actor_handle_t handle)
+{
+  actor_t* actor = getActor(handle);
+  if (actor)
+    return transformManager_.getTransform(actor->getTransformHandle());
+
+  return nullptr;
+}
+
 maths::mat4* renderer_t::getTransform(transform_handle_t transform) 
 {
   return transformManager_.getTransform(transform);
@@ -313,11 +329,6 @@ maths::mat4* renderer_t::getTransform(transform_handle_t transform)
 void renderer_t::setTransform(transform_handle_t handle, const maths::mat4& newTransform)
 {
   transformManager_.setTransform(handle, newTransform);
-}
-
-void renderer_t::actorSetTransform(actor_handle_t actor, const maths::mat4& newTransform)
-{
-  transformManager_.setTransform(actors_.get(actor)->getTransformHandle(), newTransform);
 }
 
 camera_handle_t renderer_t::cameraAdd(const camera_t& camera)
@@ -444,11 +455,12 @@ void renderer_t::buildPresentationCommandBuffers()
   for (uint32_t i(0); i<count; ++i)
   {
     render::beginPresentationCommandBuffer(context_, i, nullptr);
+    render::commandBufferDebugMarkerBegin(context_, commandBuffers[i], "Presentation");
     render::graphicsPipelineBind(commandBuffers[i], presentationPipeline_);
     render::descriptorSetBind(commandBuffers[i], textureBlitPipelineLayout_, 0, &presentationDescriptorSet_, 1u);
     mesh::draw(commandBuffers[i], fullScreenQuad_);
-
     framework::gui::draw(context_, commandBuffers[i]);
+    render::commandBufferDebugMarkerEnd(context_, commandBuffers[i]);
     render::endPresentationCommandBuffer(context_, i);
   }
 }

@@ -703,59 +703,65 @@ mesh_t mesh::unitCube(const render::context_t& context)
   {
     float position[3];
     float normal[3];
+    float uv[2];
   };
 
   //WARNING: IN Vulkan, Y is pointing down in NDC!
-  static const Vertex vertices[] = { {{ -0.5f, -0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f } },
-                                     {{ -0.5f, -0.5f, -0.5f },{ 0.0f, -1.0f, 0.0f } },
-                                     {{ -0.5f, -0.5f, -0.5f },{ -1.0f, 0.0f, 0.0f } },
+  static const Vertex vertices[] = { {{ -0.5f, -0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f },{0.0f,0.0f} },
+                                     {{ -0.5f, -0.5f, -0.5f },{ 0.0f, -1.0f, 0.0f },{0.0f,0.0f} },
+                                     {{ -0.5f, -0.5f, -0.5f },{ -1.0f, 0.0f, 0.0f },{0.0f,0.0f} },
 
 
-                                     { { -0.5f, -0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f } },
-                                     { { -0.5f, -0.5f,  0.5f },{ 0.0f, -1.0f, 0.0f } },
-                                     { { -0.5f, -0.5f,  0.5f },{ -1.0f, 0.0f, 0.0f } },
+                                     { { -0.5f, -0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f },{ 0.0f,0.0f } },
+                                     { { -0.5f, -0.5f,  0.5f },{ 0.0f, -1.0f, 0.0f },{ 0.0f,0.0f } },
+                                     { { -0.5f, -0.5f,  0.5f },{ -1.0f, 0.0f, 0.0f },{ 0.0f,0.0f } },
 
 
-                                     { { -0.5f,  0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f } },
-                                     { { -0.5f,  0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f } },
-                                     { { -0.5f,  0.5f, -0.5f },{ -1.0f, 0.0f, 0.0f } },
+                                     { { -0.5f,  0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f },{ 0.0f,0.0f } },
+                                     { { -0.5f,  0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f },{ 0.0f,0.0f } },
+                                     { { -0.5f,  0.5f, -0.5f },{ -1.0f, 0.0f, 0.0f },{ 0.0f,0.0f } },
 
 
-                                     { { -0.5f,  0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f } },
-                                     { { -0.5f,  0.5f,  0.5f },{ 0.0f, 1.0f, 0.0f } },
-                                     { { -0.5f,  0.5f,  0.5f },{ -1.0f, 0.0f, 0.0f } },
+                                     { { -0.5f,  0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f },{ 0.0f,0.0f } },
+                                     { { -0.5f,  0.5f,  0.5f },{ 0.0f, 1.0f, 0.0f },{ 0.0f,0.0f } },
+                                     { { -0.5f,  0.5f,  0.5f },{ -1.0f, 0.0f, 0.0f },{ 0.0f,0.0f } },
 
-                                     { { 0.5f, -0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f } },
-                                     { { 0.5f, -0.5f, -0.5f },{ 0.0f, -1.0f, 0.0f } },
-                                     { { 0.5f, -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f } },
+                                     { { 0.5f, -0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f },{ 0.0f,0.0f } },
+                                     { { 0.5f, -0.5f, -0.5f },{ 0.0f, -1.0f, 0.0f },{ 0.0f,0.0f } },
+                                     { { 0.5f, -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f },{ 0.0f,0.0f } },
 
-                                     { { 0.5f, -0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f } },
-                                     { { 0.5f, -0.5f,  0.5f },{ 0.0f, -1.0f, 0.0f } },
-                                     { { 0.5f, -0.5f,  0.5f },{ 1.0f, 0.0f, 0.0f } },
+                                     { { 0.5f, -0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f },{ 0.0f,0.0f } },
+                                     { { 0.5f, -0.5f,  0.5f },{ 0.0f, -1.0f, 0.0f },{ 0.0f,0.0f } },
+                                     { { 0.5f, -0.5f,  0.5f },{ 1.0f, 0.0f, 0.0f },{ 0.0f,0.0f } },
 
-                                     { { 0.5f,  0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f } },
-                                     { { 0.5f,  0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f } },
-                                     { { 0.5f,  0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f } },
+                                     { { 0.5f,  0.5f, -0.5f },{ 0.0f, 0.0f, -1.0f },{ 0.0f,0.0f } },
+                                     { { 0.5f,  0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f },{ 0.0f,0.0f } },
+                                     { { 0.5f,  0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f },{ 0.0f,0.0f } },
 
-                                     { { 0.5f,  0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f } },
-                                     { { 0.5f,  0.5f,  0.5f },{ 0.0f, 1.0f, 0.0f } },
-                                     { { 0.5f,  0.5f,  0.5f },{ 1.0f, 0.0f, 0.0f } }
+                                     { { 0.5f,  0.5f,  0.5f },{ 0.0f, 0.0f, 1.0f },{ 0.0f,0.0f } },
+                                     { { 0.5f,  0.5f,  0.5f },{ 0.0f, 1.0f, 0.0f },{ 0.0f,0.0f } },
+                                     { { 0.5f,  0.5f,  0.5f },{ 1.0f, 0.0f, 0.0f },{ 0.0f,0.0f } }
 
   };
 
   static const uint32_t indices[] = { 3, 21, 9, 0, 18, 12, 0, 6, 18, 2, 11,8, 2, 5, 11, 7, 22, 19, 7, 10, 22, 14, 20, 23, 14, 23, 17, 1, 13, 16, 1, 16, 4, 3, 15, 21 };
 
-  static render::vertex_attribute_t attributes[2];
+  static render::vertex_attribute_t attributes[3];
   attributes[0].format = render::vertex_attribute_t::format_e::VEC3;
   attributes[0].offset = 0;
   attributes[0].stride = sizeof(Vertex);
   attributes[0].instanced = false;
-  attributes[1].format = render::vertex_attribute_t::format_e::VEC3;;
+  attributes[1].format = render::vertex_attribute_t::format_e::VEC3;
   attributes[1].offset = offsetof(Vertex, normal);
   attributes[1].stride = sizeof(Vertex);
   attributes[1].instanced = false;
+  attributes[2].format = render::vertex_attribute_t::format_e::VEC2;
+  attributes[2].offset = offsetof(Vertex, uv);
+  attributes[2].stride = sizeof(Vertex);
+  attributes[2].instanced = false;
 
   mesh::mesh_t mesh;
-  mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 2, nullptr, &mesh);
+  mesh::create(context, indices, sizeof(indices), (const void*)vertices, sizeof(vertices), attributes, 3, nullptr, &mesh);
+  mesh.aabb = { vec3(-0.5f, -0.5f, -0.5f), vec3(0.5f, 0.5f, 0.5f) };
   return mesh;
 }

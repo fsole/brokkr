@@ -777,8 +777,6 @@ private:
       render::commandBufferRenderPassBegin(context, &frameBuffer_, clearValues, 5u, commandBuffer_);
 
       //GBuffer pass
-
-      
       render::graphicsPipelineBind(commandBuffer_, gBufferPipeline_);
       render::descriptor_set_t descriptorSets[3];
       descriptorSets[0] = globalsDescriptorSet_;
