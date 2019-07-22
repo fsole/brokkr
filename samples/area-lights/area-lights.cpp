@@ -20,8 +20,8 @@ using namespace bkk::framework;
 class area_lights_sample_t : public application_t
 {
 public:
-  area_lights_sample_t()
-    :application_t("Area lights", 1200u, 800u, 3u),
+  area_lights_sample_t(const uvec2& imageSize)
+    :application_t("Area lights", imageSize.x, imageSize.y, 3u),
     cameraController_(vec3(0.0f, 4.0f, 12.0f), vec2(0.1f, 0.0f), 0.5f, 0.01f),
     lightAngle_(0.0f),
     lightVelocity_(4.0),
@@ -32,7 +32,6 @@ public:
     floorRoughness_(0.0f),
     floorAlbedo_(1.0f, 1.0f, 1.0f)
   {
-    uvec2 imageSize(1200u, 800u);
     renderer_t& renderer = getRenderer();
 
     //create GBuffer
@@ -40,7 +39,7 @@ public:
     render_target_handle_t emissionRT = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R8G8B8A8_UNORM, true);
     render_target_handle_t normalDepthRT = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
     render_target_handle_t targets[] = { albedoRoughnessRT, emissionRT, normalDepthRT };
-    sceneFBO_ = renderer.frameBufferCreate(targets, 3u);
+    gBuffer_ = renderer.frameBufferCreate(targets, 3u);
 
     //create meshes
     mesh_handle_t model = renderer.meshCreate("../resources/lucy.obj", mesh::EXPORT_ALL);
@@ -54,10 +53,10 @@ public:
     modelMaterialPtr->setProperty("globals.albedo", modelAlbedo_);
     modelMaterialPtr->setProperty("globals.roughness", modelRoughness_);
 
-    material_handle_t planeMaterial = renderer.materialCreate(shader);
-    material_t* planeMaterialPtr = renderer.getMaterial(planeMaterial);
-    planeMaterialPtr->setProperty("globals.albedo", floorAlbedo_);
-    planeMaterialPtr->setProperty("globals.roughness", 0.0f);
+    material_handle_t floorMaterial = renderer.materialCreate(shader);
+    material_t* floorMaterialPtr = renderer.getMaterial(floorMaterial);
+    floorMaterialPtr->setProperty("globals.albedo", floorAlbedo_);
+    floorMaterialPtr->setProperty("globals.roughness", 0.0f);
 
     shader_handle_t lineLightShader = renderer.shaderCreate("../area-lights/line-light.shader");
     material_handle_t lineLightMaterial = renderer.materialCreate(lineLightShader);
@@ -74,7 +73,7 @@ public:
     renderer.actorCreate("model", model, modelMaterial, modelTransform);
 
     mat4 floorTransform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(20.0f), quaternionFromAxisAngle(vec3(1, 0, 0), degreeToRadian(90.0f)));
-    renderer.actorCreate("floor", plane, planeMaterial, floorTransform);
+    renderer.actorCreate("floor", plane, floorMaterial, floorTransform);
 
     //Create line light
     mat4 lightTransform = createTransform(vec3(-3.0f, -0.3f, 0.5f), vec3(0.1f,0.1f,4.0f), QUAT_UNIT);
@@ -119,9 +118,9 @@ public:
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera_, &visibleActors);
 
-    //Render scene
-    command_buffer_t renderSceneCmd(&renderer, "GBuffer pass");
-    renderSceneCmd.setFrameBuffer(sceneFBO_);
+    //Geometry pass
+    command_buffer_t renderSceneCmd(&renderer, "Geometry pass");
+    renderSceneCmd.setFrameBuffer(gBuffer_);
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
     renderSceneCmd.submitAndRelease();
@@ -168,7 +167,7 @@ public:
 
 private:
 
-  frame_buffer_handle_t sceneFBO_;
+  frame_buffer_handle_t gBuffer_;
 
   camera_handle_t camera_;
   free_camera_controller_t cameraController_;
@@ -187,7 +186,7 @@ private:
 
 int main()
 {
-  area_lights_sample_t sample;
+  area_lights_sample_t sample(uvec2(1200u, 800u) );
   sample.loop();
 
   return 0;
