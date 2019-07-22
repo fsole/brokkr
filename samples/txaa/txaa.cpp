@@ -298,7 +298,7 @@ struct TXAA_sample_t : public framework::application_t
 {
   TXAA_sample_t()
     :application_t("Temporal Anti-Aliasing", 1200u, 800u, 3u),
-    camera_(vec3(0.0f, 2.5f, 8.5f), vec2(0.0f, 0.0f), 1.0f, 0.01f),
+    camera_(vec3(0.0f, 2.5f, 8.5f), vec2(0.0f, 0.0f), 0.5f, 0.01f),
     bTemporalAA_(true),
     currentFrame_(0)
   {
@@ -530,39 +530,17 @@ struct TXAA_sample_t : public framework::application_t
   {
     if (pressed)
     {
+      camera_.onKey(key);
+
       switch (key)
-      {
-      case window::key_e::KEY_UP:
-      case 'w':
-      {
-        camera_.Move(0.0f, -0.5f);
-        break;
-      }
-      case window::key_e::KEY_DOWN:
-      case 's':
-      {
-        camera_.Move(0.0f, 0.5f);
-        break;
-      }
-      case window::key_e::KEY_LEFT:
-      case 'a':
-      {
-        camera_.Move(-0.5f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_RIGHT:
-      case 'd':
-      {
-        camera_.Move(0.5f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_P:
-      { 
-        bTemporalAA_ = !bTemporalAA_;
-        break;
-      }
-      default:
-        break;
+      {      
+        case window::key_e::KEY_P:
+        { 
+          bTemporalAA_ = !bTemporalAA_;
+          break;
+        }
+        default:
+          break;
       }
     }
   }

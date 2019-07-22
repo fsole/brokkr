@@ -479,6 +479,7 @@ public:
     //Create globals uniform buffer
     camera_.setPosition( vec3(-1.1f, 0.6f, -0.1f) );
     camera_.setRotation( vec2(0.2f, 1.57f) );
+    camera_.setMoveDelta(0.03f);
     camera_.Update();
     uniforms_.projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)size.x / (f32)size.y, 0.01f, 10.0f);
     invertMatrix(uniforms_.projectionMatrix, &uniforms_.projectionInverseMatrix);
@@ -692,45 +693,22 @@ public:
   {
     if (pressed)
     {
+      camera_.onKey(key);
       switch (key)
-      {
-      case window::key_e::KEY_UP:
-      case 'w':
-      {
-        camera_.Move(0.0f, -0.03f);
-        break;
-      }
-      case window::key_e::KEY_DOWN:
-      case 's':
-      {
-        camera_.Move(0.0f, 0.03f);
-        break;
-      }
-      case window::key_e::KEY_LEFT:
-      case 'a':
-      {
-        camera_.Move(-0.03f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_RIGHT:
-      case 'd':
-      {
-        camera_.Move(0.03f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_1:
-      case window::key_e::KEY_2:
-      case window::key_e::KEY_3:
-      case window::key_e::KEY_4:
-      case window::key_e::KEY_5:
-      {
-        currentPresentationDescriptorSet_ = key - window::key_e::KEY_1;
-        render::contextFlush(getRenderContext());
-        buildPresentationCommandBuffers();
-        break;
-      }
-      default:
-        break;
+      {      
+        case window::key_e::KEY_1:
+        case window::key_e::KEY_2:
+        case window::key_e::KEY_3:
+        case window::key_e::KEY_4:
+        case window::key_e::KEY_5:
+        {
+          currentPresentationDescriptorSet_ = key - window::key_e::KEY_1;
+          render::contextFlush(getRenderContext());
+          buildPresentationCommandBuffers();
+          break;
+        }
+        default:
+          break;
       }
     }
   }

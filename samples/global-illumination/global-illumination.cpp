@@ -640,8 +640,9 @@ public:
     mesh::createFromFile(context, "../resources/sphere.obj", mesh::EXPORT_POSITION_ONLY, nullptr, 0u, &sphereMesh_);
 
     //Initialize camera transformation
-    camera_.setPosition( vec3(-1.1f, 0.6f, -0.1f) );
+    camera_.setPosition( vec3(-1.1f, 0.6f, -0.1f) );    
     camera_.setRotation( vec2(0.2f, 1.57f) );
+    camera_.setMoveDelta(0.03f);
     camera_.Update();
     
     //Create globals uniform buffer
@@ -859,52 +860,29 @@ public:
   {
     if (pressed)
     {
+      camera_.onKey(key);
       switch (key)
-      {
-      case window::key_e::KEY_UP:
-      case 'w':
-      {
-        camera_.Move(0.0f, -0.03f);
-        break;
-      }
-      case window::key_e::KEY_DOWN:
-      case 's':
-      {
-        camera_.Move(0.0f, 0.03f);
-        break;
-      }
-      case window::key_e::KEY_LEFT:
-      case 'a':
-      {
-        camera_.Move(-0.03f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_RIGHT:
-      case 'd':
-      {
-        camera_.Move(0.03f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_1:
-      case window::key_e::KEY_2:
-      case window::key_e::KEY_3:
-      case window::key_e::KEY_4:
-      case window::key_e::KEY_5:
-      case window::key_e::KEY_6:
-      case window::key_e::KEY_7:
-      {
-        currentPresentationDescriptorSet_ = key - window::key_e::KEY_1;
-        render::contextFlush(getRenderContext());
-        buildPresentationCommandBuffers();
-        break;
-      }
-      case window::key_e::KEY_G:
-      {
-        globalIllumination_ = !globalIllumination_;
-        break;
-      }
-      default:
-        break;
+      {      
+        case window::key_e::KEY_1:
+        case window::key_e::KEY_2:
+        case window::key_e::KEY_3:
+        case window::key_e::KEY_4:
+        case window::key_e::KEY_5:
+        case window::key_e::KEY_6:
+        case window::key_e::KEY_7:
+        {
+          currentPresentationDescriptorSet_ = key - window::key_e::KEY_1;
+          render::contextFlush(getRenderContext());
+          buildPresentationCommandBuffers();
+          break;
+        }
+        case window::key_e::KEY_G:
+        {
+          globalIllumination_ = !globalIllumination_;
+          break;
+        }
+        default:
+          break;
       }
     }
   }

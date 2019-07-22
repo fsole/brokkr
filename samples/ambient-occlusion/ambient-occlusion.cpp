@@ -23,7 +23,7 @@ class ambient_occlusion_sample_t : public application_t
 public:
   ambient_occlusion_sample_t()
     :application_t("Screen-space ambient occlusion", 1200u, 800u, 3u),
-    cameraController_(vec3(0.0f, 4.0f, 12.0f), vec2(0.1f, 0.0f), 1.0f, 0.01f),
+    cameraController_(vec3(0.0f, 4.0f, 12.0f), vec2(0.1f, 0.0f), 0.5f, 0.01f),
     ssaoEnabled_(true),
     ssaoSampleCount_(64u),
     ssaoRadius_(0.5f),
@@ -129,34 +129,7 @@ public:
   void onKeyEvent(u32 key, bool pressed)
   {
     if (pressed)
-    {
-      float delta = 0.5f;
-      switch (key)
-      {
-      case window::key_e::KEY_UP:
-      case 'w':
-        cameraController_.Move(0.0f, -delta);
-        break;
-
-      case window::key_e::KEY_DOWN:
-      case 's':
-        cameraController_.Move(0.0f, delta);
-        break;
-
-      case window::key_e::KEY_LEFT:
-      case 'a':
-        cameraController_.Move(-delta, 0.0f);
-        break;
-
-      case window::key_e::KEY_RIGHT:
-      case 'd':
-        cameraController_.Move(delta, 0.0f);
-        break;
-
-      default:
-        break;
-      }
-    }
+      cameraController_.onKey(key);
   }
 
   void onMouseMove(const vec2& mousePos, const vec2 &mouseDeltaPos)

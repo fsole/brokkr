@@ -22,14 +22,20 @@ class area_lights_sample_t : public application_t
 public:
   area_lights_sample_t()
     :application_t("Area lights", 1200u, 800u, 3u),
-    cameraController_(vec3(0.0f, 4.0f, 12.0f), vec2(0.1f, 0.0f), 1.0f, 0.01f),
-    animateLights_(true),
-    lightAngle_(0.0f)
+    cameraController_(vec3(0.0f, 4.0f, 12.0f), vec2(0.1f, 0.0f), 0.5f, 0.01f),
+    lightAngle_(0.0f),
+    lightVelocity_(4.0),
+    lightColorBegin_(1.0f, 1.0f, 1.0f),
+    lightColorEnd_(1.0f, 1.0f, 1.0f),
+    modelRoughness_(0.5f),
+    modelAlbedo_(0.0f,1.0f,0.0f),
+    floorRoughness_(0.0f),
+    floorAlbedo_(1.0f, 1.0f, 1.0f)
   {
     uvec2 imageSize(1200u, 800u);
     renderer_t& renderer = getRenderer();
 
-    //create scene framebuffer
+    //create GBuffer
     render_target_handle_t albedoRoughnessRT = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R8G8B8A8_UNORM, true);
     render_target_handle_t emissionRT = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R8G8B8A8_UNORM, true);
     render_target_handle_t normalDepthRT = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
@@ -39,24 +45,25 @@ public:
     //create meshes
     mesh_handle_t model = renderer.meshCreate("../resources/lucy.obj", mesh::EXPORT_ALL);
     mesh_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
-
     mesh_handle_t lineLight = renderer.meshAdd(mesh::unitCube(getRenderContext()));
 
     //create materials
     shader_handle_t shader = renderer.shaderCreate("../area-lights/simple.shader");
     material_handle_t modelMaterial = renderer.materialCreate(shader);
-    renderer.getMaterial(modelMaterial)->setProperty("globals.albedo", vec3(1.0f, 1.0f, 1.0f));
-    renderer.getMaterial(modelMaterial)->setProperty("globals.roughness", 0.5f);
+    material_t* modelMaterialPtr = renderer.getMaterial(modelMaterial);
+    modelMaterialPtr->setProperty("globals.albedo", modelAlbedo_);
+    modelMaterialPtr->setProperty("globals.roughness", modelRoughness_);
 
     material_handle_t planeMaterial = renderer.materialCreate(shader);
-    renderer.getMaterial(planeMaterial)->setProperty("globals.albedo", vec3(1.0f, 1.0f, 1.0f));
-    renderer.getMaterial(planeMaterial)->setProperty("globals.roughness", 0.0f);
+    material_t* planeMaterialPtr = renderer.getMaterial(planeMaterial);
+    planeMaterialPtr->setProperty("globals.albedo", floorAlbedo_);
+    planeMaterialPtr->setProperty("globals.roughness", 0.0f);
 
     shader_handle_t lineLightShader = renderer.shaderCreate("../area-lights/line-light.shader");
     material_handle_t lineLightMaterial = renderer.materialCreate(lineLightShader);
     material_t* lineLightMaterialPtr = renderer.getMaterial(lineLightMaterial);
-    lineLightMaterialPtr->setProperty("globals.colorBegin", vec4(1.0f, 0.0f, 0.0f, 1.0f));
-    lineLightMaterialPtr->setProperty("globals.colorEnd", vec4(0.0f, 1.0f, 0.0f, 1.0f));
+    lineLightMaterialPtr->setProperty("globals.colorBegin", lightColorBegin_);
+    lineLightMaterialPtr->setProperty("globals.colorEnd", lightColorEnd_);
     lineLightMaterialPtr->setProperty("globals.radius", 20.0f);
     lineLightMaterialPtr->setTexture("albedoRoughnessRT", albedoRoughnessRT);
     lineLightMaterialPtr->setTexture("emissionRT", emissionRT);
@@ -69,47 +76,19 @@ public:
     mat4 floorTransform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(20.0f), quaternionFromAxisAngle(vec3(1, 0, 0), degreeToRadian(90.0f)));
     renderer.actorCreate("floor", plane, planeMaterial, floorTransform);
 
-    //Create light
+    //Create line light
     mat4 lightTransform = createTransform(vec3(-3.0f, -0.3f, 0.5f), vec3(0.1f,0.1f,4.0f), QUAT_UNIT);
-    lineLight_ = renderer.actorCreate("lineLight", lineLight, lineLightMaterial, lightTransform);
+    renderer.actorCreate("lineLight", lineLight, lineLightMaterial, lightTransform);
 
     //create camera
     camera_ = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 100.0f));
     cameraController_.setCameraHandle(camera_, &renderer);
   }
 
-
   void onKeyEvent(u32 key, bool pressed)
   {
     if (pressed)
-    {
-      float delta = 0.5f;
-      switch (key)
-      {
-      case window::key_e::KEY_UP:
-      case 'w':
-        cameraController_.Move(0.0f, -delta);
-        break;
-
-      case window::key_e::KEY_DOWN:
-      case 's':
-        cameraController_.Move(0.0f, delta);
-        break;
-
-      case window::key_e::KEY_LEFT:
-      case 'a':
-        cameraController_.Move(-delta, 0.0f);
-        break;
-
-      case window::key_e::KEY_RIGHT:
-      case 'd':
-        cameraController_.Move(delta, 0.0f);
-        break;
-
-      default:
-        break;
-      }
-    }
+      cameraController_.onKey(key);
   }
 
   void onMouseMove(const vec2& mousePos, const vec2 &mouseDeltaPos)
@@ -117,28 +96,23 @@ public:
     if (getMousePressedButton() == window::MOUSE_RIGHT)
       cameraController_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
   }
-
-  void onQuit()
-  {
-  }
-
+  
   void animateLights()
   {
-    lightAngle_ += 0.004f * getTimeDelta();
+    lightAngle_ += (getTimeDelta() * lightVelocity_ / 1000.0f);
     mat4 lineLightTx = createTransform(vec3(-3.0f, -0.3f, 0.5f), 
                                        vec3(0.1f, 0.1f, 4.0f), 
                                        quaternionFromAxisAngle(VEC3_UP, lightAngle_));
 
-    getRenderer().actorSetTransform(lineLight_, lineLightTx);
+    renderer_t& renderer = getRenderer();
+    renderer.actorSetTransform(renderer.findActor("lineLight")->getTransformHandle(), lineLightTx);
   }
 
   void render()
   {
-    if(animateLights_)
-      animateLights();
+    animateLights();
 
     beginFrame();
-
     renderer_t& renderer = getRenderer();
     renderer.setupCamera(camera_);
 
@@ -152,12 +126,10 @@ public:
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
     renderSceneCmd.submitAndRelease();
    
-    //Render lights
-    actor_t* allActors = nullptr;
-    count = renderer.getAllActors(&allActors);
+    //Render line light
     command_buffer_t lightPassCmd(&renderer, "Light pass");
     lightPassCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
-    lightPassCmd.render(allActors, count, "LightPass");
+    lightPassCmd.render(renderer.findActor("lineLight"), 1u, "LightPass");
     lightPassCmd.submitAndRelease();
     
     presentFrame();
@@ -165,8 +137,32 @@ public:
 
   void buildGuiFrame()
   {
+    renderer_t& renderer = getRenderer();
+
     ImGui::Begin("Controls");
-    ImGui::Checkbox("Animate Lights", &animateLights_);    
+
+    ImGui::LabelText("", "Light");
+    ImGui::SliderFloat("Light velocity (rad/s)", &lightVelocity_, 0.0f, 10.0f);
+    ImGui::ColorEdit3("Light color begin", lightColorBegin_.data);
+    ImGui::ColorEdit3("Light color end", lightColorEnd_.data);
+    material_t* lightMaterial = renderer.getMaterial(renderer.findActor("lineLight")->getMaterialHandle());
+    lightMaterial->setProperty("globals.colorBegin", lightColorBegin_);
+    lightMaterial->setProperty("globals.colorEnd", lightColorEnd_);
+
+    ImGui::LabelText("", "Model");
+    ImGui::ColorEdit3("Model albedo", modelAlbedo_.data);
+    ImGui::SliderFloat("Model roughness", &modelRoughness_, 0.0f, 1.0f);
+    material_t* modelMaterial = renderer.getMaterial(renderer.findActor("model")->getMaterialHandle());
+    modelMaterial->setProperty("globals.albedo", modelAlbedo_);
+    modelMaterial->setProperty("globals.roughness", modelRoughness_);
+
+    ImGui::LabelText("", "Floor");
+    ImGui::ColorEdit3("Floor albedo", floorAlbedo_.data);
+    ImGui::SliderFloat("Floor roughness", &floorRoughness_, 0.0f, 1.0f);
+    material_t* floorMaterial = renderer.getMaterial(renderer.findActor("floor")->getMaterialHandle());
+    floorMaterial->setProperty("globals.albedo", floorAlbedo_);
+    floorMaterial->setProperty("globals.roughness", floorRoughness_);
+
     ImGui::End();
   }
 
@@ -177,10 +173,16 @@ private:
   camera_handle_t camera_;
   free_camera_controller_t cameraController_;
 
-  actor_handle_t lineLight_;
-
-  bool animateLights_;  
   float lightAngle_;  
+  float lightVelocity_;
+  vec3 lightColorBegin_;
+  vec3 lightColorEnd_;
+
+  float modelRoughness_;
+  vec3 modelAlbedo_;
+
+  float floorRoughness_;
+  vec3 floorAlbedo_;
 };
 
 int main()

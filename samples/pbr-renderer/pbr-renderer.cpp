@@ -373,7 +373,7 @@ struct pbr_renderer_t : public framework::application_t
 {
   pbr_renderer_t()
     :application_t("PBR Renderer", 1200u, 800u, 3u),
-    camera_(vec3(0.0f, 9.0f, 5.0f), vec2(0.6f, 0.0f), 1.0f, 0.01f)
+    camera_(vec3(0.0f, 9.0f, 5.0f), vec2(0.6f, 0.0f), 0.5f, 0.01f)
   {
     render::context_t& context = getRenderContext();
     uvec2 size = getWindowSize();
@@ -582,37 +582,7 @@ struct pbr_renderer_t : public framework::application_t
   void onKeyEvent(u32 key, bool pressed)
   {
     if (pressed)
-    {
-      switch (key)
-      {
-      case window::key_e::KEY_UP:
-      case 'w':
-      {
-        camera_.Move(0.0f, -0.5f);
-        break;
-      }
-      case window::key_e::KEY_DOWN:
-      case 's':
-      {
-        camera_.Move(0.0f, 0.5f);
-        break;
-      }
-      case window::key_e::KEY_LEFT:
-      case 'a':
-      {
-        camera_.Move(-0.5f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_RIGHT:
-      case 'd':
-      {
-        camera_.Move(0.5f, 0.0f);
-        break;
-      }
-      default:
-        break;
-      }
-    }
+      camera_.onKey(key);      
   }
 
   void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos)

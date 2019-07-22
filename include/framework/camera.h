@@ -94,7 +94,7 @@ namespace bkk
     {
     public:
       free_camera_controller_t();
-      free_camera_controller_t(const core::maths::vec3& position, const core::maths::vec2& angle, f32 velocity, f32 rotationSensitivity);
+      free_camera_controller_t(const core::maths::vec3& position, const core::maths::vec2& angle, f32 moveDelta, f32 rotationSensitivity);
 
       void setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer);
 
@@ -107,17 +107,20 @@ namespace bkk
       
       void setPosition(const core::maths::vec3& position) { position_ = position; }
       const core::maths::vec3& getPosition() { return position_; }
+      void setMoveDelta(f32 moveDelta){ moveDelta_ = moveDelta; }
       
       void setRotation(const core::maths::vec2& angle) { angle_ = angle; }
       const core::maths::vec2& getRotation() { return angle_; }
+
+      void onKey(uint32_t key);
 
     private:
       core::maths::mat4 tx_;
       core::maths::mat4 view_;
       core::maths::vec3 position_;
       core::maths::vec2 angle_;
-      f32  velocity_; //Units per second
-      f32 rotationSensitivity_;
+      f32 moveDelta_;
+      f32 rotationSensitivity_;      
 
       camera_handle_t cameraHandle_;
       renderer_t* renderer_;

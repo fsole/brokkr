@@ -321,6 +321,19 @@ maths::mat4* renderer_t::actorGetTransform(actor_handle_t handle)
   return nullptr;
 }
 
+actor_t* renderer_t::findActor(const char* name)
+{
+  actor_t* actors;
+  uint32_t actorCount = actors_.getData(&actors);
+  for (uint32_t i(0); i < actorCount; ++i)
+  {
+    if (strcmp(name, actors[i].getName()) == 0)
+      return &actors[i];
+  }
+
+  return nullptr;
+}
+
 maths::mat4* renderer_t::getTransform(transform_handle_t transform) 
 {
   return transformManager_.getTransform(transform);

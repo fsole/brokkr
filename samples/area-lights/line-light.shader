@@ -140,9 +140,9 @@
         float d = length(L);
         L /= d;
         vec3 N = normalize(normalDepth.xyz);        
-        vec4 diffuse = vec4( albedoRoughness.rgb * max(0.0, dot(N, L)), 1.0);
+        vec3 diffuse = albedoRoughness.rgb * max(0.0, dot(N, L));
         float falloff = 1.0 / d * d;
-        vec4 lightDiffuseIntensity = mix(globals.colorBegin, globals.colorEnd, t) * falloff;
+        vec3 lightDiffuseIntensity = mix(globals.colorBegin.rgb, globals.colorEnd.rgb, t) * falloff;
 
         //specular term
         vec3 V = -normalize(fragPositionVS);
@@ -154,11 +154,12 @@
         vec3 H = normalize(V + L);        
         float NdotH = max(0, dot(N, H));
         float NdotL = max(0, dot(N, L));
-        vec4 specular = vec4( vec3(pow(NdotH, pow(1000.0, 1.0 - albedoRoughness.w))) * NdotL, 1.0);
+        vec3 specular = vec3(pow(NdotH, pow(1000.0, 1.0 - albedoRoughness.w))) * NdotL;
         falloff = 1.0 / d * d;
-        vec4 lightSpecularIntensity = mix(globals.colorBegin, globals.colorEnd, t) * falloff;
+        vec3 lightSpecularIntensity = mix(globals.colorBegin.rgb, globals.colorEnd.rgb, t) * falloff;
         
-        color = texture(emissionRT, uv) + diffuse * lightDiffuseIntensity + specular * lightSpecularIntensity;
+        vec3 c = texture(emissionRT, uv).rgb + diffuse * lightDiffuseIntensity + specular * lightSpecularIntensity;
+        color = vec4(pow(c, vec3(1.0 / 2.2)), 1.0);
       }			
     </FragmentShader>
   </Pass>  

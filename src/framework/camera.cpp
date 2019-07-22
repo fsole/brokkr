@@ -9,6 +9,7 @@
 #include "core/maths.h"
 #include "core/handle.h"
 #include "core/mesh.h"
+#include "core/window.h"
 
 #include "framework/camera.h"
 #include "framework/actor.h"
@@ -178,7 +179,7 @@ free_camera_controller_t::free_camera_controller_t()
  view_(),
  position_(0.0f, 0.0f, 0.0f),
  angle_(0.0f, 0.0f),
- velocity_(1.0f),
+ moveDelta_(1.0f),
  rotationSensitivity_(0.01f),
  cameraHandle_(bkk::core::BKK_NULL_HANDLE),
  renderer_(nullptr)
@@ -186,10 +187,10 @@ free_camera_controller_t::free_camera_controller_t()
   Update();
 }
 
-free_camera_controller_t::free_camera_controller_t(const maths::vec3& position, const maths::vec2& angle, f32 velocity, f32 rotationSensitivity)
+free_camera_controller_t::free_camera_controller_t(const maths::vec3& position, const maths::vec2& angle, f32 moveDelta, f32 rotationSensitivity)
   :position_(position),
   angle_(angle),
-  velocity_(velocity),
+  moveDelta_(moveDelta),
   rotationSensitivity_(rotationSensitivity),
   cameraHandle_(bkk::core::BKK_NULL_HANDLE),
   renderer_(nullptr)
@@ -206,7 +207,7 @@ void free_camera_controller_t::setCameraHandle(camera_handle_t cameraHandle, ren
 
 void free_camera_controller_t::Move(f32 xAmount, f32 zAmount)
 {
-  position_ = position_ + (zAmount * velocity_ * tx_.row(2).xyz()) + (xAmount * velocity_ * tx_.row(0).xyz());
+  position_ = position_ + (zAmount * tx_.row(2).xyz()) + (xAmount * tx_.row(0).xyz());
   Update();
 }
 
@@ -236,5 +237,34 @@ void free_camera_controller_t::Update()
       camera->setViewToWorldMatrix( tx_ );
       camera->setWorldToViewMatrix( view_ );
     }
+  }
+}
+
+void free_camera_controller_t::onKey(uint32_t key)
+{
+  switch (key)
+  {
+  case window::key_e::KEY_UP:
+  case 'w':
+    Move(0.0f, -moveDelta_);
+    break;
+
+  case window::key_e::KEY_DOWN:
+  case 's':
+    Move(0.0f, moveDelta_);
+    break;
+
+  case window::key_e::KEY_LEFT:
+  case 'a':
+    Move(-moveDelta_, 0.0f);
+    break;
+
+  case window::key_e::KEY_RIGHT:
+  case 'd':
+    Move(moveDelta_, 0.0f);
+    break;
+
+  default:
+    break;
   }
 }

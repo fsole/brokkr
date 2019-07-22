@@ -22,7 +22,7 @@ class framework_test_t : public application_t
 public:
   framework_test_t()
   :application_t("Framework test", 1200u, 800u, 3u),
-   cameraController_(maths::vec3(0.0f, 4.0f, 12.0f), maths::vec2(0.1f, 0.0f), 1.0f, 0.01f),
+   cameraController_(maths::vec3(0.0f, 4.0f, 12.0f), maths::vec2(0.1f, 0.0f), 0.5f, 0.01f),
    bloomEnabled_(true),
    bloomTreshold_(1.0f),
    lightIntensity_(1.0f),
@@ -147,34 +147,7 @@ public:
   void onKeyEvent(u32 key, bool pressed)
   {
     if (pressed)
-    {
-      float delta = 0.5f;
-      switch (key)
-      {
-        case window::key_e::KEY_UP:
-        case 'w':
-          cameraController_.Move(0.0f, -delta);
-          break;
-
-        case window::key_e::KEY_DOWN:
-        case 's':
-          cameraController_.Move(0.0f, delta);
-          break;
-
-        case window::key_e::KEY_LEFT:
-        case 'a':
-          cameraController_.Move(-delta, 0.0f);
-          break;
-
-        case window::key_e::KEY_RIGHT:
-        case 'd':
-          cameraController_.Move(delta, 0.0f);
-          break;
-
-        default:
-          break;
-      }
-    }
+      cameraController_.onKey(key);
   }
 
   void onMouseMove(const maths::vec2& mousePos, const maths::vec2 &mouseDeltaPos)

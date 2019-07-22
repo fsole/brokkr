@@ -250,7 +250,7 @@ public:
   deferred_shading_sample_t()
   :application_t("Deferred shading", 1200u, 800u, 3u),
    currentPresentationDescriptorSet_(0u),
-   camera_( vec3(0.0f, 2.5f, 8.5f), vec2(0.0f,0.0f), 1.0f, 0.01f),
+   camera_( vec3(0.0f, 2.5f, 8.5f), vec2(0.0f,0.0f), 0.5f, 0.01f),
    bAnimateLights_( true )
   {
     render::context_t& context = getRenderContext();
@@ -465,49 +465,27 @@ public:
   {
     if (pressed)
     {
+      camera_.onKey(key);
+
       switch (key)
-      {
-      case window::key_e::KEY_UP:
-      case 'w':
-      {
-        camera_.Move(0.0f, -0.5f);
-        break;
-      }
-      case window::key_e::KEY_DOWN:
-      case 's':
-      {
-        camera_.Move(0.0f, 0.5f);
-        break;
-      }
-      case window::key_e::KEY_LEFT:
-      case 'a':
-      {
-        camera_.Move(-0.5f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_RIGHT:
-      case 'd':
-      {
-        camera_.Move(0.5f, 0.0f);
-        break;
-      }
-      case window::key_e::KEY_1:
-      case window::key_e::KEY_2:
-      case window::key_e::KEY_3:
-      case window::key_e::KEY_4:
-      {
-        currentPresentationDescriptorSet_ = key - window::key_e::KEY_1;
-        render::contextFlush(getRenderContext());
-        buildPresentationCommandBuffers();
-        break;
-      }
-      case window::key_e::KEY_P:
-      {
-        bAnimateLights_ = !bAnimateLights_;
-        break;
-      }
-      default:
-        break;
+      {      
+        case window::key_e::KEY_1:
+        case window::key_e::KEY_2:
+        case window::key_e::KEY_3:
+        case window::key_e::KEY_4:
+        {
+          currentPresentationDescriptorSet_ = key - window::key_e::KEY_1;
+          render::contextFlush(getRenderContext());
+          buildPresentationCommandBuffers();
+          break;
+        }
+        case window::key_e::KEY_P:
+        {
+          bAnimateLights_ = !bAnimateLights_;
+          break;
+        }
+        default:
+          break;
       }
     }
   }

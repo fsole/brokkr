@@ -74,12 +74,13 @@ namespace bkk
 
         actor_handle_t actorCreate(const char* name, mesh_handle_t mesh, material_handle_t material, core::maths::mat4 transform = core::maths::mat4(), uint32_t instanceCount = 1);
         void actorDestroy(actor_handle_t handle);
-        actor_t* getActor(actor_handle_t handle);
+        actor_t* getActor(actor_handle_t handle);        
         void actorSetParent(actor_handle_t actor, actor_handle_t parent);        
         void actorSetTransform(actor_handle_t handle, const core::maths::mat4& newTransform);
         core::maths::mat4* actorGetTransform(actor_handle_t handle);
         actor_handle_t getRootActor() { return rootActor_; }
         uint32_t getAllActors(actor_t** actors) { return actors_.getData(actors); }
+        actor_t* findActor(const char* name);
         
         void setTransform(transform_handle_t handle, const core::maths::mat4& newTransform);
         core::maths::mat4* getTransform(transform_handle_t handle);
