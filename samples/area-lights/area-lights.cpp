@@ -36,7 +36,7 @@ public:
 
     //create GBuffer
     render_target_handle_t albedoRoughnessRT = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R8G8B8A8_UNORM, true);
-    render_target_handle_t emissionRT = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R8G8B8A8_UNORM, true);
+    render_target_handle_t emissionRT = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R8G8B8A8_UNORM, false);
     render_target_handle_t normalDepthRT = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
     render_target_handle_t targets[] = { albedoRoughnessRT, emissionRT, normalDepthRT };
     gBuffer_ = renderer.frameBufferCreate(targets, 3u);
@@ -94,6 +94,12 @@ public:
   {
     if (getMousePressedButton() == window::MOUSE_RIGHT)
       cameraController_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
+  }
+
+  void onResize(uint32_t width, uint32_t height)
+  {    
+    mat4 projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)width / (f32)height, 0.1f, 100.0f);
+    getRenderer().getCamera(camera_)->setProjectionMatrix(projectionMatrix);
   }
   
   void animateLights()

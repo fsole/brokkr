@@ -315,7 +315,6 @@ static std::string generateGlslCommon()
       mat4 viewToWorld;
       mat4 projection;
       mat4 projectionInverse;
-      vec4 imageSize;
     }camera;
 
     layout(set = 1, binding = 0) uniform _model
@@ -725,7 +724,8 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
   if (!result)
   {
     //Print error
-    return false;
+    fprintf(stderr, "SHADER ERROR: %s \n", result.description() );
+    assert(false);
   }
 
   pugi::xml_node shaderNode = shaderFile.child("Shader");

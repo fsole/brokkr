@@ -815,7 +815,7 @@ bool render::shaderCreateFromGLSLSource(const context_t& context, shader_t::type
   case shader_t::COMPUTE_SHADER: glslTempFile = "temp.comp";
     break;
 
-  default: assert(true);
+  default: assert(false);
     break;
   }
 
@@ -826,8 +826,10 @@ bool render::shaderCreateFromGLSLSource(const context_t& context, shader_t::type
     fclose(fp);
   }
 
-  bool result = shaderCreateFromGLSL(context, type, glslTempFile.c_str(), shader);
+  bool result = shaderCreateFromGLSL(context, type, glslTempFile.c_str(), shader);  
   DeleteFileA((LPCSTR)glslTempFile.c_str());
+
+  assert(result);
   return result;
 }
 

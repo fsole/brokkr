@@ -27,9 +27,6 @@ fov_(fov),
 aspect_(aspect),
 nearPlane_(nearPlane),
 farPlane_(farPlane)
-{}
-
-void camera_t::update(renderer_t* renderer)
 {
   if (projection_ == camera_t::PERSPECTIVE_PROJECTION)
   {
@@ -41,6 +38,10 @@ void camera_t::update(renderer_t* renderer)
   }
 
   maths::invertMatrix(uniforms_.projection, &uniforms_.projectionInverse);
+}
+
+void camera_t::update(renderer_t* renderer)
+{ 
   maths::invertMatrix(uniforms_.viewToWorld, &uniforms_.worldToView);
 
   render::context_t& context = renderer->getContext();
@@ -103,13 +104,17 @@ uint32_t camera_t::getVisibleActors(actor_t** actors)
   return visibleActorsCount_;
 }
 
-void camera_t::setWorldToViewMatrix(maths::mat4& m)
-{
-  uniforms_.worldToView = m;
-}
-void camera_t::setViewToWorldMatrix(maths::mat4& m)
+void camera_t::setViewToWorldMatrix(const maths::mat4& m)
 {
   uniforms_.viewToWorld = m;
+  maths::invertMatrix(m, &uniforms_.worldToView);
+}
+
+void camera_t::setProjectionMatrix(const maths::mat4& m)
+{
+  uniforms_.projection = m;
+  maths::invertMatrix(m, &uniforms_.projectionInverse);
+
 }
 
 orbiting_camera_controller_t::orbiting_camera_controller_t()
@@ -159,17 +164,17 @@ void orbiting_camera_controller_t::Update()
   maths::quat orientation = maths::quaternionFromAxisAngle(maths::vec3(1.0f, 0.0f, 0.0f), angle_.y) *
   maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), angle_.x);
 
-  maths::mat4 tx = maths::createTransform(maths::vec3(0.0f, 0.0f, offset_), maths::VEC3_ONE, maths::QUAT_UNIT) * maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, orientation) * maths::createTransform(target_, maths::VEC3_ONE, maths::QUAT_UNIT);
-  maths::invertMatrix(tx, &view_);
+  maths::mat4 tx = maths::createTransform(maths::vec3(0.0f, 0.0f, offset_), maths::VEC3_ONE, maths::QUAT_UNIT) * maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, orientation) * maths::createTransform(target_, maths::VEC3_ONE, maths::QUAT_UNIT);  
 
   if (cameraHandle_ != bkk::core::BKK_NULL_HANDLE)
   {
     camera_t* camera = renderer_->getCamera(cameraHandle_);
     if (camera)
-    {
       camera->setViewToWorldMatrix(tx);
-      camera->setWorldToViewMatrix(view_);
-    }
+  }
+  else
+  {
+    maths::invertMatrix(tx, &view_);
   }
 }
 
@@ -226,17 +231,17 @@ void free_camera_controller_t::Rotate(f32 angleY, f32 angleX)
 void free_camera_controller_t::Update()
 {
   maths::quat orientation = maths::quaternionFromAxisAngle(maths::vec3(1.0f, 0.0f, 0.0f), angle_.x) * maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), angle_.y);
-  tx_ = maths::createTransform(position_, maths::VEC3_ONE, orientation);
-  maths::invertMatrix(tx_, &view_);
+  tx_ = maths::createTransform(position_, maths::VEC3_ONE, orientation);  
 
   if (cameraHandle_ != bkk::core::BKK_NULL_HANDLE)
   {
     camera_t* camera = renderer_->getCamera(cameraHandle_);
-    if (camera)
-    {
+    if (camera) 
       camera->setViewToWorldMatrix( tx_ );
-      camera->setWorldToViewMatrix( view_ );
-    }
+  }
+  else
+  {
+    maths::invertMatrix(tx_, &view_);
   }
 }
 

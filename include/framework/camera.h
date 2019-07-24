@@ -40,8 +40,8 @@ namespace bkk
       uint32_t getVisibleActors(actor_t** actors);
       core::render::gpu_buffer_t getUniformBuffer() { return uniformBuffer_; }
       core::render::descriptor_set_t getDescriptorSet() { return descriptorSet_; }
-      void setWorldToViewMatrix(core::maths::mat4& m);
-      void setViewToWorldMatrix(core::maths::mat4& m);
+      void setViewToWorldMatrix(const core::maths::mat4& m);
+      void setProjectionMatrix(const core::maths::mat4& m);
 
     private:
       struct uniforms_t

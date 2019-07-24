@@ -6,19 +6,16 @@
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
     <Filter Include="Shaders">
-      <UniqueIdentifier>{f915a5d4-683b-4524-85a0-9195b885aa45}</UniqueIdentifier>
+      <UniqueIdentifier>{e43635d4-f99d-4566-8247-14417cd79f25}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\samples\area-lights\area-lights.cpp">
+    <ClCompile Include="..\..\..\samples\framework-template\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\..\samples\area-lights\line-light.shader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="..\..\..\samples\area-lights\simple.shader">
+    <None Include="..\..\..\samples\framework-template\diffuse.shader">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

@@ -78,6 +78,12 @@ public:
     cameraController_.setCameraHandle(camera_, &renderer);
   }
 
+  void onResize(uint32_t width, uint32_t height)
+  {
+    mat4 projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)width / (f32)height, 0.1f, 100.0f);
+    getRenderer().getCamera(camera_)->setProjectionMatrix(projectionMatrix);
+  }
+
   void onQuit()
   {
     render::gpuBufferDestroy(getRenderContext(), nullptr, &particleBuffer_);

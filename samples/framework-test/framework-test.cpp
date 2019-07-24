@@ -156,6 +156,12 @@ public:
       cameraController_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);    
   }
 
+  void onResize(uint32_t width, uint32_t height)
+  {
+    maths::mat4 projectionMatrix = maths::perspectiveProjectionMatrix(1.2f, (f32)width / (f32)height, 0.1f, 100.0f);
+    getRenderer().getCamera(camera_)->setProjectionMatrix(projectionMatrix);
+  }
+
   void onQuit() 
   {
     render::gpuBufferDestroy(getRenderContext(), nullptr, &lightBuffer_);
