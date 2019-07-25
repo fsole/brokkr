@@ -130,7 +130,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\samples\framework-template\main.cpp" />
+    <ClCompile Include="..\..\..\samples\framework-template\framework-template.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\samples\framework-template\diffuse.shader" />

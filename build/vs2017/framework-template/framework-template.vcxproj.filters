@@ -10,7 +10,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\samples\framework-template\main.cpp">
+    <ClCompile Include="..\..\..\samples\framework-template\framework-template.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
