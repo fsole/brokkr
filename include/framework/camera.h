@@ -72,6 +72,8 @@ namespace bkk
       orbiting_camera_controller_t(const core::maths::vec3& target, const f32 offset, const core::maths::vec2& angle, f32 rotationSensitivity);
       
       void setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer);
+      camera_handle_t getCameraHandle() { return cameraHandle_; }
+      camera_t* getCamera();
 
       void Move(f32 amount);
       void Rotate(f32 angleY, f32 angleZ);
@@ -97,6 +99,8 @@ namespace bkk
       free_camera_controller_t(const core::maths::vec3& position, const core::maths::vec2& angle, f32 moveDelta, f32 rotationSensitivity);
 
       void setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer);
+      camera_handle_t getCameraHandle() { return cameraHandle_; }
+      camera_t* getCamera();
 
       void Move(f32 xAmount, f32 zAmount);
       void Rotate(f32 angleY, f32 angleX);
@@ -112,7 +116,7 @@ namespace bkk
       void setRotation(const core::maths::vec2& angle) { angle_ = angle; }
       const core::maths::vec2& getRotation() { return angle_; }
 
-      void onKey(uint32_t key);
+      void onKey(uint32_t key, bool pressed);
 
     private:
       core::maths::mat4 tx_;

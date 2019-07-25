@@ -25,8 +25,10 @@ namespace bkk
         application_t(const char* title, u32 width, u32 height, u32 imageCount);
         ~application_t();
 
-        void loop();
+        void run();        
 
+      protected:
+        void loop();
         renderer_t& getRenderer() { return renderer_; }
         core::render::context_t& getRenderContext() { return renderer_.getContext(); }
         core::window::window_t& getWindow() { return window_; }
@@ -50,7 +52,7 @@ namespace bkk
         void beginFrame();
         void presentFrame();
         
-    private:
+      private:
         framework::renderer_t renderer_;
         core::window::window_t window_;
         float timeDelta_;

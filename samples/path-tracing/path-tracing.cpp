@@ -435,7 +435,7 @@ private:
 int main()
 {
   path_tracing_sample_t sample(1200u, 800u);
-  sample.loop();
+  sample.run();
 
   return 0;
 }

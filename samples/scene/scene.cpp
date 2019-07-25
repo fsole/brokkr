@@ -691,9 +691,10 @@ public:
 
   void onKeyEvent(u32 key, bool pressed)
   {
+    camera_.onKey(key, pressed);
+
     if (pressed)
     {
-      camera_.onKey(key);
       switch (key)
       {      
         case window::key_e::KEY_1:
@@ -1382,6 +1383,6 @@ int main()
   scene.addPointLight(vec3(-1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.5f, 0.0f));
   scene.addPointLight(vec3(1.0f, 0.1f, 0.0f), 0.5f, vec3(0.0f, 0.0f, 0.5f));
   
-  scene.loop();
+  scene.run();
   return 0;
 }

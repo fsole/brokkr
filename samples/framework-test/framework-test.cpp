@@ -115,8 +115,8 @@ public:
     blendMaterial->setTexture("bloomBlur", renderer.getRenderTarget(bloomRT_)->getColorBuffer());
 
     //create camera
-    camera_ = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x/(float)imageSize.y, 0.1f, 100.0f));
-    cameraController_.setCameraHandle(camera_, &renderer);
+    camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x/(float)imageSize.y, 0.1f, 100.0f));
+    cameraController_.setCameraHandle(camera, &renderer);
   }
   
   render::gpu_buffer_t createLightBuffer()
@@ -146,8 +146,7 @@ public:
 
   void onKeyEvent(u32 key, bool pressed)
   {
-    if (pressed)
-      cameraController_.onKey(key);
+    cameraController_.onKey(key, pressed);
   }
 
   void onMouseMove(const maths::vec2& mousePos, const maths::vec2 &mouseDeltaPos)
@@ -159,7 +158,7 @@ public:
   void onResize(uint32_t width, uint32_t height)
   {
     maths::mat4 projectionMatrix = maths::perspectiveProjectionMatrix(1.2f, (f32)width / (f32)height, 0.1f, 100.0f);
-    getRenderer().getCamera(camera_)->setProjectionMatrix(projectionMatrix);
+    cameraController_.getCamera()->setProjectionMatrix(projectionMatrix);
   }
 
   void onQuit() 
@@ -182,9 +181,10 @@ public:
     render::gpuBufferUpdate(getRenderContext(), &lightIntensity_, sizeof(int), sizeof(float), &lightBuffer_);
     
     //Render scene
-    renderer.setupCamera(camera_);
+    camera_handle_t camera = cameraController_.getCameraHandle();
+    renderer.setupCamera(camera);
     actor_t* visibleActors = nullptr;
-    int count = renderer.getVisibleActors(camera_, &visibleActors);
+    int count = renderer.getVisibleActors(camera, &visibleActors);
 
     command_buffer_t renderSceneCmd(&renderer);
     renderSceneCmd.setFrameBuffer(sceneFBO_);
@@ -292,7 +292,6 @@ private:
   render_target_handle_t brightPixelsFBO_;
   float bloomTreshold_;
 
-  camera_handle_t camera_;
   free_camera_controller_t cameraController_;
 
   float lightIntensity_;
@@ -301,8 +300,6 @@ private:
 
 int main()
 {
-  framework_test_t test;
-  test.loop();
-
+  framework_test_t().run();
   return 0;
 }

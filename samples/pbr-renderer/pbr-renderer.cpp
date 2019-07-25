@@ -581,8 +581,7 @@ struct pbr_renderer_t : public framework::application_t
 
   void onKeyEvent(u32 key, bool pressed)
   {
-    if (pressed)
-      camera_.onKey(key);      
+    camera_.onKey(key, pressed);
   }
 
   void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos)
@@ -1100,7 +1099,7 @@ int main()
   renderer.addLight(vec3(0.0f, 0.0f, 1.0f), 0.0f, vec3(0.5f, 0.5f, 0.5f));
   renderer.addLight(vec3(0.0f, 0.0f, -1.0f), 0.0f, vec3(0.1f, 0.1f, 0.1f));
 
-  renderer.loop();
+  renderer.run();
   return 0;
 }
 

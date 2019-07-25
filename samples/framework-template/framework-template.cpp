@@ -36,14 +36,13 @@ public:
     renderer.actorCreate("actor", mesh, material, transform);
 
     //create camera
-    camera_ = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 100.0f));
-    cameraController_.setCameraHandle(camera_, &renderer);
+    camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 100.0f));
+    cameraController_.setCameraHandle(camera, &renderer);
   }
 
   void onKeyEvent(u32 key, bool pressed)
   {
-    if (pressed)
-      cameraController_.onKey(key);
+    cameraController_.onKey(key, pressed);
   }
 
   void onMouseMove(const vec2& mousePos, const vec2 &mouseDeltaPos)
@@ -55,18 +54,19 @@ public:
   void onResize(uint32_t width, uint32_t height)
   {
     mat4 projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)width / (f32)height, 0.1f, 100.0f);
-    getRenderer().getCamera(camera_)->setProjectionMatrix(projectionMatrix);
+    cameraController_.getCamera()->setProjectionMatrix(projectionMatrix);
   }
 
   void render()
-  {
-    renderer_t& renderer = getRenderer();
-
+  {    
     beginFrame();
-    renderer.setupCamera(camera_);
+
+    renderer_t& renderer = getRenderer();
+    camera_handle_t camera = cameraController_.getCameraHandle();
+    renderer.setupCamera(camera);
 
     actor_t* visibleActors = nullptr;
-    int count = renderer.getVisibleActors(camera_, &visibleActors);
+    int count = renderer.getVisibleActors(camera, &visibleActors);
 
     command_buffer_t renderSceneCmd(&renderer, "Render");
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
@@ -84,16 +84,12 @@ public:
   }
 
 private:
-
-  camera_handle_t camera_;
   free_camera_controller_t cameraController_;
 };
 
 int main()
 {
-  framework_template_t sample(uvec2(1200u, 800u));
-  sample.loop();
-
+  framework_template_t(uvec2(1200u, 800u)).run();
   return 0;
 }
 

@@ -284,6 +284,6 @@ private:
 int main()
 {
   skinning_sample_t sample;
-  sample.loop();
+  sample.run();
   return 0;
 }

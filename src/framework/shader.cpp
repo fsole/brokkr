@@ -724,7 +724,7 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
   if (!result)
   {
     //Print error
-    fprintf(stderr, "SHADER ERROR: %s \n", result.description() );
+    fprintf(stderr, "ERROR: Error loading file %s: %s \n", file, result.description() );
     assert(false);
   }
 

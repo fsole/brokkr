@@ -553,6 +553,6 @@ private:
 int main()
 {
   particles_sample_t sample;
-  sample.loop();
+  sample.run();
   return 0;
 }

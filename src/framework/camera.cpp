@@ -144,6 +144,14 @@ void orbiting_camera_controller_t::setCameraHandle(camera_handle_t cameraHandle,
   Update();
 }
 
+camera_t* orbiting_camera_controller_t::getCamera()
+{
+  if (renderer_)
+    return renderer_->getCamera(cameraHandle_);
+
+  return nullptr;
+}
+
 void orbiting_camera_controller_t::Move(f32 amount)
 {
   offset_ += amount;
@@ -210,6 +218,14 @@ void free_camera_controller_t::setCameraHandle(camera_handle_t cameraHandle, ren
   Update();
 }
 
+camera_t* free_camera_controller_t::getCamera()
+{
+  if (renderer_)
+    return renderer_->getCamera(cameraHandle_);
+
+  return nullptr;
+}
+
 void free_camera_controller_t::Move(f32 xAmount, f32 zAmount)
 {
   position_ = position_ + (zAmount * tx_.row(2).xyz()) + (xAmount * tx_.row(0).xyz());
@@ -245,31 +261,34 @@ void free_camera_controller_t::Update()
   }
 }
 
-void free_camera_controller_t::onKey(uint32_t key)
+void free_camera_controller_t::onKey(uint32_t key, bool pressed)
 {
-  switch (key)
+  if (pressed)
   {
-  case window::key_e::KEY_UP:
-  case 'w':
-    Move(0.0f, -moveDelta_);
-    break;
+    switch (key)
+    {
+    case window::key_e::KEY_UP:
+    case 'w':
+      Move(0.0f, -moveDelta_);
+      break;
 
-  case window::key_e::KEY_DOWN:
-  case 's':
-    Move(0.0f, moveDelta_);
-    break;
+    case window::key_e::KEY_DOWN:
+    case 's':
+      Move(0.0f, moveDelta_);
+      break;
 
-  case window::key_e::KEY_LEFT:
-  case 'a':
-    Move(-moveDelta_, 0.0f);
-    break;
+    case window::key_e::KEY_LEFT:
+    case 'a':
+      Move(-moveDelta_, 0.0f);
+      break;
 
-  case window::key_e::KEY_RIGHT:
-  case 'd':
-    Move(moveDelta_, 0.0f);
-    break;
+    case window::key_e::KEY_RIGHT:
+    case 'd':
+      Move(moveDelta_, 0.0f);
+      break;
 
-  default:
-    break;
+    default:
+      break;
+    }
   }
 }

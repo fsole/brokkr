@@ -83,6 +83,11 @@ application_t::~application_t()
   delete frameCounter_;
 }
 
+void application_t::run()
+{
+  loop();
+}
+
 void application_t::loop()
 {
   core::timer::time_point_t timePrev = core::timer::getCurrent();

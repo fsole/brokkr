@@ -74,14 +74,14 @@ public:
 
     //create camera
     uvec2 imageSize(1200u, 800u);
-    camera_ = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 500.0f));
-    cameraController_.setCameraHandle(camera_, &renderer);
+    camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 500.0f));
+    cameraController_.setCameraHandle(camera, &renderer);
   }
 
   void onResize(uint32_t width, uint32_t height)
   {
     mat4 projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)width / (f32)height, 0.1f, 100.0f);
-    getRenderer().getCamera(camera_)->setProjectionMatrix(projectionMatrix);
+    cameraController_.getCamera()->setProjectionMatrix(projectionMatrix);
   }
 
   void onQuit()
@@ -123,9 +123,10 @@ public:
     updateParticles.submitAndRelease();
 
     //Render particles
-    renderer.setupCamera(camera_);
+    camera_handle_t camera = cameraController_.getCameraHandle();
+    renderer.setupCamera(camera);
     actor_t* visibleActors = nullptr;
-    int count = renderer.getVisibleActors(camera_, &visibleActors);
+    int count = renderer.getVisibleActors(camera, &visibleActors);
     command_buffer_t renderSceneCmd(&renderer);
     renderSceneCmd.setDependencies(&updateParticles, 1u);
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
@@ -221,8 +222,7 @@ private:
   compute_material_handle_t computeMaterial_;    
   render::gpu_buffer_t particleBuffer_;
   render::gpu_buffer_t particleStateBuffer_;
-
-  camera_handle_t camera_;
+    
   orbiting_camera_controller_t cameraController_;
 
   //Simulation parameters
@@ -240,6 +240,6 @@ private:
 int main()
 {
   fluid_simulation_sample_t sample;
-  sample.loop();
+  sample.run();
   return 0;
 }

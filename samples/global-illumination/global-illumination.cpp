@@ -858,9 +858,10 @@ public:
 
   void onKeyEvent(u32 key, bool pressed)
   {
+    camera_.onKey(key, pressed);
+
     if (pressed)
-    {
-      camera_.onKey(key);
+    {      
       switch (key)
       {      
         case window::key_e::KEY_1:
@@ -1598,7 +1599,7 @@ int main()
 {  
   global_illumination_sample_t sample("../resources/sponza/sponza.obj");
   sample.addDirectionalLight(vec3(0.0, 1.75, 0.0), vec3(0.0f, 1.0f, 0.1f), vec3(1.0f, 1.0f, 1.0f), 0.0f);
-  sample.loop();
+  sample.run();
 
   return 0;
 }

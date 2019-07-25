@@ -66,8 +66,8 @@ public:
     renderer.actorCreate("plane", plane, planeMaterial, planeTransform);
 
     //create camera
-    camera_ = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 100.0f));
-    cameraController_.setCameraHandle(camera_, &renderer);
+    camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 100.0f));
+    cameraController_.setCameraHandle(camera, &renderer);
 
     generateSSAOResources();
   }
@@ -128,8 +128,7 @@ public:
 
   void onKeyEvent(u32 key, bool pressed)
   {
-    if (pressed)
-      cameraController_.onKey(key);
+    cameraController_.onKey(key, pressed);
   }
 
   void onMouseMove(const vec2& mousePos, const vec2 &mouseDeltaPos)
@@ -149,10 +148,12 @@ public:
     beginFrame();
 
     renderer_t& renderer = getRenderer();
-    renderer.setupCamera(camera_);
+
+    camera_handle_t camera = cameraController_.getCameraHandle();
+    renderer.setupCamera(camera);
 
     actor_t* visibleActors = nullptr;
-    int count = renderer.getVisibleActors(camera_, &visibleActors);
+    int count = renderer.getVisibleActors(camera, &visibleActors);
 
     //Render scene
     command_buffer_t renderSceneCmd(&renderer);
@@ -204,7 +205,6 @@ private:
   render_target_handle_t colorRT_;
   render_target_handle_t normalDepthRT_;
 
-  camera_handle_t camera_;
   free_camera_controller_t cameraController_;
 
   //SSAO
@@ -222,9 +222,7 @@ private:
 
 int main()
 {
-  ambient_occlusion_sample_t sample;
-  sample.loop();
-
+  ambient_occlusion_sample_t().run();
   return 0;
 }
 

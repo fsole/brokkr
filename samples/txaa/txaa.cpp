@@ -528,10 +528,10 @@ struct TXAA_sample_t : public framework::application_t
 
   void onKeyEvent(u32 key, bool pressed)
   {
+    camera_.onKey(key, pressed);
+
     if (pressed)
     {
-      camera_.onKey(key);
-
       switch (key)
       {      
         case window::key_e::KEY_P:
@@ -1102,6 +1102,6 @@ int main()
   
   //Lights
   scene.addLight(vec3(0.0f, 5.0f, 5.0f), 25.0f, vec3(1.0f, 1.0f, 1.0f));
-  scene.loop();
+  scene.run();
   return 0;
 }

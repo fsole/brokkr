@@ -491,8 +491,39 @@ void onKeyEvent(u32 key, bool pressed)
 {
   if (pressed)
   {
-    gCamera.onKey(key);
-    updateCameraTransform();
+    switch (key)
+    {
+    case window::key_e::KEY_UP:
+    case 'w':
+    {
+      gCamera.Move(0.0f, -0.5f);
+      updateCameraTransform();
+      break;
+    }
+    case window::key_e::KEY_DOWN:
+    case 's':
+    {
+      gCamera.Move(0.0f, 0.5f);
+      updateCameraTransform();
+      break;
+    }
+    case window::key_e::KEY_LEFT:
+    case 'a':
+    {
+      gCamera.Move(-0.5f, 0.0f);
+      updateCameraTransform();
+      break;
+    }
+    case window::key_e::KEY_RIGHT:
+    case 'd':
+    {
+      gCamera.Move(0.5f, 0.0f);
+      updateCameraTransform();
+      break;
+    }
+    default:
+      break;
+    }
   }
 }
 
