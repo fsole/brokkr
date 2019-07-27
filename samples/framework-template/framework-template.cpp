@@ -58,7 +58,7 @@ public:
   }
 
   void render()
-  {    
+  {
     beginFrame();
 
     renderer_t& renderer = getRenderer();

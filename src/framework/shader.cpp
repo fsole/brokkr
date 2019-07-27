@@ -827,7 +827,9 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
       }
     }
     return true;
-  }  
+  }
+
+  fprintf(stderr, "ERROR: Error loading file %s \n", file);
   return false;
 }
 

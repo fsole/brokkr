@@ -150,8 +150,8 @@ bool material_t::setProperty(const char* property, void* value)
   const std::vector<buffer_desc_t>& bufferDesc = shader->getBufferDescriptions();
   
   uint32_t bufferCount = 0u;
-  uint8_t* ptr = nullptr;
-  uint32_t size = 0u;
+  uint8_t* propertyPtr = nullptr;
+  uint32_t propertySize = 0u;
   for (uint32_t i(0); bufferDesc.size(); ++i)
   {
     if (bufferDesc[i].shared == false )
@@ -162,8 +162,8 @@ bool material_t::setProperty(const char* property, void* value)
         {
           if (bufferDesc[i].fields[j].name == tokens[1])
           {
-            ptr = bufferData_[bufferCount] + bufferDesc[i].fields[j].byteOffset;
-            size = bufferDesc[i].fields[j].size;
+            propertyPtr = bufferData_[bufferCount] + bufferDesc[i].fields[j].byteOffset;
+            propertySize = bufferDesc[i].fields[j].size;
             bufferUpdate_[bufferCount] = true;
             break;
           }
@@ -175,11 +175,13 @@ bool material_t::setProperty(const char* property, void* value)
     }
   }
 
-  if (!ptr)  return false;
+  if (propertyPtr)
+  {
+    memcpy(propertyPtr, value, propertySize);
+    return true;
+  }
 
-  memcpy(ptr, value, size);
-
-  return true;
+  return false;
 }
 
 bool material_t::setBuffer(const char* property, render::gpu_buffer_t buffer)

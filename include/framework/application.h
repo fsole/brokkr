@@ -27,16 +27,13 @@ namespace bkk
 
         void run();        
 
-      protected:
-        void loop();
+      protected:        
         renderer_t& getRenderer() { return renderer_; }
         core::render::context_t& getRenderContext() { return renderer_.getContext(); }
         core::window::window_t& getWindow() { return window_; }
         f32 getTimeDelta() { return timeDelta_; }
         core::maths::uvec2 getWindowSize() { return core::maths::uvec2(window_.width, window_.height); }
         f32 getAspectRatio() { return (window_.width / (float)window_.height); }
-
-
         core::maths::vec2 getMousePosition() { return mouseCurrentPos_; }
         s32 getMousePressedButton() { return mouseButtonPressed_; }
         
@@ -53,6 +50,7 @@ namespace bkk
         void presentFrame();
         
       private:
+
         framework::renderer_t renderer_;
         core::window::window_t window_;
         float timeDelta_;
@@ -62,6 +60,8 @@ namespace bkk
 
         class frame_counter_t;
         frame_counter_t* frameCounter_;
+
+        bool running_;
 
         application_t();
     };

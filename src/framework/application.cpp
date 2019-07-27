@@ -64,7 +64,8 @@ application_t::application_t(const char* title, u32 width, u32 height, u32 image
 :timeDelta_(0),
  mouseCurrentPos_(0.0f,0.0f),
  mousePrevPos_(0.0f,0.0f),
- mouseButtonPressed_(-1)
+ mouseButtonPressed_(-1),
+ running_(false)
 {
   core::window::create(title, width, height, &window_);
 
@@ -85,11 +86,10 @@ application_t::~application_t()
 
 void application_t::run()
 {
-  loop();
-}
+  if (running_)
+    return;
 
-void application_t::loop()
-{
+  running_ = true;
   core::timer::time_point_t timePrev = core::timer::getCurrent();
   core::timer::time_point_t currentTime = timePrev;
 
