@@ -315,6 +315,7 @@ static std::string generateGlslCommon()
       mat4 viewToWorld;
       mat4 projection;
       mat4 projectionInverse;
+      mat4 viewProjection;
     }camera;
 
     layout(set = 1, binding = 0) uniform _model
@@ -721,12 +722,11 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
 
   pugi::xml_document shaderFile;
   pugi::xml_parse_result result = shaderFile.load_file(file);
+  
   if (!result)
-  {
-    //Print error
-    fprintf(stderr, "ERROR: Error loading file %s: %s \n", file, result.description() );
-    assert(false);
-  }
+    fprintf(stderr, "ERROR: Error loading file %s: %s \n", file, result.description() );    
+  
+  assert(result);
 
   pugi::xml_node shaderNode = shaderFile.child("Shader");
   if (shaderNode)
@@ -768,7 +768,9 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
 
         //Create shader and pipeline
         render::shader_t computeShader = {};
-        render::shaderCreateFromGLSLSource(context, render::shader_t::COMPUTE_SHADER, computeShaderCode.c_str(), &computeShader);
+        bool ok = render::shaderCreateFromGLSLSource(context, render::shader_t::COMPUTE_SHADER, computeShaderCode.c_str(), &computeShader);
+        assert(ok && "Shader failed to compile");
+
         render::pipeline_layout_t pipelineLayout = {};
         render::pipelineLayoutCreate(context, &descriptorSetLayout_, 1u, nullptr, 0u, &pipelineLayout);
         render::compute_pipeline_t pipeline = {};
@@ -795,7 +797,9 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
         std::string shaderCode = glslHeader;
         std::string vertexShaderCode = passNode.child("VertexShader").first_child().value();
         shaderCode += vertexShaderCode;
-        render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, shaderCode.c_str(), &vertexShader);
+        bool ok = render::shaderCreateFromGLSLSource(context, render::shader_t::VERTEX_SHADER, shaderCode.c_str(), &vertexShader);
+        assert(ok && "Shader failed to compile");
+
         vertexShaders_.push_back(vertexShader);
 
         //Vertex format
@@ -805,7 +809,9 @@ bool shader_t::initializeFromFile(const char* file, renderer_t* renderer)
         render::shader_t fragmentShader;
         shaderCode = glslHeader;
         shaderCode += passNode.child("FragmentShader").first_child().value();
-        render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, shaderCode.c_str(), &fragmentShader);
+        ok = render::shaderCreateFromGLSLSource(context, render::shader_t::FRAGMENT_SHADER, shaderCode.c_str(), &fragmentShader);
+        assert(ok && "Shader failed to compile");
+
         fragmentShaders_.push_back(fragmentShader);
 
         //Pipeline layout

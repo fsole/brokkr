@@ -108,6 +108,8 @@ void camera_t::setViewToWorldMatrix(const maths::mat4& m)
 {
   uniforms_.viewToWorld = m;
   maths::invertMatrix(m, &uniforms_.worldToView);
+
+  uniforms_.viewProjection = uniforms_.worldToView * uniforms_.projection;
 }
 
 void camera_t::setProjectionMatrix(const maths::mat4& m)
@@ -115,6 +117,7 @@ void camera_t::setProjectionMatrix(const maths::mat4& m)
   uniforms_.projection = m;
   maths::invertMatrix(m, &uniforms_.projectionInverse);
 
+  uniforms_.viewProjection = uniforms_.worldToView * uniforms_.projection;
 }
 
 orbiting_camera_controller_t::orbiting_camera_controller_t()

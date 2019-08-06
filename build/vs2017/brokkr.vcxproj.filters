@@ -125,6 +125,9 @@
     <ClInclude Include="..\..\include\core\handle.h">
       <Filter>Header Files\core</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\core\thread-pool.h">
+      <Filter>Header Files\core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\core\image.cpp">
@@ -186,6 +189,9 @@
     </ClCompile>
     <ClCompile Include="..\..\src\framework\compute-material.cpp">
       <Filter>Source Files\framework</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\core\thread-pool.cpp">
+      <Filter>Source Files\core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -829,7 +829,7 @@ bool render::shaderCreateFromGLSLSource(const context_t& context, shader_t::type
   bool result = shaderCreateFromGLSL(context, type, glslTempFile.c_str(), shader);  
   DeleteFileA((LPCSTR)glslTempFile.c_str());
 
-  assert(result);
+  
   return result;
 }
 

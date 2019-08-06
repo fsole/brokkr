@@ -115,6 +115,7 @@
     <ClInclude Include="..\..\include\core\render-types.h" />
     <ClInclude Include="..\..\include\core\render.h" />
     <ClInclude Include="..\..\include\core\string-utils.h" />
+    <ClInclude Include="..\..\include\core\thread-pool.h" />
     <ClInclude Include="..\..\include\core\timer.h" />
     <ClInclude Include="..\..\include\core\transform-manager.h" />
     <ClInclude Include="..\..\include\core\window.h" />
@@ -138,6 +139,7 @@
     <ClCompile Include="..\..\src\core\image.cpp" />
     <ClCompile Include="..\..\src\core\mesh.cpp" />
     <ClCompile Include="..\..\src\core\render.cpp" />
+    <ClCompile Include="..\..\src\core\thread-pool.cpp" />
     <ClCompile Include="..\..\src\core\transform-manager.cpp" />
     <ClCompile Include="..\..\src\core\window.cpp" />
     <ClCompile Include="..\..\src\framework\actor.cpp" />

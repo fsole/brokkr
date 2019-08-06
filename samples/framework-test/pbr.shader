@@ -42,7 +42,7 @@
         positionVS =  mv * vec4(aPosition,1.0);
         mat4 normalMatrix = transpose( inverse(mv) );
         normalVS =  normalize( (normalMatrix * vec4(aNormal,0.0) ).xyz );
-        mat4 mvp = camera.projection * camera.worldToView * model.transform;
+        mat4 mvp = camera.viewProjection * model.transform;
         gl_Position =  mvp * vec4(aPosition,1.0);
       }
     </VertexShader>

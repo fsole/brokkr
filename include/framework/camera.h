@@ -50,6 +50,7 @@ namespace bkk
         core::maths::mat4 viewToWorld;
         core::maths::mat4 projection;
         core::maths::mat4 projectionInverse;
+        core::maths::mat4 viewProjection;
       }uniforms_;
 
       core::render::gpu_buffer_t uniformBuffer_ = {};
