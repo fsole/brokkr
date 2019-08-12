@@ -876,7 +876,7 @@ private:
 
     if (commandBuffer_.handle == VK_NULL_HANDLE)
     {
-      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &renderComplete_, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &renderComplete_, 1u, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &commandBuffer_);
     }
 
     VkClearValue clearValues[5];

@@ -465,7 +465,7 @@ static void createSwapChain(context_t* context,
     vkCreateImageView(context->device, &imageViewCreateInfo, nullptr, &context->swapChain.imageView[i]);
 
     commandBufferCreate(*context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u,
-      &context->swapChain.renderingComplete, 1u, command_buffer_t::GRAPHICS,
+      &context->swapChain.renderingComplete, 1u, command_buffer_t::GRAPHICS, VK_NULL_HANDLE,
       &context->swapChain.commandBuffer[i]);
 
   }
@@ -1624,7 +1624,7 @@ void render::textureChangeLayoutNow(const context_t& context, VkImageLayout layo
   //Create command buffer
   command_buffer_t commandBuffer;
   commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, 
-    nullptr, 0u, command_buffer_t::GRAPHICS, &commandBuffer);
+    nullptr, 0u, command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &commandBuffer);
     
   VkCommandBufferBeginInfo beginInfo = {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -2436,8 +2436,20 @@ void render::frameBufferDestroy(const context_t& context, frame_buffer_t* frameB
   renderPassDestroy(context, &frameBuffer->renderPassNoClear);
 }
 
+VkCommandPool render::commandPoolCreate(const context_t& context)
+{
+  return createCommandPool(context.device, context.graphicsQueue.queueIndex);
+}
 
-void render::commandBufferCreate(const context_t& context, VkCommandBufferLevel level, VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t waitSemaphoreCount, VkSemaphore* signalSemaphore, uint32_t signalSemaphoreCount, command_buffer_t::type_e type, command_buffer_t* commandBuffer)
+void commandPoolDestroy(const context_t& context, VkCommandPool commandPool)
+{
+  vkDestroyCommandPool(context.device, commandPool, nullptr);
+}
+
+void render::commandBufferCreate(const context_t& context, VkCommandBufferLevel level, 
+                                 VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t waitSemaphoreCount, 
+                                 VkSemaphore* signalSemaphore, uint32_t signalSemaphoreCount, 
+                                 command_buffer_t::type_e type, VkCommandPool commandPool, command_buffer_t* commandBuffer)
 {
   commandBuffer->type = type;
   commandBuffer->waitSemaphore = nullptr;
@@ -2445,6 +2457,8 @@ void render::commandBufferCreate(const context_t& context, VkCommandBufferLevel 
   commandBuffer->waitStages = nullptr;
 
   commandBuffer->waitSemaphoreCount = waitSemaphoreCount;  
+  commandBuffer->commandPool = commandPool == VK_NULL_HANDLE ? context.commandPool : commandPool;
+
   if(waitSemaphoreCount > 0)
   {
     commandBuffer->waitSemaphore = new VkSemaphore[waitSemaphoreCount];
@@ -2465,7 +2479,7 @@ void render::commandBufferCreate(const context_t& context, VkCommandBufferLevel 
   VkCommandBufferAllocateInfo commandBufferAllocateInfo = {};
   commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   commandBufferAllocateInfo.commandBufferCount = 1;
-  commandBufferAllocateInfo.commandPool = context.commandPool;
+  commandBufferAllocateInfo.commandPool = commandBuffer->commandPool;
   commandBufferAllocateInfo.level = level;
   vkAllocateCommandBuffers(context.device, &commandBufferAllocateInfo, &commandBuffer->handle );
 
@@ -2481,7 +2495,7 @@ void render::commandBufferDestroy(const context_t& context, command_buffer_t* co
   delete[] commandBuffer->waitStages;
   delete[] commandBuffer->signalSemaphore;
 
-  vkFreeCommandBuffers(context.device, context.commandPool, 1u, &commandBuffer->handle );
+  vkFreeCommandBuffers(context.device, commandBuffer->commandPool, 1u, &commandBuffer->handle );
   vkDestroyFence(context.device, commandBuffer->fence, nullptr);
 }
 
@@ -2697,7 +2711,7 @@ void render::textureCubemapCreateFromEquirectangularImage(const context_t& conte
   clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
   render::command_buffer_t commandBuffer = {};
-  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &commandBuffer);
 
   maths::mat4 projection = maths::perspectiveProjectionMatrix(1.57f, 1.0f, 0.1f, 1.0f);
   maths::mat4 view[6] = { maths::lookAtMatrix(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(1.0f, 0.0f, 0.0f),  maths::vec3(0.0f, 1.0f, 0.0f)),
@@ -2889,7 +2903,7 @@ void render::diffuseConvolution(const context_t& context, texture_t environmentM
   clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
   render::command_buffer_t commandBuffer = {};
-  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &commandBuffer);
 
   maths::mat4 projection = maths::perspectiveProjectionMatrix(1.57f, 1.0f, 0.1f, 1.0f);
   maths::mat4 view[6] = { maths::lookAtMatrix(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(1.0f, 0.0f, 0.0f),  maths::vec3(0.0f, 1.0f, 0.0f)),
@@ -3134,7 +3148,7 @@ void render::specularConvolution(const context_t& context, texture_t environment
   clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
   render::command_buffer_t commandBuffer = {};
-  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &commandBuffer);
 
   maths::mat4 projection = maths::perspectiveProjectionMatrix(1.57f, 1.0f, 0.1f, 1.0f);
   maths::mat4 view[6] = { maths::lookAtMatrix(maths::vec3(0.0f, 0.0f, 0.0f), maths::vec3(1.0f, 0.0f, 0.0f),  maths::vec3(0.0f, 1.0f, 0.0f)),
@@ -3398,7 +3412,7 @@ void render::brdfConvolution(const context_t& context, uint32_t size, texture_t*
   clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
   render::command_buffer_t commandBuffer = {};
-  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &commandBuffer);
 
   //Create render target and framebuffer
   render::frame_buffer_t frameBuffer = {};
@@ -3527,7 +3541,7 @@ void render::texture2DCreateAndGenerateMipmaps(const context_t& context, const i
   clearValue.color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
 
   render::command_buffer_t commandBuffer = {};
-  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, &commandBuffer);
+  render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &commandBuffer);
 
 
   std::vector<render::frame_buffer_t> frameBuffers(mipLevels);

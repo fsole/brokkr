@@ -849,7 +849,7 @@ private:
 
     if (commandBuffer_.handle == VK_NULL_HANDLE)
     {
-      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &renderComplete_, 1u, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &renderComplete_, 1u, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &commandBuffer_);
     }
 
     VkClearValue clearValues[5];
@@ -901,7 +901,7 @@ private:
     if (txaaResolveCommandBuffer_.handle == VK_NULL_HANDLE)
     {
       VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &renderComplete_, &waitStage, 1u, &txaaResolveComplete_, 1u, render::command_buffer_t::GRAPHICS, &txaaResolveCommandBuffer_);
+      render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &renderComplete_, &waitStage, 1u, &txaaResolveComplete_, 1u, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &txaaResolveCommandBuffer_);
     }
 
     render::commandBufferBegin(context, txaaResolveCommandBuffer_);

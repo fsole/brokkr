@@ -133,7 +133,7 @@ public:
     renderSceneCmd.submitAndRelease();
    
     //Render line light
-    command_buffer_t lightPassCmd(&renderer, "Light pass");
+    command_buffer_t lightPassCmd(&renderer, "Light pass", renderer.getRenderCompleteSemaphore());
     lightPassCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     lightPassCmd.render(renderer.findActor("lineLight"), 1u, "LightPass");
     lightPassCmd.submitAndRelease();

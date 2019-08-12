@@ -101,6 +101,7 @@ namespace bkk
       bool initializeFromFile(const char* file, renderer_t* renderer);
       void destroy(renderer_t* renderer);
 
+      void preparePipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer);
       core::render::graphics_pipeline_t getPipeline(const char* name, frame_buffer_handle_t framebuffer, renderer_t* renderer);
       core::render::graphics_pipeline_t getPipeline(uint32_t pass, frame_buffer_handle_t, renderer_t* renderer);
         

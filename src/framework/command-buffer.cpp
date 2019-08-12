@@ -7,6 +7,7 @@
 */
 
 #include "core/mesh.h"
+#include "core/maths.h"
 
 #include "framework/command-buffer.h"
 #include "framework/frame-buffer.h"
@@ -24,22 +25,37 @@ command_buffer_t::command_buffer_t()
   frameBuffer_(BKK_NULL_HANDLE),
   commandBuffer_(),
   semaphore_(),
-  clearColor_(),
-  clear_(),
-  released_()
+  clearColor_(0.0f, 0.0f, 0.0f, 0.0f),
+  clear_(false),
+  released_(false),
+  signalSemaphore_(VK_NULL_HANDLE)
 {}
 
-command_buffer_t::command_buffer_t(renderer_t* renderer, const char* name )
+command_buffer_t::command_buffer_t(renderer_t* renderer, const char* name, VkSemaphore signalSemaphore, VkCommandPool pool)
 :renderer_(renderer), 
  commandBuffer_(),
+ commandPool_(pool), 
  semaphore_(render::semaphoreCreate(renderer->getContext())),
  frameBuffer_(renderer->getBackBuffer()),
  clearColor_(0.0f, 0.0f, 0.0f, 0.0f),
  clear_(false),
- released_(false)
+ released_(false),
+ signalSemaphore_(signalSemaphore)
 {
-  if (name)
-    name_ = name;
+  name_ = name ? name : "";
+}
+
+void command_buffer_t::init(renderer_t* renderer, const char* name, VkSemaphore signalSemaphore, VkCommandPool pool)
+{
+  if (renderer_ == nullptr)
+  {
+    renderer_ = renderer;
+    semaphore_ = render::semaphoreCreate(renderer->getContext());
+    commandPool_ = pool;
+    frameBuffer_ = renderer->getBackBuffer();
+    signalSemaphore_ = signalSemaphore;
+    name_ = name ? name : "";
+  }
 }
 
 command_buffer_t::~command_buffer_t()
@@ -69,11 +85,12 @@ void command_buffer_t::createCommandBuffer(type_e type)
   if (commandBuffer_.handle != VK_NULL_HANDLE)
     return;
 
-  VkSemaphore signalSemaphore = semaphore_;
-  if (frameBuffer_ == renderer_->getBackBuffer())
+  std::vector<VkSemaphore> signalSemaphores(1);
+  signalSemaphores[0] = semaphore_;
+  if (signalSemaphore_ != VK_NULL_HANDLE )
   {
     //Rendering to back buffer
-    signalSemaphore = renderer_->getRenderCompleteSemaphore();
+    signalSemaphores.push_back( renderer_->getRenderCompleteSemaphore() );
   }
 
   uint32_t dependencyCount = (uint32_t)dependencies_.size();
@@ -91,7 +108,8 @@ void command_buffer_t::createCommandBuffer(type_e type)
   VkSemaphore* waitSemaphorePtr = dependencyCount == 0 ? nullptr : &waitSemaphores[0];
   VkPipelineStageFlags* waitStagePtr = dependencyCount == 0 ? nullptr : &waitStage[0];
 
-  render::commandBufferCreate(renderer_->getContext(), VK_COMMAND_BUFFER_LEVEL_PRIMARY, waitSemaphorePtr, waitStagePtr, dependencyCount, &signalSemaphore, 1u, commandType, &commandBuffer_);
+  render::commandBufferCreate(renderer_->getContext(), VK_COMMAND_BUFFER_LEVEL_PRIMARY, waitSemaphorePtr, waitStagePtr, 
+    dependencyCount, signalSemaphores.data(), (uint32_t)signalSemaphores.size(), commandType, commandPool_, &commandBuffer_);
 }
 
 void command_buffer_t::clearRenderTargets(core::maths::vec4 color)
@@ -223,6 +241,8 @@ void command_buffer_t::blit(const bkk::core::render::texture_t& texture, materia
 
   if (render::textureIsValid(texture) )
     material->setTexture("MainTexture", texture);
+
+  material->updateDescriptorSets();
   
   camera_t* camera = renderer_->getActiveCamera();
   actor_t* actor = renderer_->getActor(renderer_->getRootActor());
@@ -318,4 +338,94 @@ VkSemaphore command_buffer_t::getSemaphore()
     return renderer_->getRenderCompleteSemaphore();
 
   return semaphore_; 
+}
+
+class render_task_t : public bkk::core::thread_pool_t::task_t
+{
+  public:
+    
+    render_task_t() {}
+    void init(renderer_t* renderer, frame_buffer_handle_t framebuffer,
+      VkCommandPool commandPool,
+      actor_t* actors, uint32_t actorCount, const char* passName,
+      VkSemaphore signalSemaphore, bool clear, const core::maths::vec4& clearColor, command_buffer_t* commandBuffer )
+    {
+      renderer_ = renderer;
+      framebuffer_ = framebuffer;
+      commandPool_ = commandPool;
+      actors_ = actors;
+      actorCount_ = actorCount;
+      passName_ = passName;
+      signalSemaphore_ = signalSemaphore;
+      clear_ = clear;
+      clearColor_ = clearColor;
+      commandBuffer_ = commandBuffer;
+    }
+
+    void run()
+    {
+      commandBuffer_->init(renderer_, "render", signalSemaphore_, commandPool_);
+      if (clear_)
+      {
+        commandBuffer_->clearRenderTargets(clearColor_);
+      }
+
+      commandBuffer_->render(actors_, actorCount_, passName_);
+    }
+  
+  private:
+    renderer_t* renderer_;
+    actor_t* actors_;  
+    uint32_t actorCount_;
+    const char* passName_;
+    frame_buffer_handle_t framebuffer_;
+    VkCommandPool commandPool_;
+    VkSemaphore signalSemaphore_;
+    bool clear_;
+    core::maths::vec4 clearColor_;
+    
+    command_buffer_t* commandBuffer_;
+};
+
+
+void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
+  frame_buffer_handle_t framebuffer,
+  bool clear,
+  core::maths::vec4 clearColor,
+  const char* passName,
+  actor_t* actors, uint32_t actorCount,
+  VkSemaphore signalSemaphore,
+  command_buffer_t** commandBuffers, uint32_t commandBufferCount)
+{
+  //1. Prepare pipelines (Can be done in parallel as well)
+  framebuffer = (framebuffer != BKK_NULL_HANDLE) ? framebuffer : renderer->getBackBuffer();
+  renderer->prepareShaders(passName, framebuffer);
+
+
+  uint32_t actorsPerCommand = ( actorCount / commandBufferCount ) + 1;
+  uint32_t currentActor = 0;
+
+  std::vector<render_task_t> renderTask(commandBufferCount);
+  
+  *commandBuffers = new command_buffer_t[commandBufferCount];
+  for (uint32_t i(0); i < commandBufferCount; ++i)
+  {
+    
+    uint32_t count = (currentActor + actorsPerCommand < actorCount) ? actorsPerCommand :
+                                                                      actorCount - currentActor;
+
+    VkSemaphore signal = (i == commandBufferCount - 1) ? signalSemaphore : VK_NULL_HANDLE;
+
+    renderTask[i].init(renderer, framebuffer,
+      renderer->getCommandPool(i), actors, count, passName,
+      signal, clear && i == 0, clearColor, *commandBuffers + i);
+
+    actors += count;
+    renderer->getThreadPool()->addTask(&renderTask[i]);
+    currentActor += count;
+
+  }
+
+  renderer->getThreadPool()->waitForCompletion();
+
 }

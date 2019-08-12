@@ -386,7 +386,7 @@ private:
 
     //Build compute command buffer
 
-    render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &computeCommandBuffer_);
+    render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, VK_NULL_HANDLE, &computeCommandBuffer_);
     render::commandBufferBegin(context, computeCommandBuffer_);
     render::computePipelineBind(computeCommandBuffer_, computePipeline_);
     render::descriptorSetBind(computeCommandBuffer_, computePipelineLayout_, 0, &computeDescriptorSet_, 1u);

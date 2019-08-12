@@ -33,6 +33,11 @@ material_t::material_t(shader_handle_t shaderHandle, renderer_t* renderer)
     const std::vector<texture_desc_t>& textureDesc = shader->getTextureDescriptions();
     descriptors_.resize(bufferDesc.size() + textureDesc.size());
 
+    for (uint32_t i(0); i < textureDesc.size(); ++i)
+    {
+      descriptors_[textureDesc[i].binding] = render::getDescriptor(renderer->getDefaultTexture());
+    }
+
     uint32_t passCount = shader->getPassCount();
     descriptorSet_.resize(passCount);
     updateDescriptorSet_.resize(passCount);
@@ -257,47 +262,60 @@ bool material_t::setTexture(const char* property, render::texture_t texture)
   return true;
 }
 
-render::descriptor_set_t material_t::getDescriptorSet(uint32_t pass)
+void material_t::updateDescriptorSets()
 {
   render::context_t& context = renderer_->getContext();
 
   shader_t* shader = renderer_->getShader(shader_);
   if (!shader)
-    return core::render::descriptor_set_t();
+    return;
 
-  //Update owned uniform buffer if needed
-  for (uint32_t i(0); i < bufferUpdate_.size(); ++i)
+  for (uint32_t pass = 0; pass < descriptorSet_.size(); ++pass)
   {
-    if (bufferUpdate_[i])
+    //Update owned uniform buffer if needed
+    for (uint32_t i(0); i < bufferUpdate_.size(); ++i)
     {
-      render::gpuBufferUpdate(context, bufferData_[i], 0u, bufferDataSize_[i], &buffers_[i]);
-      bufferUpdate_[i] = false;
+      if (bufferUpdate_[i])
+      {
+        render::gpuBufferUpdate(context, bufferData_[i], 0u, bufferDataSize_[i], &buffers_[i]);
+        bufferUpdate_[i] = false;
+      }
+    }
+
+    if (updateDescriptorSet_[pass])
+    {
+      if (descriptorSet_[pass].handle == VK_NULL_HANDLE)
+      {
+        render::descriptor_t* descriptorsPtr = descriptors_.empty() ? nullptr : &descriptors_[0];
+        render::descriptorSetCreate(context, renderer_->getDescriptorPool(), shader->getDescriptorSetLayout(), descriptorsPtr, &descriptorSet_[pass]);
+      }
+      else
+      {
+        render::descriptorSetUpdate(context, shader->getDescriptorSetLayout(), &descriptorSet_[pass]);
+      }
+
+      updateDescriptorSet_[pass] = false;
     }
   }
-    
-  if (updateDescriptorSet_[pass])
-  {
-    if (descriptorSet_[pass].handle == VK_NULL_HANDLE)
-    {
-      render::descriptor_t* descriptorsPtr = descriptors_.empty() ? nullptr : &descriptors_[0];
-      render::descriptorSetCreate(context, renderer_->getDescriptorPool(), shader->getDescriptorSetLayout(), descriptorsPtr, &descriptorSet_[pass]);
-    }
-    else
-    {
-      render::descriptorSetUpdate(context, shader->getDescriptorSetLayout(), &descriptorSet_[pass]);
-    }
-
-    updateDescriptorSet_[pass] = false;
-  }
-
-  return descriptorSet_[pass];
-
 }
+
+render::descriptor_set_t material_t::getDescriptorSet(uint32_t pass)
+{
+  if( pass < descriptorSet_.size() )
+    return descriptorSet_[pass];
+
+  return core::render::descriptor_set_t();
+}
+
 render::descriptor_set_t material_t::getDescriptorSet(const char* pass)
 {
   shader_t* shader = renderer_->getShader(shader_);
-  if (!shader)
-    return core::render::descriptor_set_t();
+  if (shader)
+    return getDescriptorSet( shader->getPassIndexFromName(pass) );
 
-  return getDescriptorSet( shader->getPassIndexFromName(pass) );
+  return core::render::descriptor_set_t();
+}
+shader_t* material_t::getShader()
+{
+  return renderer_->getShader(shader_);
 }

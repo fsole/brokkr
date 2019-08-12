@@ -10,6 +10,7 @@
 #include "core/mesh.h"
 #include "core/render.h"
 #include "core/window.h"
+#include "core/image.h"
 
 #include "framework/renderer.h"
 #include "framework/gui.h"
@@ -110,7 +111,7 @@ renderer_t::~renderer_t()
       render::semaphoreDestroy(context_, renderComplete_);
       mesh::destroy(context_, &fullScreenQuad_);
     }
-
+    render::textureDestroy(context_, &defaultTexture_);
     render::descriptorSetLayoutDestroy(context_, &globalsDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context_, &objectDescriptorSetLayout_);
     render::descriptorPoolDestroy(context_, &globalDescriptorPool_);
@@ -126,18 +127,35 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
   render::descriptorSetLayoutCreate(context_, &binding, 1u, &globalsDescriptorSetLayout_);
   render::descriptorSetLayoutCreate(context_, &binding, 1u, &objectDescriptorSetLayout_);
 
-  render::descriptorPoolCreate(context_, 1000u,
-    render::combined_image_sampler_count(1000u),
-    render::uniform_buffer_count(1000u),
-    render::storage_buffer_count(1000u),
-    render::storage_image_count(1000u),
+  render::descriptorPoolCreate(context_, 10000u,
+    render::combined_image_sampler_count(10000u),
+    render::uniform_buffer_count(10000u),
+    render::storage_buffer_count(10000u),
+    render::storage_image_count(10000u),
     &globalDescriptorPool_);
 
-  
+  for (uint32_t i(0); i < COMMAND_POOL_COUNT; ++i)
+  {
+    commandPool_[i] = render::commandPoolCreate(context_);
+  }
+
+  image::image2D_t image = {};
+  image.width = image.height = 1u;
+  image.componentCount = 4u;
+  image.dataSize = 4;
+  image.data = new uint8_t[4];
+  image.data[0] = 128u;
+  image.data[1] = image.data[2] = image.data[3] = 0u;
+  render::texture2DCreate(context_, &image, 1u, render::texture_sampler_t(), &defaultTexture_);
+  delete[] image.data;
+
   shader_handle_t shader = shaderCreate("../../shaders/textureBlit.shader");
   textureBlit_ = materialCreate(shader);
+
   mesh_handle_t quad = meshAdd( mesh::fullScreenQuad(context_) );
   rootActor_ = actorCreate("Root", quad, textureBlit_);
+
+  threadPool_ = new thread_pool_t(8);
 }
 
 render::context_t& renderer_t::getContext()
@@ -421,6 +439,19 @@ void renderer_t::update()
                                   0, sizeof(maths::mat4), &actors[i].getUniformBuffer());
   }
 
+  //TODO: Do the update in parallel
+  //Update materials
+  material_t* materials;
+  uint32_t count = materials_.getData(&materials);
+  for (uint32_t i = 0; i < count; ++i)
+    materials[i].updateDescriptorSets();
+  
+  compute_material_t* computeMaterials;
+  count = computeMaterials_.getData(&computeMaterials);
+  for (uint32_t i = 0; i < count; ++i)
+    computeMaterials[i].updateDescriptorSets();
+
+
   buildPresentationCommandBuffers();
 }
 
@@ -505,4 +536,14 @@ render::descriptor_pool_t renderer_t::getDescriptorPool() {
 void renderer_t::releaseCommandBuffer(const command_buffer_t* cmdBuffer)
 {
   releasedCommandBuffers_.push_back(*cmdBuffer);
+}
+
+void renderer_t::prepareShaders(const char* passName, frame_buffer_handle_t fb)
+{
+  shader_t* shaders;
+  uint32_t count = shaders_.getData(&shaders);
+  for (uint32_t i = 0; i < count; ++i)
+    shaders[i].preparePipeline(passName, fb, this);
+
+
 }

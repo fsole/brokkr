@@ -10,6 +10,7 @@
 #include "core/handle.h"
 #include "core/mesh.h"
 #include "core/window.h"
+#include "core/thread-pool.h"
 
 #include "framework/camera.h"
 #include "framework/actor.h"
@@ -42,8 +43,6 @@ farPlane_(farPlane)
 
 void camera_t::update(renderer_t* renderer)
 { 
-  maths::invertMatrix(uniforms_.viewToWorld, &uniforms_.worldToView);
-
   render::context_t& context = renderer->getContext();
   if (uniformBuffer_.handle == VK_NULL_HANDLE)
   {
@@ -63,29 +62,100 @@ void camera_t::update(renderer_t* renderer)
   }
 }
 
+class cullTask : public thread_pool_t::task_t
+{
+  public:
+  void init(renderer_t* renderer, actor_t* actors, uint32_t actorCount, maths::vec4* frustum, bool* results)
+  {
+    renderer_ = renderer;
+    actors_ = actors;
+    actorCount_ = actorCount;
+    frustum_ = frustum;
+    results_ = results;
+  }
+
+  void run()
+  {
+    for (uint32_t i = 0; i < actorCount_; ++i)
+    {
+      mesh::mesh_t* mesh = renderer_->getMesh(actors_[i].getMeshHandle());
+      if (mesh)
+      {
+        //Transform aabb to world space
+        maths::aabb_t aabbWS = maths::aabbTransform(mesh->aabb, *renderer_->getTransform(actors_[i].getTransformHandle()));
+        results_[i] = aabbInFrustum(aabbWS, frustum_);
+      }
+    }
+  }
+
+  renderer_t* renderer_;
+  actor_t* actors_;
+  uint32_t actorCount_;
+  maths::vec4* frustum_;
+
+  bool* results_;
+};
+
 void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
-{  
+{ 
   //Extract frustum planes in world space
   maths::vec4 frustumWS[6];
   maths::frustumPlanesFromMatrix(uniforms_.worldToView * uniforms_.projection, &frustumWS[0]);
 
   visibleActorsCount_ = 0u;
   visibleActors_.resize(actorCount);
-  for (uint32_t i = 0; i < actorCount; ++i)
-  {
-    mesh::mesh_t* mesh = renderer->getMesh(actors[i].getMeshHandle());
-    if (mesh)
+  
+  if (actorCount > 50)
+  {    
+    std::vector<cullTask> cullTasks(4);
+    uint32_t actorsPerCullTask = (actorCount / 4) + 1;
+    uint32_t currentActor = 0;
+    bool* cullingResults = new bool[actorCount];
+    for (uint32_t i(0); i < 4; ++i)
     {
-      //Transform aabb to world space
-      maths::aabb_t aabbWS = maths::aabbTransform(mesh->aabb, *renderer->getTransform(actors[i].getTransformHandle()));
-      if (aabbInFrustum(aabbWS, frustumWS))
+      uint32_t count = (currentActor + actorsPerCullTask < actorCount) ? actorsPerCullTask :
+                                                                         actorCount - currentActor;
+
+      cullTasks[i].init(renderer, actors + currentActor, count, frustumWS, cullingResults + currentActor );
+      currentActor += count;
+
+      renderer->getThreadPool()->addTask(&cullTasks[i]);
+    }
+
+    renderer->getThreadPool()->waitForCompletion();
+
+    
+    uint32_t index = 0;
+    for (uint32_t i(0); i < actorCount; ++i)
+    {
+      if (cullingResults[i])
       {
-        visibleActors_[visibleActorsCount_++] = actors[i];
+        visibleActors_[index] = actors[i];
+        visibleActorsCount_++;
+        index++;
       }
     }
-  }
 
-  visibleActors_.resize(visibleActorsCount_);
+    delete[] cullingResults;
+  }
+  else
+  {
+    for (uint32_t i = 0; i < actorCount; ++i)
+    {
+      mesh::mesh_t* mesh = renderer->getMesh(actors[i].getMeshHandle());
+      if (mesh)
+      {
+        //Transform aabb to world space
+        maths::aabb_t aabbWS = maths::aabbTransform(mesh->aabb, *renderer->getTransform(actors[i].getTransformHandle()));
+        if (aabbInFrustum(aabbWS, frustumWS))
+        {
+          visibleActors_[visibleActorsCount_++] = actors[i];
+        }
+      }
+    }
+
+    visibleActors_.resize(visibleActorsCount_);
+  }
 }
 
 void camera_t::destroy(renderer_t* renderer)

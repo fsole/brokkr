@@ -68,7 +68,7 @@ public:
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera, &visibleActors);
 
-    command_buffer_t renderSceneCmd(&renderer, "Render");
+    command_buffer_t renderSceneCmd(&renderer, "Render", renderer.getRenderCompleteSemaphore());
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
     renderSceneCmd.submitAndRelease();

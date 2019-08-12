@@ -51,6 +51,10 @@ namespace bkk
         core::render::descriptor_set_t getDescriptorSet(const char* pass = nullptr);
         core::render::descriptor_set_t getDescriptorSet(uint32_t pass);
 
+        void updateDescriptorSets();
+
+        shader_t* getShader();
+
       protected:
         renderer_t* renderer_;
         shader_handle_t shader_;

@@ -13,6 +13,7 @@
 #include "core/render-types.h"
 #include "core/packed-freelist.h"
 #include "core/transform-manager.h"
+#include "core/thread-pool.h"
 
 #include "core/mesh.h"
 
@@ -23,6 +24,8 @@
 #include "framework/frame-buffer.h"
 #include "framework/actor.h"
 #include "framework/camera.h"
+
+#define COMMAND_POOL_COUNT 8
 
 namespace bkk
 {
@@ -102,8 +105,15 @@ namespace bkk
         void update();
 
         material_t* getTextureBlitMaterial() { return materials_.get(textureBlit_); }
+        core::render::texture_t getDefaultTexture() { return defaultTexture_;  }
+        
 
         void releaseCommandBuffer(const command_buffer_t* cmdBuffer);
+
+        core::thread_pool_t* getThreadPool() { return threadPool_; }
+        VkCommandPool getCommandPool(uint32_t i){ return commandPool_[i]; }
+
+        void prepareShaders(const char* passName, frame_buffer_handle_t fb);
 
       private:
         void createTextureBlitResources();
@@ -141,10 +151,15 @@ namespace bkk
         bkk::core::render::pipeline_layout_t textureBlitPipelineLayout_;
         bkk::core::render::shader_t textureBlitVertexShader_;
         bkk::core::render::shader_t textureBlitFragmentShader_;
+        bkk::core::render::texture_t defaultTexture_;
         VkSemaphore renderComplete_;
 
         //Command buffers to be released on the next frame
         std::vector<command_buffer_t> releasedCommandBuffers_;
+
+        VkCommandPool commandPool_[COMMAND_POOL_COUNT];
+
+        bkk::core::thread_pool_t* threadPool_;
     };
 
   }//framework

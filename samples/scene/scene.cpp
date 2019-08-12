@@ -1119,7 +1119,7 @@ private:
     {
       if (shadowCommandBuffer_.handle == VK_NULL_HANDLE)
       {
-        render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &shadowPassComplete_, 1u, render::command_buffer_t::GRAPHICS, &shadowCommandBuffer_);
+        render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, &shadowPassComplete_, 1u, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &shadowCommandBuffer_);
         VkClearValue clearValues[2];
         clearValues[0].color = { { 0.0f, 0.0f, 0.0f, 0.0f } };
         clearValues[1].depthStencil = { 1.0f,0 };
@@ -1152,11 +1152,11 @@ private:
       if (directionalLight_ != nullptr)
       {
         VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-        render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &shadowPassComplete_, &waitStage, 1, &renderComplete_, 1, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+        render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, &shadowPassComplete_, &waitStage, 1, &renderComplete_, 1, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &commandBuffer_);
       }
       else
       {
-        render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0, &renderComplete_, 1, render::command_buffer_t::GRAPHICS, &commandBuffer_);
+        render::commandBufferCreate(context, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0, &renderComplete_, 1, render::command_buffer_t::GRAPHICS, VK_NULL_HANDLE, &commandBuffer_);
       }
 
       VkClearValue clearValues[5];

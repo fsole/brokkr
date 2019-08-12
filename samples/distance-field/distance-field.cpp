@@ -426,7 +426,7 @@ void buildCommandBuffers()
 void buildComputeCommandBuffer()
 {
   //Build compute command buffer
-  render::commandBufferCreate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, &gComputeCommandBuffer);
+  render::commandBufferCreate(gContext, VK_COMMAND_BUFFER_LEVEL_PRIMARY, nullptr, nullptr, 0u, nullptr, 0u, render::command_buffer_t::COMPUTE, VK_NULL_HANDLE, &gComputeCommandBuffer);
 
   render::commandBufferBegin(gContext, gComputeCommandBuffer);
   render::computePipelineBind(gComputeCommandBuffer, gComputePipeline);

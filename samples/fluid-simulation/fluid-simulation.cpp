@@ -8,7 +8,6 @@
 
 #include "core/mesh.h"
 #include "core/maths.h"
-#include "core/image.h"
 
 #include "framework/application.h"
 #include "framework/camera.h"
@@ -22,7 +21,7 @@ class fluid_simulation_sample_t : public application_t
 {
 public:
 
-  fluid_simulation_sample_t()
+  fluid_simulation_sample_t(uvec2 imageSize)
   :application_t("SPH Fluid Simulation", 1200u, 800u, 3u),
   cameraController_(vec3(0.0f, -10.0f, 0.0f), 45.0f, vec2(-0.8f, 0.0f), 0.01f)
   { 
@@ -73,7 +72,6 @@ public:
     renderer.actorCreate("particles", particleMesh, particleMaterial, mat4(), maxParticleCount_);
 
     //create camera
-    uvec2 imageSize(1200u, 800u);
     camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 500.0f));
     cameraController_.setCameraHandle(camera, &renderer);
   }
@@ -127,7 +125,7 @@ public:
     renderer.setupCamera(camera);
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera, &visibleActors);
-    command_buffer_t renderSceneCmd(&renderer);
+    command_buffer_t renderSceneCmd(&renderer, "Render", renderer.getRenderCompleteSemaphore() );
     renderSceneCmd.setDependencies(&updateParticles, 1u);
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
@@ -239,7 +237,7 @@ private:
 
 int main()
 {
-  fluid_simulation_sample_t sample;
+  fluid_simulation_sample_t sample(uvec2(1200u, 800u));
   sample.run();
   return 0;
 }

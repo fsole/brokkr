@@ -156,7 +156,7 @@ public:
     int count = renderer.getVisibleActors(camera, &visibleActors);
 
     //Render scene
-    command_buffer_t renderSceneCmd(&renderer);
+    command_buffer_t renderSceneCmd(&renderer, "Render");
     renderSceneCmd.setFrameBuffer(sceneFBO_);
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
@@ -168,18 +168,18 @@ public:
       ssaoMaterialPtr->setProperty("globals.radius", &ssaoRadius_);
       ssaoMaterialPtr->setProperty("globals.bias", &ssaoBias_);      
 
-      command_buffer_t ssaoPass = command_buffer_t(&renderer);
+      command_buffer_t ssaoPass = command_buffer_t(&renderer, "SSAO");
       ssaoPass.setFrameBuffer(ssaoFBO_);
       ssaoPass.blit(BKK_NULL_HANDLE, ssaoMaterial_);
       ssaoPass.submitAndRelease();
 
-      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
+      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer, "Blur", renderer.getRenderCompleteSemaphore());
       blitToBackbufferCmd.blit(ssaoRT_, blurMaterial_);
       blitToBackbufferCmd.submitAndRelease();
     }
     else
     {
-      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
+      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer, "Blit", renderer.getRenderCompleteSemaphore());
       blitToBackbufferCmd.blit(colorRT_);
       blitToBackbufferCmd.submitAndRelease();
     }

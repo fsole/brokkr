@@ -27,9 +27,11 @@ namespace bkk
     {
       public:
         command_buffer_t();
-        command_buffer_t(renderer_t* renderer, const char* name = nullptr );
+
+        command_buffer_t(renderer_t* renderer, const char* name = nullptr, VkSemaphore signalSemaphore = VK_NULL_HANDLE, VkCommandPool pool = VK_NULL_HANDLE);
         ~command_buffer_t();
         
+        void init(renderer_t* renderer, const char* name = nullptr, VkSemaphore signalSemaphore = VK_NULL_HANDLE, VkCommandPool pool = VK_NULL_HANDLE);
         void setDependencies(command_buffer_t* prevCommandBuffers, uint32_t count);
         void setFrameBuffer(frame_buffer_handle_t frameBuffer);
 
@@ -66,12 +68,25 @@ namespace bkk
         std::vector<command_buffer_t> dependencies_;
         core::render::command_buffer_t commandBuffer_;
         VkSemaphore semaphore_;
+        VkCommandPool commandPool_;
+
         frame_buffer_handle_t frameBuffer_;
         core::maths::vec4 clearColor_;
         bool clear_;
         bool released_;
+        VkSemaphore signalSemaphore_;
 
     };
+
+    void generateCommandBuffersParallel(renderer_t* renderer,
+      frame_buffer_handle_t frameBuffer,
+      bool clear,
+      core::maths::vec4 clearColor_,
+      const char* passName,
+      actor_t* actors, uint32_t actorCount,
+      VkSemaphore signalSemaphore,
+      command_buffer_t** commandBuffers, uint32_t commandBufferCount);
+
 
   }//framework
 }//bkk

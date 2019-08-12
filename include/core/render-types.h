@@ -92,6 +92,8 @@ namespace bkk
         uint32_t signalSemaphoreCount;
         VkSemaphore* signalSemaphore;
         VkFence fence;
+
+        VkCommandPool commandPool;
       };
 
       struct swapchain_t
