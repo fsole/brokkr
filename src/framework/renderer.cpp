@@ -145,7 +145,8 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
   image.dataSize = 4;
   image.data = new uint8_t[4];
   image.data[0] = 128u;
-  image.data[1] = image.data[2] = image.data[3] = 0u;
+  image.data[1] = image.data[2] = 0u;
+  image.data[3] = 255u;
   render::texture2DCreate(context_, &image, 1u, render::texture_sampler_t(), &defaultTexture_);
   delete[] image.data;
 

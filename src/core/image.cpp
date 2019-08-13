@@ -69,7 +69,7 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
       for (int i(0); i < width*height; ++i)
       { 
         for (int component(0); component<4; ++component)
-          image->data[4*i + component] = component < componentCount ? data[componentCount*i + component] : 0u;
+          image->data[4*i + component] = component < componentCount ? data[componentCount*i + component] : 255u;
       }
     }
     else if (componentSize == 4)
@@ -79,7 +79,7 @@ bool image::load( const char* path, bool flipVertical, image2D_t* image )
       for (int i(0); i < width*height; ++i)
       {
         for (int component(0); component<4; ++component)
-          imageDataPtr[4*i + component] = component < componentCount ? dataPtr[componentCount*i + component] : 0.0f;
+          imageDataPtr[4*i + component] = component < componentCount ? dataPtr[componentCount*i + component] : 1.0f;
       }
     }
 

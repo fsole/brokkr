@@ -105,10 +105,10 @@ void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
   visibleActorsCount_ = 0u;
   visibleActors_.resize(actorCount);
   
-  if (actorCount > 50)
+  if (actorCount > 20)
   {    
-    std::vector<cullTask> cullTasks(4);
-    uint32_t actorsPerCullTask = (actorCount / 4) + 1;
+    std::vector<cullTask> cullTasks(8);
+    uint32_t actorsPerCullTask = (actorCount / 8) + 1;
     uint32_t currentActor = 0;
     bool* cullingResults = new bool[actorCount];
     for (uint32_t i(0); i < 4; ++i)
@@ -124,15 +124,11 @@ void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
 
     renderer->getThreadPool()->waitForCompletion();
 
-    
-    uint32_t index = 0;
     for (uint32_t i(0); i < actorCount; ++i)
     {
       if (cullingResults[i])
       {
-        visibleActors_[index] = actors[i];
-        visibleActorsCount_++;
-        index++;
+        visibleActors_[visibleActorsCount_++] = actors[i];
       }
     }
 
