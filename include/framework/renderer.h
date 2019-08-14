@@ -25,8 +25,8 @@
 #include "framework/actor.h"
 #include "framework/camera.h"
 
-#define COMMAND_POOL_COUNT 8
-#define THREAD_COUNT 8
+#define COMMAND_POOL_COUNT 4
+#define THREAD_COUNT 4
 
 namespace bkk
 {

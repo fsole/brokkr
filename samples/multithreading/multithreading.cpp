@@ -114,9 +114,9 @@ public:
       generateCommandBuffersParallel(&renderer, BKK_NULL_HANDLE, true, vec4(0.0f), 
                                      "OpaquePass", visibleActors, count, 
                                      renderer.getRenderCompleteSemaphore(), 
-                                     &commandBuffers, 8);
+                                     &commandBuffers, 4);
 
-      for (uint32_t i(0); i < 8; ++i)
+      for (uint32_t i(0); i < 4; ++i)
         commandBuffers[i].submitAndRelease();
       
       delete[] commandBuffers;

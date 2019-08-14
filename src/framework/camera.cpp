@@ -11,7 +11,7 @@
 #include "core/mesh.h"
 #include "core/window.h"
 #include "core/thread-pool.h"
-#include "core/timer.h"
+#include "core/thread-pool.h"
 
 #include "framework/camera.h"
 #include "framework/actor.h"
@@ -101,8 +101,7 @@ class cullTask : public thread_pool_t::task_t
 };
 
 void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
-{ 
-  timer::scoped_timer_t t("CUlling");
+{
   //Extract frustum planes in world space
   maths::vec4 frustumWS[6];
   maths::frustumPlanesFromMatrix(uniforms_.worldToView * uniforms_.projection, &frustumWS[0]);

@@ -413,9 +413,9 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
                                                    actorCount - currentActor;
 
     VkSemaphore signal = (i == commandBufferCount - 1) ? signalSemaphore : VK_NULL_HANDLE;
-
+    
     renderTask[i].init(renderer, framebuffer,
-      renderer->getCommandPool(i), actors, count, passName,
+      renderer->getCommandPool(i % COMMAND_POOL_COUNT), actors, count, passName,
       signal, clear && i == 0, clearColor, *commandBuffers + i);
 
     actors += count;
