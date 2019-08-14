@@ -78,6 +78,9 @@ namespace bkk
 
     };
 
+    //Generates a number of "render command-buffers" in parallel
+    //Warning: Allocates an array of command_buffer_t from the heap (returned by reference in 'commandBuffers')
+    //and passes ownership of that memory to the caller
     void generateCommandBuffersParallel(renderer_t* renderer,
       frame_buffer_handle_t frameBuffer,
       bool clear,

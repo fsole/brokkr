@@ -11,10 +11,14 @@
 #include "core/mesh.h"
 #include "core/window.h"
 #include "core/thread-pool.h"
+#include "core/timer.h"
 
 #include "framework/camera.h"
 #include "framework/actor.h"
 #include "framework/renderer.h"
+
+#define MIN_ACTOR_COUNT_FOR_PARALLEL_CULLING 10
+#define CULL_TASK_COUNT 4
 
 using namespace bkk::core;
 using namespace bkk::framework;
@@ -98,6 +102,7 @@ class cullTask : public thread_pool_t::task_t
 
 void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
 { 
+  timer::scoped_timer_t t("CUlling");
   //Extract frustum planes in world space
   maths::vec4 frustumWS[6];
   maths::frustumPlanesFromMatrix(uniforms_.worldToView * uniforms_.projection, &frustumWS[0]);
@@ -105,16 +110,16 @@ void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
   visibleActorsCount_ = 0u;
   visibleActors_.resize(actorCount);
   
-  if (actorCount > 20)
+  if (actorCount > MIN_ACTOR_COUNT_FOR_PARALLEL_CULLING)
   {    
-    std::vector<cullTask> cullTasks(8);
-    uint32_t actorsPerCullTask = (actorCount / 8) + 1;
+    std::vector<cullTask> cullTasks(CULL_TASK_COUNT);
+    uint32_t actorsPerCullTask = actorCount / CULL_TASK_COUNT;
     uint32_t currentActor = 0;
     bool* cullingResults = new bool[actorCount];
-    for (uint32_t i(0); i < 4; ++i)
+    for (uint32_t i(0); i<CULL_TASK_COUNT; ++i)
     {
-      uint32_t count = (currentActor + actorsPerCullTask < actorCount) ? actorsPerCullTask :
-                                                                         actorCount - currentActor;
+      uint32_t count = (i < CULL_TASK_COUNT-1) ? actorsPerCullTask :
+                                                 actorCount - currentActor;
 
       cullTasks[i].init(renderer, actors + currentActor, count, frustumWS, cullingResults + currentActor );
       currentActor += count;
@@ -127,9 +132,7 @@ void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
     for (uint32_t i(0); i < actorCount; ++i)
     {
       if (cullingResults[i])
-      {
         visibleActors_[visibleActorsCount_++] = actors[i];
-      }
     }
 
     delete[] cullingResults;
@@ -144,9 +147,7 @@ void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
         //Transform aabb to world space
         maths::aabb_t aabbWS = maths::aabbTransform(mesh->aabb, *renderer->getTransform(actors[i].getTransformHandle()));
         if (aabbInFrustum(aabbWS, frustumWS))
-        {
           visibleActors_[visibleActorsCount_++] = actors[i];
-        }
       }
     }
 

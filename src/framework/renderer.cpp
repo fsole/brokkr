@@ -156,7 +156,7 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
   mesh_handle_t quad = meshAdd( mesh::fullScreenQuad(context_) );
   rootActor_ = actorCreate("Root", quad, textureBlit_);
 
-  threadPool_ = new thread_pool_t(8);
+  threadPool_ = new thread_pool_t(THREAD_COUNT);
 }
 
 render::context_t& renderer_t::getContext()

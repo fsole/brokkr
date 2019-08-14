@@ -108,9 +108,9 @@ public:
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera, &visibleActors);
 
-    command_buffer_t* commandBuffers = nullptr;
     if (count >= 10)
     {
+      command_buffer_t* commandBuffers = nullptr;
       generateCommandBuffersParallel(&renderer, BKK_NULL_HANDLE, true, vec4(0.0f), 
                                      "OpaquePass", visibleActors, count, 
                                      renderer.getRenderCompleteSemaphore(), 

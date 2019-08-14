@@ -387,7 +387,6 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
     command_buffer_t* commandBuffer_;
 };
 
-
 void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   frame_buffer_handle_t framebuffer,
   bool clear,
@@ -401,8 +400,7 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   framebuffer = (framebuffer != BKK_NULL_HANDLE) ? framebuffer : renderer->getBackBuffer();
   renderer->prepareShaders(passName, framebuffer);
 
-
-  uint32_t actorsPerCommand = ( actorCount / commandBufferCount ) + 1;
+  uint32_t actorsPerCommand = actorCount / commandBufferCount;
   uint32_t currentActor = 0;
 
   std::vector<render_task_t> renderTask(commandBufferCount);
@@ -411,8 +409,8 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   for (uint32_t i(0); i < commandBufferCount; ++i)
   {
     
-    uint32_t count = (currentActor + actorsPerCommand < actorCount) ? actorsPerCommand :
-                                                                      actorCount - currentActor;
+    uint32_t count = (i < commandBufferCount-1 ) ? actorsPerCommand :
+                                                   actorCount - currentActor;
 
     VkSemaphore signal = (i == commandBufferCount - 1) ? signalSemaphore : VK_NULL_HANDLE;
 
