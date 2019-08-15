@@ -402,29 +402,33 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
 
   uint32_t actorsPerCommand = actorCount / commandBufferCount;
   uint32_t currentActorIndex = 0;
+  uint32_t commandPoolCount = renderer->getCommandPoolCount();
 
-  std::vector<render_task_t> renderTask(commandBufferCount);
-  
   *commandBuffers = new command_buffer_t[commandBufferCount];
+  
+  //Configure tasks
+  std::vector<render_task_t> renderTask(commandBufferCount);
   for (uint32_t i(0); i < commandBufferCount; ++i)
   { 
     uint32_t count = (i < commandBufferCount-1 ) ? actorsPerCommand :
                                                    actorCount - currentActorIndex;
 
     VkSemaphore signal = (i == commandBufferCount - 1) ? signalSemaphore : VK_NULL_HANDLE;
-    VkCommandPool commandPool = renderer->getCommandPool(i % COMMAND_POOL_COUNT);
+    VkCommandPool commandPool = renderer->getCommandPool(i % commandPoolCount);
     renderTask[i].init(renderer, framebuffer, actors, count, passName,
       clear && i == 0, clearColor, commandPool, signal, *commandBuffers + i);
 
     //Ensure command pools are not used from two different threads at the same time
-    if (i > COMMAND_POOL_COUNT)
-      renderTask[i].dependsOn(&renderTask[i - COMMAND_POOL_COUNT]);
+    if (i >= commandPoolCount)
+      renderTask[i].dependsOn(&renderTask[i - commandPoolCount]);
 
-    renderer->getThreadPool()->addTask(&renderTask[i]);
-    
     actors += count;
     currentActorIndex += count;
   }
+
+  //Enqueue tasks for execution
+  for (uint32_t i(0); i < commandBufferCount; ++i)
+    renderer->getThreadPool()->addTask(&renderTask[i]);
 
   renderer->getThreadPool()->waitForCompletion();
 

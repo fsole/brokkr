@@ -108,27 +108,17 @@ public:
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera, &visibleActors);
 
-    if (count >= 10)
-    {
-      command_buffer_t* commandBuffers = nullptr;
-      generateCommandBuffersParallel(&renderer, BKK_NULL_HANDLE, true, vec4(0.0f), 
-                                     visibleActors, count, "OpaquePass",
-                                     renderer.getRenderCompleteSemaphore(), 
-                                     &commandBuffers, 4);
+    command_buffer_t* commandBuffers = nullptr;
+    uint32_t commandBufferCount = renderer.getThreadPool()->getThreadCount();
+    generateCommandBuffersParallel(&renderer, BKK_NULL_HANDLE, true, vec4(0.0f), 
+                                    visibleActors, count, "OpaquePass",
+                                    renderer.getRenderCompleteSemaphore(), 
+                                    &commandBuffers, commandBufferCount);
 
-      for (uint32_t i(0); i < 4; ++i)
-        commandBuffers[i].submitAndRelease();
+    for (uint32_t i(0); i < commandBufferCount; ++i)
+      commandBuffers[i].submitAndRelease();
       
-      delete[] commandBuffers;
-    }
-    else
-    {
-      command_buffer_t renderSceneCmd(&renderer, "Render");
-      renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
-      renderSceneCmd.render(visibleActors, count, "OpaquePass");
-      renderSceneCmd.submitAndRelease();
-    }
-
+    delete[] commandBuffers;
     presentFrame();
   }
 

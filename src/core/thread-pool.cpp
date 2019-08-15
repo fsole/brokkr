@@ -184,3 +184,8 @@ void thread_pool_t::task_t::end()
 
   hasCompleted_ = true;
 }
+
+uint32_t bkk::core::getCPUCoreCount() 
+{ 
+  return std::thread::hardware_concurrency(); 
+}

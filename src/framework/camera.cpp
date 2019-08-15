@@ -17,7 +17,6 @@
 #include "framework/actor.h"
 #include "framework/renderer.h"
 
-#define MIN_ACTOR_COUNT_FOR_PARALLEL_CULLING 10
 #define CULL_TASK_COUNT 4
 
 using namespace bkk::core;
@@ -108,50 +107,32 @@ void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
 
   visibleActorsCount_ = 0u;
   visibleActors_.resize(actorCount);
-  
-  if (actorCount > MIN_ACTOR_COUNT_FOR_PARALLEL_CULLING)
-  {    
-    std::vector<cullTask> cullTasks(CULL_TASK_COUNT);
-    uint32_t actorsPerCullTask = actorCount / CULL_TASK_COUNT;
-    uint32_t currentActor = 0;
-    bool* cullingResults = new bool[actorCount];
-    for (uint32_t i(0); i<CULL_TASK_COUNT; ++i)
-    {
-      uint32_t count = (i < CULL_TASK_COUNT-1) ? actorsPerCullTask :
-                                                 actorCount - currentActor;
 
-      cullTasks[i].init(renderer, actors + currentActor, count, frustumWS, cullingResults + currentActor );
-      currentActor += count;
-
-      renderer->getThreadPool()->addTask(&cullTasks[i]);
-    }
-
-    renderer->getThreadPool()->waitForCompletion();
-
-    for (uint32_t i(0); i < actorCount; ++i)
-    {
-      if (cullingResults[i])
-        visibleActors_[visibleActorsCount_++] = actors[i];
-    }
-
-    delete[] cullingResults;
-  }
-  else
+  std::vector<cullTask> cullTasks(CULL_TASK_COUNT);
+  uint32_t actorsPerCullTask = actorCount / CULL_TASK_COUNT;
+  uint32_t currentActor = 0;
+  bool* cullingResults = new bool[actorCount];
+  for (uint32_t i(0); i < CULL_TASK_COUNT; ++i)
   {
-    for (uint32_t i = 0; i < actorCount; ++i)
-    {
-      mesh::mesh_t* mesh = renderer->getMesh(actors[i].getMeshHandle());
-      if (mesh)
-      {
-        //Transform aabb to world space
-        maths::aabb_t aabbWS = maths::aabbTransform(mesh->aabb, *renderer->getTransform(actors[i].getTransformHandle()));
-        if (aabbInFrustum(aabbWS, frustumWS))
-          visibleActors_[visibleActorsCount_++] = actors[i];
-      }
-    }
+    uint32_t count = (i < CULL_TASK_COUNT - 1) ? actorsPerCullTask :
+      actorCount - currentActor;
 
-    visibleActors_.resize(visibleActorsCount_);
+    cullTasks[i].init(renderer, actors + currentActor, count, frustumWS, cullingResults + currentActor);
+    currentActor += count;
+
+    renderer->getThreadPool()->addTask(&cullTasks[i]);
   }
+
+  renderer->getThreadPool()->waitForCompletion();
+
+  for (uint32_t i(0); i < actorCount; ++i)
+  {
+    if (cullingResults[i])
+      visibleActors_[visibleActorsCount_++] = actors[i];
+  }
+
+  delete[] cullingResults;
+  visibleActors_.resize(visibleActorsCount_);
 }
 
 void camera_t::destroy(renderer_t* renderer)

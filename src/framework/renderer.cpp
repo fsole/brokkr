@@ -134,11 +134,13 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
     render::storage_image_count(10000u),
     &globalDescriptorPool_);
 
-  for (uint32_t i(0); i < COMMAND_POOL_COUNT; ++i)
-  {
-    commandPool_[i] = render::commandPoolCreate(context_);
-  }
+  uint32_t coreCount = getCPUCoreCount();
+  threadPool_ = new thread_pool_t(coreCount);
 
+  commandPool_.resize(coreCount);
+  for (uint32_t i(0); i < coreCount; ++i)
+    commandPool_[i] = render::commandPoolCreate(context_);
+  
   image::image2D_t image = {};
   image.width = image.height = 1u;
   image.componentCount = 4u;
@@ -155,8 +157,6 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
 
   mesh_handle_t quad = meshAdd( mesh::fullScreenQuad(context_) );
   rootActor_ = actorCreate("Root", quad, textureBlit_);
-
-  threadPool_ = new thread_pool_t(THREAD_COUNT);
 }
 
 render::context_t& renderer_t::getContext()

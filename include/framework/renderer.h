@@ -25,9 +25,6 @@
 #include "framework/actor.h"
 #include "framework/camera.h"
 
-#define COMMAND_POOL_COUNT 4
-#define THREAD_COUNT 4
-
 namespace bkk
 {
   namespace core
@@ -108,11 +105,11 @@ namespace bkk
         material_t* getTextureBlitMaterial() { return materials_.get(textureBlit_); }
         core::render::texture_t getDefaultTexture() { return defaultTexture_;  }
         
-
         void releaseCommandBuffer(const command_buffer_t* cmdBuffer);
 
         core::thread_pool_t* getThreadPool() { return threadPool_; }
         VkCommandPool getCommandPool(uint32_t i){ return commandPool_[i]; }
+        uint32_t getCommandPoolCount() { return (uint32_t)commandPool_.size(); }
 
         void prepareShaders(const char* passName, frame_buffer_handle_t fb);
 
@@ -158,7 +155,7 @@ namespace bkk
         //Command buffers to be released on the next frame
         std::vector<command_buffer_t> releasedCommandBuffers_;
 
-        VkCommandPool commandPool_[COMMAND_POOL_COUNT];
+        std::vector<VkCommandPool> commandPool_;
 
         bkk::core::thread_pool_t* threadPool_;
     };

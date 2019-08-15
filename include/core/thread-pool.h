@@ -45,6 +45,7 @@ namespace bkk
       void addTask(task_t* task);
       void exit();
       void waitForCompletion();
+      uint32_t getThreadCount() { return (uint32_t)workerThread_.size(); }
 
     private:
 
@@ -72,5 +73,6 @@ namespace bkk
       std::atomic<bool>              exit_;
     };
 
+    uint32_t getCPUCoreCount();
   }
 }
