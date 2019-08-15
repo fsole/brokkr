@@ -112,7 +112,7 @@ public:
     {
       command_buffer_t* commandBuffers = nullptr;
       generateCommandBuffersParallel(&renderer, BKK_NULL_HANDLE, true, vec4(0.0f), 
-                                     "OpaquePass", visibleActors, count, 
+                                     visibleActors, count, "OpaquePass",
                                      renderer.getRenderCompleteSemaphore(), 
                                      &commandBuffers, 4);
 

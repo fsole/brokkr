@@ -346,19 +346,19 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
     
     render_task_t() {}
     void init(renderer_t* renderer, frame_buffer_handle_t framebuffer,
-      VkCommandPool commandPool,
       actor_t* actors, uint32_t actorCount, const char* passName,
-      VkSemaphore signalSemaphore, bool clear, const core::maths::vec4& clearColor, command_buffer_t* commandBuffer )
+      bool clear, const core::maths::vec4& clearColor,
+      VkCommandPool commandPool, VkSemaphore signalSemaphore, command_buffer_t* commandBuffer )
     {
       renderer_ = renderer;
       framebuffer_ = framebuffer;
-      commandPool_ = commandPool;
       actors_ = actors;
       actorCount_ = actorCount;
       passName_ = passName;
-      signalSemaphore_ = signalSemaphore;
       clear_ = clear;
       clearColor_ = clearColor;
+      commandPool_ = commandPool;
+      signalSemaphore_ = signalSemaphore;
       commandBuffer_ = commandBuffer;
     }
 
@@ -375,24 +375,24 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
   
   private:
     renderer_t* renderer_;
+    frame_buffer_handle_t framebuffer_;
     actor_t* actors_;  
     uint32_t actorCount_;
     const char* passName_;
-    frame_buffer_handle_t framebuffer_;
-    VkCommandPool commandPool_;
-    VkSemaphore signalSemaphore_;
     bool clear_;
     core::maths::vec4 clearColor_;
-    
+    VkCommandPool commandPool_;
+    VkSemaphore signalSemaphore_;
+
     command_buffer_t* commandBuffer_;
 };
 
 void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   frame_buffer_handle_t framebuffer,
   bool clear,
-  core::maths::vec4 clearColor,
-  const char* passName,
+  const core::maths::vec4& clearColor,
   actor_t* actors, uint32_t actorCount,
+  const char* passName,
   VkSemaphore signalSemaphore,
   command_buffer_t** commandBuffers, uint32_t commandBufferCount)
 {
@@ -401,27 +401,29 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   renderer->prepareShaders(passName, framebuffer);
 
   uint32_t actorsPerCommand = actorCount / commandBufferCount;
-  uint32_t currentActor = 0;
+  uint32_t currentActorIndex = 0;
 
   std::vector<render_task_t> renderTask(commandBufferCount);
   
   *commandBuffers = new command_buffer_t[commandBufferCount];
   for (uint32_t i(0); i < commandBufferCount; ++i)
-  {
-    
+  { 
     uint32_t count = (i < commandBufferCount-1 ) ? actorsPerCommand :
-                                                   actorCount - currentActor;
+                                                   actorCount - currentActorIndex;
 
     VkSemaphore signal = (i == commandBufferCount - 1) ? signalSemaphore : VK_NULL_HANDLE;
-    
-    renderTask[i].init(renderer, framebuffer,
-      renderer->getCommandPool(i % COMMAND_POOL_COUNT), actors, count, passName,
-      signal, clear && i == 0, clearColor, *commandBuffers + i);
+    VkCommandPool commandPool = renderer->getCommandPool(i % COMMAND_POOL_COUNT);
+    renderTask[i].init(renderer, framebuffer, actors, count, passName,
+      clear && i == 0, clearColor, commandPool, signal, *commandBuffers + i);
 
-    actors += count;
+    //Ensure command pools are not used from two different threads at the same time
+    if (i > COMMAND_POOL_COUNT)
+      renderTask[i].dependsOn(&renderTask[i - COMMAND_POOL_COUNT]);
+
     renderer->getThreadPool()->addTask(&renderTask[i]);
-    currentActor += count;
-
+    
+    actors += count;
+    currentActorIndex += count;
   }
 
   renderer->getThreadPool()->waitForCompletion();

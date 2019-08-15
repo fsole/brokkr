@@ -82,11 +82,11 @@ namespace bkk
     //Warning: Allocates an array of command_buffer_t from the heap (returned by reference in 'commandBuffers')
     //and passes ownership of that memory to the caller
     void generateCommandBuffersParallel(renderer_t* renderer,
-      frame_buffer_handle_t frameBuffer,
+      frame_buffer_handle_t framebuffer,
       bool clear,
-      core::maths::vec4 clearColor_,
-      const char* passName,
+      const core::maths::vec4& clearColor,
       actor_t* actors, uint32_t actorCount,
+      const char* passName,
       VkSemaphore signalSemaphore,
       command_buffer_t** commandBuffers, uint32_t commandBufferCount);
 
