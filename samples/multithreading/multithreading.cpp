@@ -69,6 +69,9 @@ public:
     }
     delete[] mesh;
     
+    //Allocate comand buffers
+    commandBuffers_.resize(renderer.getThreadPool()->getThreadCount());
+
     //create camera
     camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.01f, 500.0f));
     cameraController_.setCameraHandle(camera, &renderer);
@@ -108,23 +111,21 @@ public:
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera, &visibleActors);
 
-    command_buffer_t* commandBuffers = nullptr;
-    uint32_t commandBufferCount = renderer.getThreadPool()->getThreadCount();
     generateCommandBuffersParallel(&renderer, BKK_NULL_HANDLE, true, vec4(0.0f), 
                                     visibleActors, count, "OpaquePass",
                                     renderer.getRenderCompleteSemaphore(), 
-                                    &commandBuffers, commandBufferCount);
+                                    commandBuffers_.data(), commandBuffers_.size());
 
-    for (uint32_t i(0); i < commandBufferCount; ++i)
-      commandBuffers[i].submitAndRelease();
-      
-    delete[] commandBuffers;
+    for (uint32_t i(0); i < commandBuffers_.size(); ++i)
+      commandBuffers_[i].submitAndRelease();
+
     presentFrame();
   }
 
 private:
   free_camera_controller_t cameraController_;
   std::vector<render::texture_t> textures_;
+  std::vector<command_buffer_t> commandBuffers_;
 };
 
 int main()

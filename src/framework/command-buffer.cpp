@@ -360,6 +360,8 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
       commandPool_ = commandPool;
       signalSemaphore_ = signalSemaphore;
       commandBuffer_ = commandBuffer;
+
+      *commandBuffer_ = {};
     }
 
     void run()
@@ -394,7 +396,7 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   actor_t* actors, uint32_t actorCount,
   const char* passName,
   VkSemaphore signalSemaphore,
-  command_buffer_t** commandBuffers, uint32_t commandBufferCount)
+  command_buffer_t* commandBuffers, uint32_t commandBufferCount)
 {
   //1. Prepare pipelines (Can be done in parallel as well)
   framebuffer = (framebuffer != BKK_NULL_HANDLE) ? framebuffer : renderer->getBackBuffer();
@@ -404,8 +406,6 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   uint32_t currentActor = 0u;
   uint32_t commandPoolCount = renderer->getCommandPoolCount();
 
-  *commandBuffers = new command_buffer_t[commandBufferCount];
-  
   //Configure tasks
   std::vector<render_task_t> renderTask(commandBufferCount);
   for (uint32_t i(0); i < commandBufferCount; ++i)
@@ -416,7 +416,7 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
     VkSemaphore signal = (i == commandBufferCount - 1) ? signalSemaphore : VK_NULL_HANDLE;
     VkCommandPool commandPool = renderer->getCommandPool(i % commandPoolCount);
     renderTask[i].init(renderer, framebuffer, actors+currentActor, count, passName,
-      clear && i == 0, clearColor, commandPool, signal, *commandBuffers + i);
+      clear && i == 0, clearColor, commandPool, signal, &commandBuffers[i]);
 
     //Ensure command pools are not used from two different threads at the same time
     if (i >= commandPoolCount)

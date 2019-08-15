@@ -79,8 +79,6 @@ namespace bkk
     };
 
     //Generates a number of "render command-buffers" in parallel
-    //Warning: Allocates an array of command_buffer_t from the heap (returned by reference in 'commandBuffers')
-    //and passes ownership of that memory to the caller
     void generateCommandBuffersParallel(renderer_t* renderer,
       frame_buffer_handle_t framebuffer,
       bool clear,
@@ -88,7 +86,7 @@ namespace bkk
       actor_t* actors, uint32_t actorCount,
       const char* passName,
       VkSemaphore signalSemaphore,
-      command_buffer_t** commandBuffers, uint32_t commandBufferCount);
+      command_buffer_t* commandBuffers, uint32_t commandBufferCount);
 
 
   }//framework
