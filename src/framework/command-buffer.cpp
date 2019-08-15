@@ -426,7 +426,7 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   }
 
   //Enqueue tasks for execution
-  for (uint32_t i(0); i < commandBufferCount; ++i)
+  for (int32_t i(commandBufferCount-1); i >= 0; --i)
     renderer->getThreadPool()->addTask(&renderTask[i]);
 
   renderer->getThreadPool()->waitForCompletion();
