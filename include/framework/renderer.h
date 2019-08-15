@@ -156,7 +156,6 @@ namespace bkk
         std::vector<command_buffer_t> releasedCommandBuffers_;
 
         std::vector<VkCommandPool> commandPool_;
-
         bkk::core::thread_pool_t* threadPool_;
     };
 

@@ -401,7 +401,7 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   renderer->prepareShaders(passName, framebuffer);
 
   uint32_t actorsPerCommand = actorCount / commandBufferCount;
-  uint32_t currentActorIndex = 0;
+  uint32_t currentActor = 0u;
   uint32_t commandPoolCount = renderer->getCommandPoolCount();
 
   *commandBuffers = new command_buffer_t[commandBufferCount];
@@ -411,19 +411,18 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   for (uint32_t i(0); i < commandBufferCount; ++i)
   { 
     uint32_t count = (i < commandBufferCount-1 ) ? actorsPerCommand :
-                                                   actorCount - currentActorIndex;
+                                                   actorCount - currentActor;
 
     VkSemaphore signal = (i == commandBufferCount - 1) ? signalSemaphore : VK_NULL_HANDLE;
     VkCommandPool commandPool = renderer->getCommandPool(i % commandPoolCount);
-    renderTask[i].init(renderer, framebuffer, actors, count, passName,
+    renderTask[i].init(renderer, framebuffer, actors+currentActor, count, passName,
       clear && i == 0, clearColor, commandPool, signal, *commandBuffers + i);
 
     //Ensure command pools are not used from two different threads at the same time
     if (i >= commandPoolCount)
       renderTask[i].dependsOn(&renderTask[i - commandPoolCount]);
 
-    actors += count;
-    currentActorIndex += count;
+    currentActor += count;
   }
 
   //Enqueue tasks for execution

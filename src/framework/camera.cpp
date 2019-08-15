@@ -11,13 +11,11 @@
 #include "core/mesh.h"
 #include "core/window.h"
 #include "core/thread-pool.h"
-#include "core/thread-pool.h"
+#include "core/timer.h"
 
 #include "framework/camera.h"
 #include "framework/actor.h"
 #include "framework/renderer.h"
-
-#define CULL_TASK_COUNT 4
 
 using namespace bkk::core;
 using namespace bkk::framework;
@@ -101,6 +99,7 @@ class cullTask : public thread_pool_t::task_t
 
 void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
 {
+  timer::scoped_timer_t t("Culling");
   //Extract frustum planes in world space
   maths::vec4 frustumWS[6];
   maths::frustumPlanesFromMatrix(uniforms_.worldToView * uniforms_.projection, &frustumWS[0]);
@@ -108,16 +107,17 @@ void camera_t::cull(renderer_t* renderer, actor_t* actors, uint32_t actorCount)
   visibleActorsCount_ = 0u;
   visibleActors_.resize(actorCount);
 
-  std::vector<cullTask> cullTasks(CULL_TASK_COUNT);
-  uint32_t actorsPerCullTask = actorCount / CULL_TASK_COUNT;
+  uint32_t cullTaskCount = renderer->getThreadPool()->getThreadCount();
+  std::vector<cullTask> cullTasks(cullTaskCount);
+  uint32_t actorsPerCullTask = actorCount / cullTaskCount;
   uint32_t currentActor = 0;
   bool* cullingResults = new bool[actorCount];
-  for (uint32_t i(0); i < CULL_TASK_COUNT; ++i)
+  for (uint32_t i(0); i < cullTaskCount; ++i)
   {
-    uint32_t count = (i < CULL_TASK_COUNT - 1) ? actorsPerCullTask :
-      actorCount - currentActor;
+    uint32_t count = (i < cullTaskCount - 1) ? actorsPerCullTask :
+                                               actorCount - currentActor;
 
-    cullTasks[i].init(renderer, actors + currentActor, count, frustumWS, cullingResults + currentActor);
+    cullTasks[i].init(renderer, actors+currentActor, count, frustumWS, cullingResults+currentActor);
     currentActor += count;
 
     renderer->getThreadPool()->addTask(&cullTasks[i]);
