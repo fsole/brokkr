@@ -360,8 +360,6 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
       commandPool_ = commandPool;
       signalSemaphore_ = signalSemaphore;
       commandBuffer_ = commandBuffer;
-
-      *commandBuffer_ = {};
     }
 
     void run()
@@ -415,6 +413,8 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
 
     VkSemaphore signal = (i == commandBufferCount - 1) ? signalSemaphore : VK_NULL_HANDLE;
     VkCommandPool commandPool = renderer->getCommandPool(i % commandPoolCount);
+    commandBuffers[i] = {};
+
     renderTask[i].init(renderer, framebuffer, actors+currentActor, count, passName,
       clear && i == 0, clearColor, commandPool, signal, &commandBuffers[i]);
 
