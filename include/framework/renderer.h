@@ -55,6 +55,7 @@ namespace bkk
         material_handle_t materialCreate(shader_handle_t shader);
         void materialDestroy(material_handle_t handle);
         material_t* getMaterial(material_handle_t handle);
+        uint32_t getMaterials(material_t** materials);
 
         compute_material_handle_t computeMaterialCreate(shader_handle_t shader);
         void computeMaterialDestroy(compute_material_handle_t handle);

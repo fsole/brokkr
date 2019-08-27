@@ -24,13 +24,16 @@ class multithreading_sample_t : public application_t
 public:
   multithreading_sample_t(const uvec2& imageSize)
     :application_t("Multithreading sample", imageSize.x, imageSize.y, 3u),
-    cameraController_(vec3(-1.1f, 0.6f, -0.1f), vec2(0.2f, 1.57f), 0.03f, 0.01f),
+    cameraController_(vec3(-1.1f, 0.1f, -0.1f), vec2(0.2f, 1.57f), 0.03f, 0.01f),
+    fogParameters_(1.0f,1.0f,1.0f,1.0f),
+    currentFogParameters_(1.0f, 1.0f, 1.0f, 1.0f),
     actorCount_(0),
     vertexCount_(0),
     triangleCount_(0)
   {
     renderer_t& renderer = getRenderer();
 
+    //Load materials
     shader_handle_t shader = renderer.shaderCreate("../multithreading/diffuse.shader");
     mesh::material_data_t* materials;
     uint32_t* materialIndex;
@@ -42,6 +45,7 @@ public:
       material_t* materialPtr = renderer.getMaterial(materialHandles[i]);
       materialPtr->setProperty("globals.albedo", vec4(1.0f));
       materialPtr->setProperty("globals.lightDirection", vec4(normalize(vec3(1.0f, 0.0f, 1.0f)), 0.0f));
+      materialPtr->setProperty("globals.fogParameters", currentFogParameters_);
 
       if (strlen(materials[i].diffuseMap) > 0)
       {
@@ -62,7 +66,8 @@ public:
     }
     delete[] materials;
 
-    mat4 transform = createTransform(vec3(0.0f), vec3(0.001f), QUAT_UNIT);
+    //Load meshes and create actors
+    mat4 transform = createTransform(vec3(0.0f, -0.5f, 0.0f), vec3(0.001f), QUAT_UNIT);
     mesh::mesh_t* mesh = nullptr;
     uint32_t meshCount = mesh::createFromFile(renderer.getContext(), "../resources/sponza/sponza.obj", mesh::EXPORT_ALL, nullptr, &mesh);
     for (u32 i(0); i < meshCount; ++i)
@@ -138,21 +143,40 @@ public:
   {
     ImGui::Begin("Controls");
 
+    ImGui::LabelText("", "Fog");
+    ImGui::ColorEdit3("Fog Color", fogParameters_.data);
+    ImGui::SliderFloat("Fog Density", &fogParameters_.a, 0.0f, 10.0f);
+    
+    ImGui::Separator();
+
+    ImGui::LabelText("", "Stats");
     std::string text = "Actor count: " + intToString(actorCount_);
     ImGui::LabelText("", text.c_str());
-
     text = "Vertex count: " + intToString(vertexCount_);
     ImGui::LabelText("", text.c_str() );
-
     text = "Triangle count: " + intToString(triangleCount_);
     ImGui::LabelText("", text.c_str());
     ImGui::End();
+
+    if (length(fogParameters_ - currentFogParameters_) > 0.01f)
+    {
+      //If fog parameters have changed, update all the materials in the scene      
+      material_t* materials = nullptr;
+      uint32_t materialCount = getRenderer().getMaterials(&materials);
+      for (uint32_t i(0); i < materialCount; ++i)
+        materials[i].setProperty("globals.fogParameters", &fogParameters_);
+      
+      currentFogParameters_ = fogParameters_;
+    }
   }
 
 private:
   free_camera_controller_t cameraController_;
   std::vector<render::texture_t> textures_;
   std::vector<command_buffer_t> commandBuffers_;
+  
+  vec4 fogParameters_;        //rgb is color, alpha is density
+  vec4 currentFogParameters_;
 
   uint32_t actorCount_;
   uint32_t vertexCount_;

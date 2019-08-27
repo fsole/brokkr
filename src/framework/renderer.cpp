@@ -204,6 +204,11 @@ material_t* renderer_t::getMaterial(material_handle_t handle)
   return materials_.get(handle);
 }
 
+uint32_t renderer_t::getMaterials(material_t** materials)
+{ 
+  return materials_.getData(materials); 
+}
+
 compute_material_handle_t renderer_t::computeMaterialCreate(shader_handle_t shader)
 {
   return computeMaterials_.add(compute_material_t(shader, this));
