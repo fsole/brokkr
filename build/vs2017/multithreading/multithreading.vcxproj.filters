@@ -10,4 +10,7 @@
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\samples\multithreading\multithreading.cpp" />
+  </ItemGroup>
 </Project>

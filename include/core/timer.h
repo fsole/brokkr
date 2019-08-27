@@ -9,7 +9,11 @@
 #ifndef TIMER_H
 #define TIMER_H
 
+#define TIMER_LOGGING_ENABLED 0
+
+
 #include <chrono>
+
 
 namespace bkk
 {
@@ -38,7 +42,9 @@ namespace bkk
 
           ~scoped_timer_t()
           {
-            fprintf(stdout, "%s: %.2f ms \n", name_, getDifference(startTime_, getCurrent()) );
+            #if TIMER_LOGGING_ENABLED
+              fprintf(stdout, "%s: %.2f ms \n", name_, getDifference(startTime_, getCurrent()) );
+            #endif
           }
 
         private:

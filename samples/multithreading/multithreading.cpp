@@ -9,6 +9,7 @@
 #include "core/mesh.h"
 #include "core/maths.h"
 #include "core/image.h"
+#include "core/string-utils.h"
 
 #include "framework/application.h"
 #include "framework/camera.h"
@@ -17,7 +18,6 @@
 using namespace bkk::core;
 using namespace bkk::core::maths;
 using namespace bkk::framework;
-
 
 class multithreading_sample_t : public application_t
 {
@@ -111,10 +111,20 @@ public:
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera, &visibleActors);
 
-    generateCommandBuffersParallel(&renderer, BKK_NULL_HANDLE, true, vec4(0.0f), 
-                                    visibleActors, count, "OpaquePass",
-                                    renderer.getRenderCompleteSemaphore(), 
-                                    commandBuffers_.data(), (uint32_t)commandBuffers_.size());
+    generateCommandBuffersParallel(&renderer, "parallelCommandBuffer",
+                                   BKK_NULL_HANDLE, true, vec4(0.0f),
+                                   visibleActors, count, "OpaquePass",
+                                   renderer.getRenderCompleteSemaphore(),
+                                   commandBuffers_.data(), (uint32_t)commandBuffers_.size());
+
+    actorCount_ = count;
+    vertexCount_ = triangleCount_ = 0u;
+    for (uint32_t i(0); i < count; ++i)
+    { 
+      mesh::mesh_t* mesh = renderer.getMesh(visibleActors[i].getMeshHandle());
+      vertexCount_ += mesh->vertexCount;
+      triangleCount_ += (mesh->indexCount / 3);
+    }
 
     for (uint32_t i(0); i < commandBuffers_.size(); ++i)
       commandBuffers_[i].submitAndRelease();
@@ -122,10 +132,29 @@ public:
     presentFrame();
   }
 
+  void buildGuiFrame()
+  {
+    ImGui::Begin("Controls");
+
+    std::string text = "Actor count: " + intToString(actorCount_);
+    ImGui::LabelText("", text.c_str());
+
+    text = "Vertex count: " + intToString(vertexCount_);
+    ImGui::LabelText("", text.c_str() );
+
+    text = "Triangle count: " + intToString(triangleCount_);
+    ImGui::LabelText("", text.c_str());
+    ImGui::End();
+  }
+
 private:
   free_camera_controller_t cameraController_;
   std::vector<render::texture_t> textures_;
   std::vector<command_buffer_t> commandBuffers_;
+
+  uint32_t actorCount_;
+  uint32_t vertexCount_;
+  uint32_t triangleCount_;
 };
 
 int main()

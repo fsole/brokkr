@@ -80,6 +80,7 @@ namespace bkk
 
     //Generates a number of "render command-buffers" in parallel
     void generateCommandBuffersParallel(renderer_t* renderer,
+      const char* name,
       frame_buffer_handle_t framebuffer,
       bool clear,
       const core::maths::vec4& clearColor,
