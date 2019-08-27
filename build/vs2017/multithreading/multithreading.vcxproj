@@ -88,7 +88,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>..\..\..\include;..\..\..\external\vulkan\include</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>..\..\..\bin;..\..\..\external\vulkan\bin\win;..\..\..\external\assimp\bin\win</AdditionalLibraryDirectories>

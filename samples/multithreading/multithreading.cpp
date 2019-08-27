@@ -24,7 +24,10 @@ class multithreading_sample_t : public application_t
 public:
   multithreading_sample_t(const uvec2& imageSize)
     :application_t("Multithreading sample", imageSize.x, imageSize.y, 3u),
-    cameraController_(vec3(-1.1f, 0.6f, -0.1f), vec2(0.2f, 1.57f), 0.03f, 0.01f)
+    cameraController_(vec3(-1.1f, 0.6f, -0.1f), vec2(0.2f, 1.57f), 0.03f, 0.01f),
+    actorCount_(0),
+    vertexCount_(0),
+    triangleCount_(0)
   {
     renderer_t& renderer = getRenderer();
 
@@ -109,17 +112,16 @@ public:
     renderer.setupCamera(camera);
 
     actor_t* visibleActors = nullptr;
-    int count = renderer.getVisibleActors(camera, &visibleActors);
+    actorCount_ = renderer.getVisibleActors(camera, &visibleActors);
 
     generateCommandBuffersParallel(&renderer, "parallelCommandBuffer",
                                    BKK_NULL_HANDLE, true, vec4(0.0f),
-                                   visibleActors, count, "OpaquePass",
+                                   visibleActors, actorCount_, "OpaquePass",
                                    renderer.getRenderCompleteSemaphore(),
                                    commandBuffers_.data(), (uint32_t)commandBuffers_.size());
 
-    actorCount_ = count;
     vertexCount_ = triangleCount_ = 0u;
-    for (uint32_t i(0); i < count; ++i)
+    for (uint32_t i(0); i < actorCount_; ++i)
     { 
       mesh::mesh_t* mesh = renderer.getMesh(visibleActors[i].getMeshHandle());
       vertexCount_ += mesh->vertexCount;
