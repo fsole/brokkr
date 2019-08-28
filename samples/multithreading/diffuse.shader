@@ -4,6 +4,7 @@
     <Resource Name="globals" Type="uniform_buffer" Shared="no">
       <Field Name="albedo" Type="vec4"/>
       <Field Name="lightDirection" Type="vec4"/>
+      <Field Name="fogPlane" Type = "vec4" />
       <Field Name="fogParameters" Type = "vec4" />
     </Resource>
   <Resource Name = "MainTexture" Type = "texture2D" />
@@ -43,24 +44,21 @@
 
       layout(location = 0) out vec4 color;
       
-      vec3 applyHalfSpaceFog(vec3 P, vec3 C, vec3 F, vec4 fogParameters, vec3 color)
+      vec3 applyHalfSpaceFog(vec3 P, vec3 C, vec4 fogPlane, vec4 fogParameters, vec3 color)
       {
-        vec3 V = C - P;
+        //Displace point P along fog plane normal to account for plane offset
+        vec3 F = normalize(fogPlane.xyz);
+        P = P - F * fogPlane.w;
 
+        vec3 V = C - P;
         float FdotV = dot(F, V);
         float FdotC = dot(F, C);
         float FdotP = dot(F, P);
 
-        float k = 0.0;
-        if (FdotC &lt;= 0.0)
-          k = 1.0;
-
-
+        float k = mix(1.0, 0.0, step(0.0, FdotC));  //k=0 if FdotC is less than 0, 1 otherwise
         float c1 = k * (FdotP + FdotC);
-        float c2 = (1 - 2 * k) * (FdotP);
-        float g = min(c2, 0.0);
-
-        g = -fogParameters.a * length(V) * (c1 - g * g / abs(FdotV));
+        float c2 = min( (1 - 2 * k) * (FdotP), 0.0);
+        float g = -fogParameters.a * length(V) * (c1 - c2 * c2 / abs(FdotV));
         float f = clamp(exp2(-g), 0, 1);
 
         return color.rgb * f + fogParameters.rgb * (1.0 - f);
@@ -68,10 +66,12 @@
 
       void main()
       {
-        vec4 diffuse = texture(MainTexture, uv);
-        if (diffuse.a &lt; 0.2) discard;
-        vec4 c = (max( 0, dot(normalWS, globals.lightDirection.xyz)) + 0.2) * globals.albedo * diffuse;
-        color = vec4(applyHalfSpaceFog(positionWS, cameraPositionWS, vec3(0.0, 1.0f, 0.0), globals.fogParameters, c.rgb), c.a);
+        //Lighting
+        vec4 diffuseTex = texture(MainTexture, uv);
+        color = (max( 0, dot(normalWS, globals.lightDirection.xyz)) + 0.2) * globals.albedo * diffuseTex;
+
+        //Fog
+        color.rgb = applyHalfSpaceFog(positionWS, cameraPositionWS, globals.fogPlane, globals.fogParameters, color.rgb);
       }			
     </FragmentShader>
   </Pass>

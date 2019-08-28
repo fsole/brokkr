@@ -193,6 +193,12 @@ namespace bkk
       inline Vector<T, N> operator/=(Vector<T, N>& v0, const T a);
 
       template <typename T, u32 N>
+      inline bool operator==(const Vector<T, N>& v0, const Vector<T, N>& v1);
+
+      template <typename T, u32 N>
+      inline bool operator!=(const Vector<T, N>& v0, const Vector<T, N>& v1);
+
+      template <typename T, u32 N>
       inline T dot(const Vector<T, N>& v0, const Vector<T, N>& v1);
 
       template <typename T>
@@ -701,6 +707,24 @@ namespace bkk
           result.data[i] = v0.data[i] / a;
         }
         return result;
+      }
+
+      template <typename T, u32 N>
+      inline bool operator==(const Vector<T, N>& v0, const Vector<T, N>& v1)
+      {
+        Vector<T, N> result;
+        for (u32 i(0); i < N; ++i)
+        {
+          if (v0.data[i] != v1.data[i])
+            return false;
+        }
+        return true;
+      }
+
+      template <typename T, u32 N>
+      inline bool operator!=(const Vector<T, N>& v0, const Vector<T, N>& v1)
+      {
+        return !(v0 == v1);
       }
 
       template <typename T, u32 N>

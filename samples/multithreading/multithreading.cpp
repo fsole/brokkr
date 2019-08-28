@@ -25,6 +25,8 @@ public:
   multithreading_sample_t(const uvec2& imageSize)
     :application_t("Multithreading sample", imageSize.x, imageSize.y, 3u),
     cameraController_(vec3(-1.1f, 0.1f, -0.1f), vec2(0.2f, 1.57f), 0.03f, 0.01f),
+    fogPlane_(0.0f,1.0f,0.0f,0.0f),
+    currentFogPlane_(0.0f, 1.0f, 0.0f, 0.0f),
     fogParameters_(1.0f,1.0f,1.0f,1.0f),
     currentFogParameters_(1.0f, 1.0f, 1.0f, 1.0f),
     actorCount_(0),
@@ -45,6 +47,7 @@ public:
       material_t* materialPtr = renderer.getMaterial(materialHandles[i]);
       materialPtr->setProperty("globals.albedo", vec4(1.0f));
       materialPtr->setProperty("globals.lightDirection", vec4(normalize(vec3(1.0f, 0.0f, 1.0f)), 0.0f));
+      materialPtr->setProperty("globals.fogPlane", currentFogPlane_);
       materialPtr->setProperty("globals.fogParameters", currentFogParameters_);
 
       if (strlen(materials[i].diffuseMap) > 0)
@@ -144,6 +147,8 @@ public:
     ImGui::Begin("Controls");
 
     ImGui::LabelText("", "Fog");
+    ImGui::SliderFloat3("Fog Plane Normal", fogPlane_.data, -1.0f, 1.0f);
+    ImGui::SliderFloat("Fog Plane Offset", &fogPlane_.a, -1.0f, 1.0f);
     ImGui::ColorEdit3("Fog Color", fogParameters_.data);
     ImGui::SliderFloat("Fog Density", &fogParameters_.a, 0.0f, 10.0f);
     
@@ -158,14 +163,18 @@ public:
     ImGui::LabelText("", text.c_str());
     ImGui::End();
 
-    if (length(fogParameters_ - currentFogParameters_) > 0.01f)
+    //If fog plane or parameters have changed, update all the materials in the scene
+    if( (fogParameters_ != currentFogParameters_) || (fogPlane_ != currentFogPlane_) )
     {
-      //If fog parameters have changed, update all the materials in the scene      
       material_t* materials = nullptr;
       uint32_t materialCount = getRenderer().getMaterials(&materials);
       for (uint32_t i(0); i < materialCount; ++i)
+      {
+        materials[i].setProperty("globals.fogPlane", &fogPlane_);
         materials[i].setProperty("globals.fogParameters", &fogParameters_);
+      }
       
+      currentFogPlane_ = fogPlane_;
       currentFogParameters_ = fogParameters_;
     }
   }
@@ -175,6 +184,9 @@ private:
   std::vector<render::texture_t> textures_;
   std::vector<command_buffer_t> commandBuffers_;
   
+  vec4 fogPlane_;             //rgb is normal, alpha is offset
+  vec4 currentFogPlane_;
+
   vec4 fogParameters_;        //rgb is color, alpha is density
   vec4 currentFogParameters_;
 
