@@ -9,7 +9,6 @@
 #include "core/mesh.h"
 #include "core/maths.h"
 #include "core/image.h"
-#include "core/string-utils.h"
 
 #include "framework/application.h"
 #include "framework/camera.h"
@@ -25,6 +24,7 @@ public:
   multithreading_sample_t(const uvec2& imageSize)
     :application_t("Multithreading sample", imageSize.x, imageSize.y, 3u),
     cameraController_(vec3(-1.1f, 0.1f, -0.1f), vec2(0.2f, 1.57f), 0.03f, 0.01f),
+    commandBuffers_(getRenderer().getThreadPool()->getThreadCount()),
     globals_()
   {
     //Create global buffer
@@ -37,11 +37,8 @@ public:
     
     loadScene("../resources/sponza/sponza.obj");
 
-    //Allocate command buffers
-    renderer_t& renderer = getRenderer(); 
-    commandBuffers_.resize(renderer.getThreadPool()->getThreadCount());
-
     //create camera
+    renderer_t& renderer = getRenderer();
     camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.01f, 500.0f));
     cameraController_.setCameraHandle(camera, &renderer);
   }
@@ -114,8 +111,11 @@ public:
 
   void onQuit()
   {
+    render::context_t& context = getRenderer().getContext();
+    render::gpuBufferDestroy(context, nullptr, &globalsBuffer_);
+
     for (uint32_t i(0); i < textures_.size(); ++i)
-      render::textureDestroy(getRenderer().getContext(), &textures_[i]);
+      render::textureDestroy(context, &textures_[i]);
   }
 
   void render()
@@ -143,10 +143,8 @@ public:
 
   void buildGuiFrame()
   {
-    ImGui::Begin("Controls");
-
-    ImGui::LabelText("", "Fog");
-    ImGui::SliderFloat3("Light direction", &globals_.lightDirection_.x, -1.0f, 1.0f);
+    ImGui::Begin("Controls");    
+    ImGui::SliderFloat3("Light direction", &globals_.lightDirection_.x, -1.0f, 1.0f);    
     ImGui::SliderFloat3("Fog Plane Normal", &globals_.fogPlane_.x, -1.0f, 1.0f);
     ImGui::SliderFloat("Fog Plane Offset", &globals_.fogPlane_.a, -1.0f, 1.0f);
     ImGui::ColorEdit3("Fog Color", &globals_.fogProperties_.x);
@@ -157,22 +155,17 @@ public:
   }
 
 private:
-  free_camera_controller_t cameraController_;
-  std::vector<render::texture_t> textures_;
+  free_camera_controller_t cameraController_;  
   std::vector<command_buffer_t> commandBuffers_;
   render::gpu_buffer_t globalsBuffer_;
-  
+  std::vector<render::texture_t> textures_;
+
   struct
   {
     vec4 lightDirection_;
     vec4 fogPlane_;
     vec4 fogProperties_;
   }globals_;
-
-  
-  uint32_t actorCount_;
-  uint32_t vertexCount_;
-  uint32_t triangleCount_;
 };
 
 int main()
