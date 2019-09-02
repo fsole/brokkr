@@ -1,19 +1,25 @@
 <Shader Name="diffuse" Version="440 core" >
 
   <Resources>
-    <Resource Name="globals" Type="uniform_buffer" Shared="no">
-      <Field Name="albedo" Type="vec4"/>
+
+    <Resource Name="globals" Type="uniform_buffer" Shared="yes">
       <Field Name="lightDirection" Type="vec4"/>
-      <Field Name="fogPlane" Type = "vec4" />
-      <Field Name="fogParameters" Type = "vec4" />
+      <Field Name="fogPlane"       Type="vec4" />
+      <Field Name="fogParameters"  Type="vec4" />
     </Resource>
-  <Resource Name = "MainTexture" Type = "texture2D" />
+
+    <Resource Name="properties" Type="uniform_buffer" Shared="no">
+      <Field Name="kd" Type="vec4"/>
+      <Field Name="ks" Type="vec4"/>
+    </Resource>
+
+    <Resource Name = "MainTexture" Type = "texture2D" />
   </Resources>
 
   <Pass Name="OpaquePass">
     <ZWrite Value="On"/>
     <ZTest Value="LEqual"/>
-    <Cull Value="None"/>
+    <Cull Value="Back"/>
 
     <VertexShader>
       layout(location = 0) in vec3 aPosition;
@@ -54,7 +60,7 @@
         float FdotV = dot(F, V);
         float FdotC = dot(F, C);
         float FdotP = dot(F, P);
-
+        
         float k = mix(1.0, 0.0, step(0.0, FdotC));  //k=0 if FdotC is less than 0, 1 otherwise
         float c1 = k * (FdotP + FdotC);
         float c2 = min( (1 - 2 * k) * (FdotP), 0.0);
@@ -68,7 +74,7 @@
       {
         //Lighting
         vec4 diffuseTex = texture(MainTexture, uv);
-        color = (max( 0, dot(normalWS, globals.lightDirection.xyz)) + 0.2) * globals.albedo * diffuseTex;
+        color = (max( 0, dot(normalWS, globals.lightDirection.xyz)) + 0.2) * properties.kd * diffuseTex;
 
         //Fog
         color.rgb = applyHalfSpaceFog(positionWS, cameraPositionWS, globals.fogPlane, globals.fogParameters, color.rgb);

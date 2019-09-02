@@ -35,7 +35,7 @@ namespace bkk
         void setDependencies(command_buffer_t* prevCommandBuffers, uint32_t count);
         void setFrameBuffer(frame_buffer_handle_t frameBuffer);
 
-        void clearRenderTargets(core::maths::vec4 color);
+        void clearRenderTargets(const core::maths::vec4& color);
         
         void render(actor_t* actors, uint32_t actorCount, const char* passName );
         void blit(render_target_handle_t renderTarget, material_handle_t materialHandle = core::BKK_NULL_HANDLE, const char* pass = nullptr);
@@ -82,8 +82,7 @@ namespace bkk
     void generateCommandBuffersParallel(renderer_t* renderer,
       const char* name,
       frame_buffer_handle_t framebuffer,
-      bool clear,
-      const core::maths::vec4& clearColor,
+      const core::maths::vec4* clearColor,
       actor_t* actors, uint32_t actorCount,
       const char* passName,
       VkSemaphore signalSemaphore,

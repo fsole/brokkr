@@ -113,7 +113,7 @@ void command_buffer_t::createCommandBuffer(type_e type)
     dependencyCount, signalSemaphores.data(), (uint32_t)signalSemaphores.size(), commandType, commandPool_, &commandBuffer_);
 }
 
-void command_buffer_t::clearRenderTargets(core::maths::vec4 color)
+void command_buffer_t::clearRenderTargets(const core::maths::vec4& color)
 {
   clear_ = true;
   clearColor_ = color;
@@ -348,7 +348,7 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
     render_task_t() {}
     void init(renderer_t* renderer, const std::string& name, frame_buffer_handle_t framebuffer,
       actor_t* actors, uint32_t actorCount, const char* passName,
-      bool clear, const core::maths::vec4& clearColor,
+      const core::maths::vec4* clearColor,
       VkCommandPool commandPool, VkSemaphore signalSemaphore, command_buffer_t* commandBuffer )
     {
       renderer_ = renderer;
@@ -357,7 +357,6 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
       actors_ = actors;
       actorCount_ = actorCount;
       passName_ = passName;
-      clear_ = clear;
       clearColor_ = clearColor;
       commandPool_ = commandPool;
       signalSemaphore_ = signalSemaphore;
@@ -369,8 +368,8 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
       commandBuffer_->init(renderer_, name_.c_str(), signalSemaphore_, commandPool_);
       commandBuffer_->setFrameBuffer(framebuffer_);
 
-      if (clear_)
-        commandBuffer_->clearRenderTargets(clearColor_);
+      if (clearColor_)
+        commandBuffer_->clearRenderTargets(*clearColor_);
 
       commandBuffer_->render(actors_, actorCount_, passName_);
     }
@@ -382,8 +381,7 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
     actor_t* actors_;
     uint32_t actorCount_;
     const char* passName_;
-    bool clear_;
-    core::maths::vec4 clearColor_;
+    const core::maths::vec4* clearColor_;
     VkCommandPool commandPool_;
     VkSemaphore signalSemaphore_;
 
@@ -393,14 +391,13 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
 void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   const char* name,
   frame_buffer_handle_t framebuffer,
-  bool clear,
-  const core::maths::vec4& clearColor,
+  const maths::vec4* clearColor,
   actor_t* actors, uint32_t actorCount,
   const char* passName,
   VkSemaphore signalSemaphore,
   command_buffer_t* commandBuffers, uint32_t commandBufferCount)
 {
-  //1. Prepare pipelines (Can be done in parallel as well)
+  //Prepare pipelines (Can be done in parallel as well)
   framebuffer = (framebuffer != BKK_NULL_HANDLE) ? framebuffer : renderer->getBackBuffer();
   renderer->prepareShaders(passName, framebuffer);
 
@@ -412,25 +409,34 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   std::vector<render_task_t> renderTask(commandBufferCount);
   for (uint32_t i(0); i < commandBufferCount; ++i)
   {
-    uint32_t count = (i < commandBufferCount - 1) ? actorsPerCommand :
-      actorCount - currentActor;
-
-    VkSemaphore signal = (i == commandBufferCount - 1) ? signalSemaphore : VK_NULL_HANDLE;
-    VkCommandPool commandPool = renderer->getCommandPool(i % commandPoolCount);
     commandBuffers[i] = {};
 
-    std::string cmdBufferName = (name ? name : "RenderCmdBuffer") + intToString(i);
+    uint32_t count = (i < commandBufferCount - 1) ? actorsPerCommand :
+                                                    actorCount - currentActor;
+
+    std::string cmdBufferName = (name ? name : "ParallelRenderCmdBuffer") + intToString(i);
+
+    //Last command buffer is responsible for signaling the signalSempaphore (in case there is one)
+    VkSemaphore signal = (i == commandBufferCount - 1) ? signalSemaphore : VK_NULL_HANDLE;
+
+    //First command buffer is responsible for clearing the framebuffer (in case clearing is requested)
+    const maths::vec4* clear = (i == 0u) ? clearColor : nullptr;
+
+    VkCommandPool commandPool = renderer->getCommandPool(i % commandPoolCount);    
+
     renderTask[i].init(renderer, cmdBufferName, framebuffer, actors + currentActor, count, passName,
-      clear && i == 0, clearColor, commandPool, signal, &commandBuffers[i]);
+      clear, commandPool, signal, &commandBuffers[i]);
 
     //Ensure command pools are not used from two different threads at the same time
+    //making tasks dependent on previous task using that same pool
     if (i >= commandPoolCount)
       renderTask[i].dependsOn(&renderTask[i - commandPoolCount]);
 
     currentActor += count;
   }
 
-  //Enqueue tasks for execution
+  //Enqueue tasks for execution. 
+  //Back to front to make sure dependent tasks are enqeued before its dependees
   for (int32_t i(commandBufferCount - 1); i >= 0; --i)
     renderer->getThreadPool()->addTask(&renderTask[i]);
 

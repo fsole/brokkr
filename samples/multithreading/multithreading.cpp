@@ -25,13 +25,28 @@ public:
   multithreading_sample_t(const uvec2& imageSize)
     :application_t("Multithreading sample", imageSize.x, imageSize.y, 3u),
     cameraController_(vec3(-1.1f, 0.1f, -0.1f), vec2(0.2f, 1.57f), 0.03f, 0.01f),
-    fogPlane_(0.0f,1.0f,0.0f,0.0f),
-    currentFogPlane_(0.0f, 1.0f, 0.0f, 0.0f),
-    fogParameters_(1.0f,1.0f,1.0f,1.0f),
-    currentFogParameters_(1.0f, 1.0f, 1.0f, 1.0f),
-    actorCount_(0),
-    vertexCount_(0),
-    triangleCount_(0)
+    globals_()
+  {
+    //Create global buffer
+    globals_.lightDirection_ = vec4(1.0f, 1.0f, 0.0f, 0.0f);
+    globals_.fogPlane_ = vec4(0.0f, 1.0f, 0.0f, 0.0f);
+    globals_.fogProperties_ = vec4(1.0f, 1.0f, 1.0f, 2.5f);
+
+    render::gpuBufferCreate(getRenderer().getContext(), render::gpu_buffer_t::UNIFORM_BUFFER,
+      &globals_, sizeof(globals_), nullptr, &globalsBuffer_);
+    
+    loadScene("../resources/sponza/sponza.obj");
+
+    //Allocate command buffers
+    renderer_t& renderer = getRenderer(); 
+    commandBuffers_.resize(renderer.getThreadPool()->getThreadCount());
+
+    //create camera
+    camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.01f, 500.0f));
+    cameraController_.setCameraHandle(camera, &renderer);
+  }
+
+  void loadScene(const std::string& path)
   {
     renderer_t& renderer = getRenderer();
 
@@ -39,20 +54,19 @@ public:
     shader_handle_t shader = renderer.shaderCreate("../multithreading/diffuse.shader");
     mesh::material_data_t* materials;
     uint32_t* materialIndex;
-    uint32_t materialCount = mesh::loadMaterialData("../resources/sponza/sponza.obj", &materialIndex, &materials);
+    uint32_t materialCount = mesh::loadMaterialData(path.c_str(), &materialIndex, &materials);
     std::vector<material_handle_t> materialHandles(materialCount);
     for (u32 i(0); i < materialCount; ++i)
     {
       materialHandles[i] = renderer.materialCreate(shader);
       material_t* materialPtr = renderer.getMaterial(materialHandles[i]);
-      materialPtr->setProperty("globals.albedo", vec4(1.0f));
-      materialPtr->setProperty("globals.lightDirection", vec4(normalize(vec3(1.0f, 0.0f, 1.0f)), 0.0f));
-      materialPtr->setProperty("globals.fogPlane", currentFogPlane_);
-      materialPtr->setProperty("globals.fogParameters", currentFogParameters_);
+      materialPtr->setProperty("properties.kd", vec4(materials[i].kd, 1.0f) );
+      materialPtr->setProperty("properties.ks", vec4(materials[i].ks, 1.0f));
+      materialPtr->setBuffer("globals", globalsBuffer_);
 
       if (strlen(materials[i].diffuseMap) > 0)
       {
-        std::string diffuseMapPath = "../resources/sponza/";
+        std::string diffuseMapPath = path.substr(0, path.find_last_of('/')+1 );
         diffuseMapPath += materials[i].diffuseMap;
 
         image::image2D_t image = {};
@@ -72,20 +86,13 @@ public:
     //Load meshes and create actors
     mat4 transform = createTransform(vec3(0.0f, -0.5f, 0.0f), vec3(0.001f), QUAT_UNIT);
     mesh::mesh_t* mesh = nullptr;
-    uint32_t meshCount = mesh::createFromFile(renderer.getContext(), "../resources/sponza/sponza.obj", mesh::EXPORT_ALL, nullptr, &mesh);
+    uint32_t meshCount = mesh::createFromFile(renderer.getContext(), path.c_str(), mesh::EXPORT_ALL, nullptr, &mesh);
     for (u32 i(0); i < meshCount; ++i)
     {
       mesh_handle_t meshHandle = renderer.meshAdd(mesh[i]);
       renderer.actorCreate("actor", meshHandle, materialHandles[materialIndex[i]], transform);
     }
     delete[] mesh;
-    
-    //Allocate comand buffers
-    commandBuffers_.resize(renderer.getThreadPool()->getThreadCount());
-
-    //create camera
-    camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.01f, 500.0f));
-    cameraController_.setCameraHandle(camera, &renderer);
   }
 
   void onKeyEvent(u32 key, bool pressed)
@@ -120,21 +127,13 @@ public:
     renderer.setupCamera(camera);
 
     actor_t* visibleActors = nullptr;
-    actorCount_ = renderer.getVisibleActors(camera, &visibleActors);
+    uint32_t actorCount = renderer.getVisibleActors(camera, &visibleActors);
 
     generateCommandBuffersParallel(&renderer, "parallelCommandBuffer",
-                                   BKK_NULL_HANDLE, true, vec4(0.0f),
-                                   visibleActors, actorCount_, "OpaquePass",
+                                   BKK_NULL_HANDLE, &VEC4_ZERO,
+                                   visibleActors, actorCount, "OpaquePass",
                                    renderer.getRenderCompleteSemaphore(),
-                                   commandBuffers_.data(), (uint32_t)commandBuffers_.size());
-
-    vertexCount_ = triangleCount_ = 0u;
-    for (uint32_t i(0); i < actorCount_; ++i)
-    { 
-      mesh::mesh_t* mesh = renderer.getMesh(visibleActors[i].getMeshHandle());
-      vertexCount_ += mesh->vertexCount;
-      triangleCount_ += (mesh->indexCount / 3);
-    }
+                                   &commandBuffers_[0], (uint32_t)commandBuffers_.size());
 
     for (uint32_t i(0); i < commandBuffers_.size(); ++i)
       commandBuffers_[i].submitAndRelease();
@@ -147,49 +146,30 @@ public:
     ImGui::Begin("Controls");
 
     ImGui::LabelText("", "Fog");
-    ImGui::SliderFloat3("Fog Plane Normal", fogPlane_.data, -1.0f, 1.0f);
-    ImGui::SliderFloat("Fog Plane Offset", &fogPlane_.a, -1.0f, 1.0f);
-    ImGui::ColorEdit3("Fog Color", fogParameters_.data);
-    ImGui::SliderFloat("Fog Density", &fogParameters_.a, 0.0f, 10.0f);
-    
-    ImGui::Separator();
-
-    ImGui::LabelText("", "Stats");
-    std::string text = "Actor count: " + intToString(actorCount_);
-    ImGui::LabelText("", text.c_str());
-    text = "Vertex count: " + intToString(vertexCount_);
-    ImGui::LabelText("", text.c_str() );
-    text = "Triangle count: " + intToString(triangleCount_);
-    ImGui::LabelText("", text.c_str());
+    ImGui::SliderFloat3("Light direction", &globals_.lightDirection_.x, -1.0f, 1.0f);
+    ImGui::SliderFloat3("Fog Plane Normal", &globals_.fogPlane_.x, -1.0f, 1.0f);
+    ImGui::SliderFloat("Fog Plane Offset", &globals_.fogPlane_.a, -1.0f, 1.0f);
+    ImGui::ColorEdit3("Fog Color", &globals_.fogProperties_.x);
+    ImGui::SliderFloat("Fog Density", &globals_.fogProperties_.a, 0.0f, 10.0f);
     ImGui::End();
-
-    //If fog plane or parameters have changed, update all the materials in the scene
-    if( (fogParameters_ != currentFogParameters_) || (fogPlane_ != currentFogPlane_) )
-    {
-      material_t* materials = nullptr;
-      uint32_t materialCount = getRenderer().getMaterials(&materials);
-      for (uint32_t i(0); i < materialCount; ++i)
-      {
-        materials[i].setProperty("globals.fogPlane", &fogPlane_);
-        materials[i].setProperty("globals.fogParameters", &fogParameters_);
-      }
-      
-      currentFogPlane_ = fogPlane_;
-      currentFogParameters_ = fogParameters_;
-    }
+    
+    render::gpuBufferUpdate(getRenderer().getContext(), &globals_, 0u, sizeof(globals_), &globalsBuffer_);
   }
 
 private:
   free_camera_controller_t cameraController_;
   std::vector<render::texture_t> textures_;
   std::vector<command_buffer_t> commandBuffers_;
+  render::gpu_buffer_t globalsBuffer_;
   
-  vec4 fogPlane_;             //rgb is normal, alpha is offset
-  vec4 currentFogPlane_;
+  struct
+  {
+    vec4 lightDirection_;
+    vec4 fogPlane_;
+    vec4 fogProperties_;
+  }globals_;
 
-  vec4 fogParameters_;        //rgb is color, alpha is density
-  vec4 currentFogParameters_;
-
+  
   uint32_t actorCount_;
   uint32_t vertexCount_;
   uint32_t triangleCount_;
