@@ -46,7 +46,7 @@ public:
     globals_.light_ = vec4(0.0f, 1.0f, 0.0f, 1.0f);
     globals_.fogPlane_ = vec4(0.0f, -1.0f, 0.0f, 0.0f);
     globals_.fogProperties_ = vec4(1.0f, 1.0f, 1.0f, 0.5f);
-    globals_.worldToLightClipSpace_ = shadowCamera.getWorldToViewMatrix() * shadowCamera.getProjectionMatrix();
+    globals_.worldToLightClipSpace_ = shadowCamera.getViewProjectionMatrix();
     globals_.shadowMapSize_ = shadowMapSize;
 
     render::gpuBufferCreate(renderer.getContext(), render::gpu_buffer_t::UNIFORM_BUFFER,
@@ -204,8 +204,7 @@ public:
     ImGui::SliderFloat("Fog Density", &globals_.fogProperties_.a, 0.0f, 10.0f);
     ImGui::End();
     
-    camera_t* camera = getRenderer().getCamera(shadowCamera_);
-    globals_.worldToLightClipSpace_ = camera->getWorldToViewMatrix() * camera->getProjectionMatrix();
+    globals_.worldToLightClipSpace_ = getRenderer().getCamera(shadowCamera_)->getViewProjectionMatrix();
     render::gpuBufferUpdate(getRenderer().getContext(), &globals_, 0u, sizeof(globals_), &globalsBuffer_);
   }
 

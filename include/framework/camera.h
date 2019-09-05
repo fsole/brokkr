@@ -50,6 +50,8 @@ namespace bkk
       void setProjectionMatrix(const core::maths::mat4& m);
       core::maths::mat4 getProjectionMatrix() { return uniforms_.projection;  };
 
+      core::maths::mat4 getViewProjectionMatrix() { return uniforms_.viewProjection; };
+
     private:
       struct uniforms_t
       {
