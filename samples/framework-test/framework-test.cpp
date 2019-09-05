@@ -52,7 +52,7 @@ public:
     renderer.getMaterial(skyboxMaterial_)->setTexture("CubeMap", skybox_);
 
     //create meshes
-    mesh_handle_t teapot = renderer.meshCreate("../resources/teapot.obj", mesh::EXPORT_ALL);
+    mesh_handle_t teapot = renderer.meshCreate("../resources/teapot.obj", mesh::EXPORT_NORMALS_UVS);
     mesh_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
 
     //create materials

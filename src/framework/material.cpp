@@ -270,18 +270,18 @@ void material_t::updateDescriptorSets()
   if (!shader)
     return;
 
+  //Update owned uniform buffer if needed
+  for (uint32_t i(0); i < bufferUpdate_.size(); ++i)
+  {
+    if (bufferUpdate_[i])
+    {
+      render::gpuBufferUpdate(context, bufferData_[i], 0u, bufferDataSize_[i], &buffers_[i]);
+      bufferUpdate_[i] = false;
+    }
+  }
+
   for (uint32_t pass = 0; pass < descriptorSet_.size(); ++pass)
   {
-    //Update owned uniform buffer if needed
-    for (uint32_t i(0); i < bufferUpdate_.size(); ++i)
-    {
-      if (bufferUpdate_[i])
-      {
-        render::gpuBufferUpdate(context, bufferData_[i], 0u, bufferDataSize_[i], &buffers_[i]);
-        bufferUpdate_[i] = false;
-      }
-    }
-
     if (updateDescriptorSet_[pass])
     {
       if (descriptorSet_[pass].handle == VK_NULL_HANDLE)

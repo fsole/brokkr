@@ -83,8 +83,12 @@ namespace bkk
       {
         maths::vec3 kd;
         maths::vec3 ks;
+        float shininess;
 
-        char diffuseMap[128];
+        std::string diffuseMap;
+        std::string normalMap;
+        std::string specularMap;
+        std::string opacityMap;
       };
 
       enum export_flags_e
@@ -92,8 +96,10 @@ namespace bkk
         EXPORT_POSITION_ONLY = 0,
         EXPORT_NORMALS = 1,
         EXPORT_UV = 2,
-        EXPORT_BONE_WEIGHTS = 4,
-        EXPORT_ALL = EXPORT_NORMALS | EXPORT_UV | EXPORT_BONE_WEIGHTS
+        EXPORT_TANGENTS = 4,
+        EXPORT_BONE_WEIGHTS = 8,
+        EXPORT_NORMALS_UVS = EXPORT_NORMALS | EXPORT_UV,
+        EXPORT_ALL = EXPORT_NORMALS | EXPORT_UV | EXPORT_TANGENTS | EXPORT_BONE_WEIGHTS
 
       };
 
@@ -106,10 +112,10 @@ namespace bkk
       
       //Load all submeshes from a file
       //Warning: Allocates an array of meshes from the heap (returned by reference in 'meshes') and passes ownership of that memory to the caller
-      uint32_t createFromFile(const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, mesh_t** meshes);
+      uint32_t createFromFile(const render::context_t& context, const char* file, uint32_t exportFlags, render::gpu_memory_allocator_t* allocator, mesh_t** meshes);
 
       //Load a single submesh from a file
-      void createFromFile(const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t subMesh, mesh_t* mesh);
+      void createFromFile(const render::context_t& context, const char* file, uint32_t exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t subMesh, mesh_t* mesh);
 
       uint32_t loadMaterialData(const char* file, uint32_t** materialIndices, material_data_t** materials);
 

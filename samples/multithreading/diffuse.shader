@@ -3,7 +3,7 @@
   <Resources>
 
     <Resource Name="globals" Type="uniform_buffer" Shared="yes">
-      <Field Name="lightDirection" Type="vec4"/>
+      <Field Name="light" Type="vec4"/>
       <Field Name="fogPlane"       Type="vec4" />
       <Field Name="fogParameters"  Type="vec4" />
     </Resource>
@@ -11,42 +11,60 @@
     <Resource Name="properties" Type="uniform_buffer" Shared="no">
       <Field Name="kd" Type="vec4"/>
       <Field Name="ks" Type="vec4"/>
+      <Field Name="shininess" Type="float" />
     </Resource>
 
-    <Resource Name = "MainTexture" Type = "texture2D" />
+    <Resource Name="diffuseTexture" Type="texture2D" />
+    <Resource Name="opacityTexture" Type="texture2D" />
+    <Resource Name="normalTexture" Type="texture2D" />
+    <Resource Name="specularTexture" Type="texture2D" />
+    
+
   </Resources>
 
   <Pass Name="OpaquePass">
     <ZWrite Value="On"/>
     <ZTest Value="LEqual"/>
-    <Cull Value="Back"/>
+    <Cull Value="None"/>
 
     <VertexShader>
       layout(location = 0) in vec3 aPosition;
       layout(location = 1) in vec3 aNormal;
       layout(location = 2) in vec2 aUV;
+      layout(location = 3) in vec3 aTangent;
 
-      layout(location = 0) out vec3 normalWS;
-      layout(location = 1) out vec2 uv;
-      layout(location = 2) out vec3 positionWS;
-      layout(location = 3) out vec3 cameraPositionWS;
+      layout(location = 0) out vec2 uv;
+      layout(location = 1) out vec3 positionWS;
+      layout(location = 2) out vec3 cameraPositionWS;
+      layout(location = 3) out vec3 lightTS;
+      layout(location = 4) out vec3 viewTS;
+
       void main()
       {
-        normalWS =  normalize( model.transform * vec4(aNormal,0.0) ).xyz;
-        
-        mat4 mvp = camera.viewProjection * model.transform;
-        uv = aUV;
         positionWS = (model.transform * vec4(aPosition, 1.0)).xyz;
         cameraPositionWS = camera.viewToWorld[3].xyz;
-        gl_Position =  mvp * vec4(aPosition,1.0);
+
+        //Compute matrix that transforms from world space to tangent space
+        vec3 tangentWS = normalize((model.transform * vec4(aTangent, 0.0)).xyz);
+        vec3 normalWS = normalize((model.transform * vec4(aNormal, 0.0)).xyz);
+        //Gram-Schimdt re-orthogonalization
+        tangentWS = normalize(tangentWS - dot(tangentWS, normalWS) * normalWS);
+        vec3 bitangentWS = cross(normalWS, tangentWS);
+        mat3 TBN = transpose(mat3(tangentWS,bitangentWS, normalWS));
+        lightTS = TBN * normalize(globals.light.xyz);
+        viewTS = TBN * normalize(cameraPositionWS - positionWS);
+
+        uv = aUV;
+        gl_Position = (camera.viewProjection * model.transform) * vec4(aPosition, 1.0);
       }
     </VertexShader>
     
-    <FragmentShader>
-      layout(location = 0) in vec3 normalWS;            
-      layout(location = 1) in vec2 uv;
-      layout(location = 2) in vec3 positionWS;
-      layout(location = 3) in vec3 cameraPositionWS;
+    <FragmentShader>               
+      layout(location = 0) in vec2 uv;
+      layout(location = 1) in vec3 positionWS;
+      layout(location = 2) in vec3 cameraPositionWS;
+      layout(location = 3) in vec3 lightTS;
+      layout(location = 4) in vec3 viewTS;
 
       layout(location = 0) out vec4 color;
       
@@ -72,12 +90,33 @@
 
       void main()
       {
-        //Lighting
-        vec4 diffuseTex = texture(MainTexture, uv);
-        color = (max( 0, dot(normalWS, globals.lightDirection.xyz)) + 0.2) * properties.kd * diffuseTex;
+        float opacity = texture(opacityTexture, uv).r;
+        if (opacity &lt; 0.01) discard;
+
+        vec3 normalTS = texture(normalTexture, uv).rgb;
+        normalTS = normalize(normalTS * 2.0 - 1.0);
+        
+        //Diffuse
+        float NdotL = max(0, dot(normalTS, lightTS));
+        vec3 diffuseColor = texture(diffuseTexture, uv).rgb *  properties.kd.rgb;
+        vec3 ambient = vec3(0.1) * diffuseColor;
+        vec3 diffuse = NdotL * diffuseColor;
+        
+        //Specular
+        float specularStrength = length( texture(specularTexture, uv).rgb );
+        if (opacity &lt; 0.01) discard;
+        vec3 halfVectorTS = normalize(viewTS + lightTS);
+        float NdotH = max(0, dot(normalTS, halfVectorTS));
+        vec3 specular = vec3(pow(NdotH, properties.shininess/2.0)) * NdotL;
+        specular *= specularStrength;
+        vec3 colorLinear = ( ambient + diffuse + specular) * globals.light.w;
 
         //Fog
-        color.rgb = applyHalfSpaceFog(positionWS, cameraPositionWS, globals.fogPlane, globals.fogParameters, color.rgb);
+        colorLinear = applyHalfSpaceFog(positionWS, cameraPositionWS, globals.fogPlane, globals.fogParameters, colorLinear);
+
+        //Gamma
+        color = vec4(pow(colorLinear, vec3(1.0 / 2.2)), 1.0);
+
       }			
     </FragmentShader>
   </Pass>

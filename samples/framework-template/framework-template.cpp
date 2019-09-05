@@ -26,7 +26,7 @@ public:
   {
     renderer_t& renderer = getRenderer();
 
-    mesh_handle_t mesh = renderer.meshCreate("../resources/teapot.obj", mesh::EXPORT_ALL);    
+    mesh_handle_t mesh = renderer.meshCreate("../resources/teapot.obj", mesh::EXPORT_NORMALS_UVS);
     material_handle_t material = renderer.materialCreate(renderer.shaderCreate("../framework-template/diffuse.shader"));
     material_t* materialPtr = renderer.getMaterial(material);
     materialPtr->setProperty("globals.albedo", vec4(1.0f) );

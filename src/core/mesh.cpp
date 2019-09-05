@@ -153,13 +153,14 @@ static void loadAnimation(const aiScene* scene, u32 animationIndex, std::map<std
   }
 }
 
-static void loadMesh(const render::context_t& context, const struct aiScene* scene, uint32_t submesh, mesh_t* mesh, export_flags_e flags, render::gpu_memory_allocator_t* allocator)
+static void loadMesh(const render::context_t& context, const struct aiScene* scene, uint32_t submesh, mesh_t* mesh, uint32_t flags, render::gpu_memory_allocator_t* allocator)
 {
 
   const struct aiMesh* aimesh = scene->mMeshes[submesh];
   size_t vertexCount = aimesh->mNumVertices;
 
   bool bHasNormal(aimesh->HasNormals());
+  bool bHasTangents(aimesh->HasTangentsAndBitangents());
   bool bHasUV(aimesh->HasTextureCoords(0));
   u32 boneCount(aimesh->mNumBones);
 
@@ -168,6 +169,7 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
 
   bool importNormals = (((flags & EXPORT_NORMALS) != 0));
   bool importUV = (((flags & EXPORT_UV) != 0) );
+  bool importTangents = (((flags & EXPORT_TANGENTS) != 0));
   bool importBoneWeights = (((flags & EXPORT_BONE_WEIGHTS) != 0) && (boneCount > 0));
 
   if (importNormals)
@@ -178,6 +180,11 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
   if (importUV)
   {
     vertexSize += 2;
+    ++attributeCount;
+  }
+  if (importTangents)
+  {
+    vertexSize += 3;
     ++attributeCount;
   }
   if (boneCount > 0 && importBoneWeights)
@@ -214,6 +221,15 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
     attributes[attribute].instanced = false;
     ++attribute;
     attributeOffset += 2;
+  }
+  if (importTangents)
+  {
+    attributes[attribute].format = render::vertex_attribute_t::format_e::VEC3;
+    attributes[attribute].offset = sizeof(f32)*attributeOffset;
+    attributes[attribute].stride = vertexSize * sizeof(f32);
+    attributes[attribute].instanced = false;
+    ++attribute;
+    attributeOffset += 3;
   }
 
   u32 boneWeightOffset = attributeOffset;
@@ -287,6 +303,25 @@ static void loadMesh(const render::context_t& context, const struct aiScene* sce
       }
 
       index += 2;
+    }
+
+    if (importTangents)
+    {
+      if (bHasTangents)
+      {
+        vertexData[index] = aimesh->mTangents[vertex].x;
+        vertexData[index+1] = aimesh->mTangents[vertex].y;
+        vertexData[index+2] = aimesh->mTangents[vertex].z;
+      }
+      else
+      {
+        vertexData[index] = 1.0f;
+        vertexData[index+1] = 0.0f;
+        vertexData[index+2] = 0.0f;
+      }
+
+
+      index += 3;
     }
 
     if (boneCount > 0 && importBoneWeights)
@@ -404,7 +439,7 @@ void mesh::create(const render::context_t& context,
 }
 
 
-void mesh::createFromFile(const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t submesh, mesh_t* mesh)
+void mesh::createFromFile(const render::context_t& context, const char* file, uint32_t exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t submesh, mesh_t* mesh)
 {
   Assimp::Importer Importer;
   int flags = aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_LimitBoneWeights | aiProcess_GenSmoothNormals;
@@ -414,7 +449,7 @@ void mesh::createFromFile(const render::context_t& context, const char* file, ex
   loadMesh(context, scene, submesh, mesh, exportFlags, allocator);
 }
 
-uint32_t mesh::createFromFile(const render::context_t& context, const char* file, export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, mesh_t** meshes)
+uint32_t mesh::createFromFile(const render::context_t& context, const char* file, uint32_t exportFlags, render::gpu_memory_allocator_t* allocator, mesh_t** meshes)
 {
   Assimp::Importer Importer;
   int flags = aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_LimitBoneWeights | aiProcess_GenSmoothNormals;
@@ -457,17 +492,38 @@ uint32_t mesh::loadMaterialData(const char* file, uint32_t** materialIndices, ma
     materialData = (*materials + i);
 
     //Diffuse color
+    materialData->kd = vec3(1.0f);
     if (scene->mMaterials[i]->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
     {
       materialData->kd = vec3(color.r, color.g, color.b);
     }
 
-    //Diffuse map
-    materialData->diffuseMap[0] = '\0';
-    if (scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_DIFFUSE(0), path) == AI_SUCCESS)
+    //Specular color
+    materialData->ks = vec3(1.0f);
+    if (scene->mMaterials[i]->Get(AI_MATKEY_COLOR_SPECULAR, color) == AI_SUCCESS)
     {
-      memcpy(&materialData->diffuseMap, path.C_Str(), path.length+1 );
+      materialData->ks = vec3(color.r, color.g, color.b);
     }
+
+    //Shininess    
+    float shininess = 0.0f;
+    if (scene->mMaterials[i]->Get(AI_MATKEY_SHININESS, shininess) == AI_SUCCESS)
+    {
+      materialData->shininess = shininess;
+    }
+
+    if (scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_DIFFUSE(0), path) == AI_SUCCESS)
+      materialData->diffuseMap = path.C_Str();
+
+    materialData->normalMap[0] = '\0';
+    if (scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_HEIGHT(0), path) == AI_SUCCESS)
+      materialData->normalMap = path.C_Str();
+
+    if (scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_SPECULAR(0), path) == AI_SUCCESS)
+      materialData->specularMap = path.C_Str();
+
+    if (scene->mMaterials[i]->Get(AI_MATKEY_TEXTURE_OPACITY(0), path) == AI_SUCCESS)
+      materialData->opacityMap = path.C_Str();
   }
 
   return materialCount;

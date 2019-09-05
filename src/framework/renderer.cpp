@@ -112,6 +112,7 @@ renderer_t::~renderer_t()
       mesh::destroy(context_, &fullScreenQuad_);
     }
     render::textureDestroy(context_, &defaultTexture_);
+    render::textureDestroy(context_, &defaultNormalTexture_);
     render::descriptorSetLayoutDestroy(context_, &globalsDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context_, &objectDescriptorSetLayout_);
     render::descriptorPoolDestroy(context_, &globalDescriptorPool_);
@@ -146,10 +147,18 @@ void renderer_t::initialize(const char* title, uint32_t imageCount, const window
   image.componentCount = 4u;
   image.dataSize = 4;
   image.data = new uint8_t[4];
-  image.data[0] = 128u;
-  image.data[1] = image.data[2] = 0u;
+
+  image.data[0] = 255u;
+  image.data[1] = 255u;
+  image.data[2] = 255u;
   image.data[3] = 255u;
   render::texture2DCreate(context_, &image, 1u, render::texture_sampler_t(), &defaultTexture_);
+
+
+  image.data[0] = image.data[1] = 128u;
+  image.data[2] = 255u;
+  image.data[3] = 255u;
+  render::texture2DCreate(context_, &image, 1u, render::texture_sampler_t(), &defaultNormalTexture_);
   delete[] image.data;
 
   shader_handle_t shader = shaderCreate("../../shaders/textureBlit.shader");
@@ -279,7 +288,7 @@ mesh_handle_t renderer_t::meshAdd(const mesh::mesh_t& mesh)
   return meshes_.add(mesh);
 }
 
-mesh_handle_t renderer_t::meshCreate(const char* file, mesh::export_flags_e exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t submesh)
+mesh_handle_t renderer_t::meshCreate(const char* file, uint32_t exportFlags, render::gpu_memory_allocator_t* allocator, uint32_t submesh)
 {
   mesh::mesh_t mesh;
   mesh::createFromFile(context_, file, exportFlags, nullptr, submesh, &mesh);

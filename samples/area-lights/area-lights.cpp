@@ -42,7 +42,7 @@ public:
     gBuffer_ = renderer.frameBufferCreate(targets, 3u);
 
     //create meshes
-    mesh_handle_t model = renderer.meshCreate("../resources/lucy.obj", mesh::EXPORT_ALL);
+    mesh_handle_t model = renderer.meshCreate("../resources/lucy.obj", mesh::EXPORT_NORMALS_UVS);
     mesh_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
     mesh_handle_t lineLight = renderer.meshAdd(mesh::unitCube(getRenderContext()));
 

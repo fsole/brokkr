@@ -64,7 +64,7 @@ public:
     computePtr->setBuffer("particlesState", particleStateBuffer_);
 
     //Create particle actor
-    mesh_handle_t particleMesh = renderer.meshCreate("../resources/sphere.obj", mesh::EXPORT_ALL);
+    mesh_handle_t particleMesh = renderer.meshCreate("../resources/sphere.obj", mesh::EXPORT_NORMALS_UVS);
     shader_handle_t shader = renderer.shaderCreate("../fluid-simulation/particles.shader");
     material_handle_t particleMaterial = renderer.materialCreate(shader);
     material_t* particleMaterialPtr = renderer.getMaterial(particleMaterial);

@@ -70,7 +70,7 @@ namespace bkk
         frame_buffer_t* getFrameBuffer(frame_buffer_handle_t handle);
 
         mesh_handle_t meshAdd(const core::mesh::mesh_t& mesh);
-        mesh_handle_t meshCreate(const char* file, core::mesh::export_flags_e exportFlags, core::render::gpu_memory_allocator_t* allocator = nullptr, uint32_t submesh = 0);
+        mesh_handle_t meshCreate(const char* file, uint32_t exportFlags, core::render::gpu_memory_allocator_t* allocator = nullptr, uint32_t submesh = 0);
         void meshDestroy(mesh_handle_t handle);
         core::mesh::mesh_t* getMesh(mesh_handle_t handle);
 
@@ -105,6 +105,7 @@ namespace bkk
 
         material_t* getTextureBlitMaterial() { return materials_.get(textureBlit_); }
         core::render::texture_t getDefaultTexture() { return defaultTexture_;  }
+        core::render::texture_t getDefaultNormalTexture() { return defaultNormalTexture_; }
         
         void releaseCommandBuffer(const command_buffer_t* cmdBuffer);
 
@@ -151,6 +152,7 @@ namespace bkk
         bkk::core::render::shader_t textureBlitVertexShader_;
         bkk::core::render::shader_t textureBlitFragmentShader_;
         bkk::core::render::texture_t defaultTexture_;
+        bkk::core::render::texture_t defaultNormalTexture_;
         VkSemaphore renderComplete_;
 
         //Command buffers to be released on the next frame

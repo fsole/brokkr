@@ -1028,7 +1028,7 @@ private:
 
     //Meshes
     mesh::mesh_t* mesh = nullptr;
-    uint32_t meshCount = mesh::createFromFile(context, url, mesh::EXPORT_ALL, &allocator_, &mesh);
+    uint32_t meshCount = mesh::createFromFile(context, url, mesh::EXPORT_NORMALS_UVS, &allocator_, &mesh);
     std::vector<core::bkk_handle_t> meshHandles(meshCount);
     for (u32 i(0); i < meshCount; ++i)
     {
