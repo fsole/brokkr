@@ -155,11 +155,10 @@ public:
 
     //Render shadow map
     vec3 lightDirection = normalize(globals_.light_.xyz());
-    maths::mat4 tx = maths::createTransform(maths::vec3(0.0f, 0.0f, 2.0f), maths::VEC3_ONE, maths::QUAT_UNIT) * 
-                     maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, maths::quat(VEC3_FORWARD, lightDirection)) * 
-                     maths::createTransform(VEC3_ZERO, maths::VEC3_ONE, maths::QUAT_UNIT);
+    maths::mat4 viewToWorldMatrix = maths::createTransform(maths::vec3(0.0f, 0.0f, 2.0f), maths::VEC3_ONE, maths::QUAT_UNIT) * 
+                                    maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, maths::quat(VEC3_FORWARD, lightDirection));
 
-    renderer.getCamera(shadowCamera_)->setViewToWorldMatrix(tx);
+    renderer.getCamera(shadowCamera_)->setViewToWorldMatrix(viewToWorldMatrix);
     renderer.setupCamera(shadowCamera_);
 
     actor_t* visibleActors = nullptr;
