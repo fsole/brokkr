@@ -6,6 +6,8 @@
       <Field Name="light" Type="vec4"/>
       <Field Name="fogPlane"       Type="vec4" />
       <Field Name="fogParameters"  Type="vec4" />
+      <Field Name="worldToLightClipSpace"  Type="mat4" />
+      <Field Name="shadowMapSize"  Type="int" />
     </Resource>
 
     <Resource Name="properties" Type="uniform_buffer" Shared="no">
@@ -18,6 +20,7 @@
     <Resource Name="opacityTexture" Type="texture2D" />
     <Resource Name="normalTexture" Type="texture2D" />
     <Resource Name="specularTexture" Type="texture2D" />
+    <Resource Name="shadowMap" Type="texture2D" />
     
 
   </Resources>
@@ -25,7 +28,7 @@
   <Pass Name="OpaquePass">
     <ZWrite Value="On"/>
     <ZTest Value="LEqual"/>
-    <Cull Value="None"/>
+    <Cull Value="Back"/>
 
     <VertexShader>
       layout(location = 0) in vec3 aPosition;
@@ -109,14 +112,57 @@
         float NdotH = max(0, dot(normalTS, halfVectorTS));
         vec3 specular = vec3(pow(NdotH, properties.shininess/2.0)) * NdotL;
         specular *= specularStrength;
-        vec3 colorLinear = ( ambient + diffuse + specular) * globals.light.w;
+
+        //Shadow
+        vec4 postionInLigthClipSpace = globals.worldToLightClipSpace * vec4(positionWS, 1.0);
+        postionInLigthClipSpace.xyz /= postionInLigthClipSpace.w;
+        postionInLigthClipSpace.xy = 0.5 * postionInLigthClipSpace.xy + 0.5;
+        ivec2 shadowMapUV = ivec2(postionInLigthClipSpace.xy * vec2(globals.shadowMapSize));        
+        float bias = 0.002;        
+        float attenuation = step(0.5, float((texelFetch(shadowMap, shadowMapUV + ivec2(0, 0), 0).r + bias) &gt; postionInLigthClipSpace.z));
+        attenuation += step(0.5, float((texelFetch(shadowMap, shadowMapUV + ivec2(1, 0), 0).r + bias) &gt; postionInLigthClipSpace.z));
+        attenuation += step(0.5, float((texelFetch(shadowMap, shadowMapUV + ivec2(-1, 0), 0).r + bias) &gt; postionInLigthClipSpace.z));
+        attenuation += step(0.5, float((texelFetch(shadowMap, shadowMapUV + ivec2(0, 1), 0).r + bias) &gt; postionInLigthClipSpace.z));
+        attenuation += step(0.5, float((texelFetch(shadowMap, shadowMapUV + ivec2(0, -1), 0).r + bias) &gt; postionInLigthClipSpace.z));
+        attenuation += step(0.5, float((texelFetch(shadowMap, shadowMapUV + ivec2(1, 1), 0).r + bias) &gt; postionInLigthClipSpace.z));
+        attenuation += step(0.5, float((texelFetch(shadowMap, shadowMapUV + ivec2(-1, 1), 0).r + bias) &gt; postionInLigthClipSpace.z));
+        attenuation += step(0.5, float((texelFetch(shadowMap, shadowMapUV + ivec2(-1, -1), 0).r + bias) &gt; postionInLigthClipSpace.z));
+        attenuation += step(0.5, float((texelFetch(shadowMap, shadowMapUV + ivec2(1, -1), 0).r + bias) &gt; postionInLigthClipSpace.z));
+        attenuation /= 9.0;
+
+        vec3 colorLinear = ( diffuse + specular) * globals.light.w * attenuation + ambient * globals.light.w;
 
         //Fog
         colorLinear = applyHalfSpaceFog(positionWS, cameraPositionWS, globals.fogPlane, globals.fogParameters, colorLinear);
 
         //Gamma
         color = vec4(pow(colorLinear, vec3(1.0 / 2.2)), 1.0);
+      }			
+    </FragmentShader>
+  </Pass>
 
+<Pass Name="DepthPass">
+    <ZWrite Value="On"/>
+    <ZTest Value="LEqual"/>
+    <Cull Value="Back"/>
+
+    <VertexShader>
+      layout(location = 0) in vec3 aPosition;
+      layout(location = 1) in vec3 aNormal;
+      layout(location = 2) in vec2 aUV;
+      layout(location = 3) in vec3 aTangent;
+
+      void main()
+      {
+        gl_Position = (camera.viewProjection * model.transform) * vec4(aPosition, 1.0);
+      }
+    </VertexShader>
+    
+    <FragmentShader>      
+      layout(location = 0) out vec4 color;
+      void main()
+      { 
+        color = vec4(gl_FragCoord.z, 0, 0, 0);
       }			
     </FragmentShader>
   </Pass>

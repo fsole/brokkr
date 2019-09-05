@@ -156,13 +156,13 @@ public:
       case window::key_e::KEY_UP:
       case 'w':
       {
-        cameraController_.Move(-1.0f);
+        cameraController_.move(-1.0f);
         break;
       }
       case window::key_e::KEY_DOWN:
       case 's':
       {
-        cameraController_.Move(1.0f);
+        cameraController_.move(1.0f);
         break;
       }      
       case 'r':
@@ -179,7 +179,7 @@ public:
   void onMouseMove(const vec2& mousePos, const vec2& mouseDeltaPos)
   {
     if (getMousePressedButton() == window::MOUSE_RIGHT)
-      cameraController_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);    
+      cameraController_.rotate(mouseDeltaPos.x, mouseDeltaPos.y);    
   }
 
   void buildGuiFrame()

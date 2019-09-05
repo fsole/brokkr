@@ -157,6 +157,16 @@ void camera_t::setViewToWorldMatrix(const maths::mat4& m)
   uniforms_.viewProjection = uniforms_.worldToView * uniforms_.projection;
 }
 
+void camera_t::setWorldToViewMatrix(const maths::mat4& m)
+{
+  uniforms_.worldToView = m;
+  maths::invertMatrix(m, &uniforms_.viewToWorld);
+
+  uniforms_.viewProjection = uniforms_.worldToView * uniforms_.projection;
+
+}
+
+
 void camera_t::setProjectionMatrix(const maths::mat4& m)
 {
   uniforms_.projection = m;
@@ -171,7 +181,7 @@ orbiting_camera_controller_t::orbiting_camera_controller_t()
  angle_(maths::vec2(0.0f, 0.0f)),
  rotationSensitivity_(0.01f)
 {
-  Update();
+  update();
 }
 
 orbiting_camera_controller_t::orbiting_camera_controller_t(const maths::vec3& target, const f32 offset, const maths::vec2& angle, f32 rotationSensitivity)
@@ -182,14 +192,14 @@ orbiting_camera_controller_t::orbiting_camera_controller_t(const maths::vec3& ta
  cameraHandle_(bkk::core::BKK_NULL_HANDLE),
  renderer_(nullptr)
 {
-  Update();
+  update();
 }
 
 void orbiting_camera_controller_t::setCameraHandle(camera_handle_t cameraHandle, renderer_t* renderer)
 {
   cameraHandle_ = cameraHandle;
   renderer_ = renderer;
-  Update();
+  update();
 }
 
 camera_t* orbiting_camera_controller_t::getCamera()
@@ -200,22 +210,22 @@ camera_t* orbiting_camera_controller_t::getCamera()
   return nullptr;
 }
 
-void orbiting_camera_controller_t::Move(f32 amount)
+void orbiting_camera_controller_t::move(f32 amount)
 {
   offset_ += amount;
   //offset_ = maths::clamp(0.0f, offset_, offset_);
 
-  Update();
+  update();
 }
 
-void orbiting_camera_controller_t::Rotate(f32 angleY, f32 angleZ)
+void orbiting_camera_controller_t::rotate(f32 angleY, f32 angleZ)
 {
   angle_.x = angle_.x + angleY * rotationSensitivity_;
   angle_.y = angle_.y + angleZ * rotationSensitivity_;
-  Update();
+  update();
 }
 
-void orbiting_camera_controller_t::Update()
+void orbiting_camera_controller_t::update()
 {
   maths::quat orientation = maths::quaternionFromAxisAngle(maths::vec3(1.0f, 0.0f, 0.0f), angle_.y) *
   maths::quaternionFromAxisAngle(maths::vec3(0.0f, 1.0f, 0.0f), angle_.x);

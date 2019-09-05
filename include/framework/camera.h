@@ -40,8 +40,15 @@ namespace bkk
       uint32_t getVisibleActors(actor_t** actors);
       core::render::gpu_buffer_t getUniformBuffer() { return uniformBuffer_; }
       core::render::descriptor_set_t getDescriptorSet() { return descriptorSet_; }
+
       void setViewToWorldMatrix(const core::maths::mat4& m);
+      core::maths::mat4 getViewToWorldMatrix() { return uniforms_.viewToWorld; };
+      
+      void setWorldToViewMatrix(const core::maths::mat4& m);
+      core::maths::mat4 getWorldToViewMatrix() { return uniforms_.worldToView; };
+
       void setProjectionMatrix(const core::maths::mat4& m);
+      core::maths::mat4 getProjectionMatrix() { return uniforms_.projection;  };
 
     private:
       struct uniforms_t
@@ -76,9 +83,9 @@ namespace bkk
       camera_handle_t getCameraHandle() { return cameraHandle_; }
       camera_t* getCamera();
 
-      void Move(f32 amount);
-      void Rotate(f32 angleY, f32 angleZ);
-      void Update();
+      void move(f32 amount);
+      void rotate(f32 angleY, f32 angleZ);
+      void update();
 
       const core::maths::mat4& getViewMatrix() const { return view_; }
 

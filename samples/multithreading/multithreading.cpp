@@ -21,21 +21,38 @@ using namespace bkk::framework;
 class multithreading_sample_t : public application_t
 {
 public:
-  multithreading_sample_t(const uvec2& imageSize)
+  multithreading_sample_t(const uvec2& imageSize, const uint32_t shadowMapSize)
     :application_t("Multithreading sample", imageSize.x, imageSize.y, 3u),
     cameraController_(vec3(-1.1f, 0.1f, -0.1f), vec2(0.2f, 1.57f), 0.03f, 0.01f),
-    commandBuffers_(getRenderer().getThreadPool()->getThreadCount()),
-    globals_(vec4(-1.0f, 1.0f, 0.0f, 1.0f), vec4(0.0f, 1.0f, 0.0f, 0.0f), vec4(1.0f, 1.0f, 1.0f, 2.5f))
+    sceneCommandBuffers_(getRenderer().getThreadPool()->getThreadCount()),
+    shadowCommandBuffers_(getRenderer().getThreadPool()->getThreadCount())
   {
-    render::gpuBufferCreate(getRenderer().getContext(), render::gpu_buffer_t::UNIFORM_BUFFER,
-      &globals_, sizeof(globals_), nullptr, &globalsBuffer_);
-    
-    loadScene("../resources/sponza/sponza.obj");
-
-    //create camera
     renderer_t& renderer = getRenderer();
+    
+    //create camera and camera controller
     camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.01f, 100.0f));
     cameraController_.setCameraHandle(camera, &renderer);
+
+    //Create camera used to render the shadow map
+    camera_t shadowCamera = camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, 1.0f, 0.1f, 5.0f);
+    shadowCamera.setViewToWorldMatrix(maths::createTransform(vec3(0.0f, 2.0f, 0.0f), VEC3_ONE, QUAT_UNIT));
+    shadowCamera_ = renderer.cameraAdd(shadowCamera);
+
+    //Create shadow map and fbo
+    shadowMap_ = renderer.renderTargetCreate(shadowMapSize, shadowMapSize, VK_FORMAT_R16_SFLOAT, true);
+    shadowFBO_ = renderer.frameBufferCreate(&shadowMap_, 1u);
+
+    //Globals buffer
+    globals_.light_ = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+    globals_.fogPlane_ = vec4(0.0f, -1.0f, 0.0f, 0.0f);
+    globals_.fogProperties_ = vec4(1.0f, 1.0f, 1.0f, 0.5f);
+    globals_.worldToLightClipSpace_ = shadowCamera.getWorldToViewMatrix() * shadowCamera.getProjectionMatrix();
+    globals_.shadowMapSize_ = shadowMapSize;
+
+    render::gpuBufferCreate(renderer.getContext(), render::gpu_buffer_t::UNIFORM_BUFFER,
+      &globals_, sizeof(globals_), nullptr, &globalsBuffer_);
+
+    loadScene("../resources/sponza/sponza.obj");
   }
 
   bool loadTexture(const std::string& file, render::texture_t* texture)
@@ -70,9 +87,11 @@ public:
       materialPtr->setBuffer("globals", globalsBuffer_);
       materialPtr->setProperty("properties.kd", vec4(materials[i].kd, 1.0f) );
       materialPtr->setProperty("properties.ks", vec4(materials[i].ks, 1.0f));
-      materialPtr->setProperty("properties.shininess", materials[i].shininess);      
-
+      materialPtr->setProperty("properties.shininess", materials[i].shininess);
+      
       //Textures
+      materialPtr->setTexture("shadowMap", shadowMap_);
+
       render::texture_t texture;
       if (loadTexture(basePath + materials[i].diffuseMap, &texture))
         materialPtr->setTexture("diffuseTexture", texture);
@@ -132,21 +151,45 @@ public:
     beginFrame();
 
     renderer_t& renderer = getRenderer();
+
+
+    //Render shadow map
+    vec3 lightDirection = normalize(globals_.light_.xyz());
+    maths::mat4 tx = maths::createTransform(maths::vec3(0.0f, 0.0f, 2.0f), maths::VEC3_ONE, maths::QUAT_UNIT) * 
+                     maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, maths::quat(VEC3_FORWARD, lightDirection)) * 
+                     maths::createTransform(VEC3_ZERO, maths::VEC3_ONE, maths::QUAT_UNIT);
+
+    renderer.getCamera(shadowCamera_)->setViewToWorldMatrix(tx);
+    renderer.setupCamera(shadowCamera_);
+
+    actor_t* visibleActors = nullptr;
+    uint32_t actorCount = renderer.getVisibleActors(shadowCamera_, &visibleActors);
+
+    generateCommandBuffersParallel(&renderer, "parallelCommandBuffer",
+      shadowFBO_, &VEC4_ZERO,
+      visibleActors, actorCount, "DepthPass",
+      VK_NULL_HANDLE,
+      &shadowCommandBuffers_[0], (uint32_t)shadowCommandBuffers_.size());
+
+    for (uint32_t i(0); i < shadowCommandBuffers_.size(); ++i)
+      shadowCommandBuffers_[i].submitAndRelease();
+
+    //Render scene
     camera_handle_t camera = cameraController_.getCameraHandle();
     renderer.setupCamera(camera);
 
-    actor_t* visibleActors = nullptr;
-    uint32_t actorCount = renderer.getVisibleActors(camera, &visibleActors);
+    visibleActors = nullptr;
+    actorCount = renderer.getVisibleActors(camera, &visibleActors);
 
     generateCommandBuffersParallel(&renderer, "parallelCommandBuffer",
-                                   BKK_NULL_HANDLE, &VEC4_ONE,
-                                   visibleActors, actorCount, "OpaquePass",
-                                   renderer.getRenderCompleteSemaphore(),
-                                   &commandBuffers_[0], (uint32_t)commandBuffers_.size());
+      BKK_NULL_HANDLE, &VEC4_ONE,
+      visibleActors, actorCount, "OpaquePass",
+      renderer.getRenderCompleteSemaphore(),
+      &sceneCommandBuffers_[0], (uint32_t)sceneCommandBuffers_.size());
 
-    for (uint32_t i(0); i < commandBuffers_.size(); ++i)
-      commandBuffers_[i].submitAndRelease();
-
+    for (uint32_t i(0); i < sceneCommandBuffers_.size(); ++i)
+      sceneCommandBuffers_[i].submitAndRelease();
+    
     presentFrame();
   }
 
@@ -161,29 +204,36 @@ public:
     ImGui::SliderFloat("Fog Density", &globals_.fogProperties_.a, 0.0f, 10.0f);
     ImGui::End();
     
+    camera_t* camera = getRenderer().getCamera(shadowCamera_);
+    globals_.worldToLightClipSpace_ = camera->getWorldToViewMatrix() * camera->getProjectionMatrix();
     render::gpuBufferUpdate(getRenderer().getContext(), &globals_, 0u, sizeof(globals_), &globalsBuffer_);
   }
 
 private:
-  free_camera_controller_t cameraController_;  
-  std::vector<command_buffer_t> commandBuffers_;
+  free_camera_controller_t cameraController_;
+  
   render::gpu_buffer_t globalsBuffer_;
   std::vector<render::texture_t> textures_;
 
-  struct globals_t
-  {
-    globals_t(const vec4& light, const vec4& fogPlane, const vec4& fogProperties)
-    :light_(light), fogPlane_(fogPlane), fogProperties_(fogProperties){}
+  std::vector<command_buffer_t> sceneCommandBuffers_;
+  std::vector<command_buffer_t> shadowCommandBuffers_;
+  camera_handle_t shadowCamera_;
+  render_target_handle_t shadowMap_;
+  frame_buffer_handle_t shadowFBO_;
 
-    vec4 light_;        //xyz is direction, w is intensity
-    vec4 fogPlane_;     //xyz is normal, w is offset
-    vec4 fogProperties_;//rgb is color, a is density
+  struct
+  {    
+    vec4 light_;                         //xyz is direction, w is intensity
+    vec4 fogPlane_;                      //xyz is normal, w is offset
+    vec4 fogProperties_;                 //rgb is color, a is density
+    maths::mat4 worldToLightClipSpace_;  //Transforms points from world space to light clip space
+    uint32_t shadowMapSize_;             //Shadow map resolution
   }globals_;
 };
 
 int main()
 {  
-  multithreading_sample_t(uvec2(1200u, 800u)).run();
+  multithreading_sample_t(uvec2(1200u, 800u), 4096u).run();
   return 0;
 }
 

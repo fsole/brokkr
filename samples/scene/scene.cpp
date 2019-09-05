@@ -865,7 +865,7 @@ private:
     for (u32 i(0); i < materialCount; ++i)
     {
       std::string diffuseMapPath = "";
-      if (strlen(materials[i].diffuseMap) > 0 )
+      if(materials[i].diffuseMap.length() > 0 )
       {
         diffuseMapPath = modelPath + materials[i].diffuseMap;
       }

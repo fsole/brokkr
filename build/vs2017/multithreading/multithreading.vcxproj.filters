@@ -9,6 +9,9 @@
     <None Include="..\..\..\samples\multithreading\diffuse.shader">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="..\..\..\samples\multithreading\shadowmap-blit.shader">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\samples\multithreading\multithreading.cpp" />

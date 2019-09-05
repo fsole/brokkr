@@ -214,13 +214,13 @@ public:
         case window::key_e::KEY_UP:
         case 'w':
         {
-          camera_.Move(-1.0f);
+          camera_.move(-1.0f);
           break;
         }
         case window::key_e::KEY_DOWN:
         case 's':
         {
-          camera_.Move(1.0f);
+          camera_.move(1.0f);
           break;
         }
 
@@ -234,7 +234,7 @@ public:
   {
     if(getMousePressedButton() > -1 )
     {
-      camera_.Rotate(mouseDeltaPos.x, mouseDeltaPos.y);
+      camera_.rotate(mouseDeltaPos.x, mouseDeltaPos.y);
     }
   }
 
