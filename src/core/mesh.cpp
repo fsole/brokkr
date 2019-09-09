@@ -684,18 +684,24 @@ void mesh::animatorDestroy(const render::context_t& context, skeletal_animator_t
 
 mesh::mesh_t mesh::fullScreenQuad(const render::context_t& context)
 {
+  return quad(context, 2.0f);
+}
+
+mesh::mesh_t mesh::quad(const render::context_t& context, float size)
+{
   struct Vertex
   {
     float position[3];
     float uv[2];
   };
 
+  float halfSize = size / 2.0f;
   //WARNING: IN Vulkan, Y is pointing down in NDC!
-  static const Vertex vertices[] = { { { -1.0f,  1.0f, 0.0f },{ 0.0f, 1.0f } },
-                                     { {  1.0f,  1.0f, 0.0f },{ 1.0f, 1.0f } },
-                                     { {  1.0f, -1.0f, 0.0f },{ 1.0f, 0.0f } },
-                                     { { -1.0f, -1.0f, 0.0f },{ 0.0f, 0.0f } }
-                                   };
+  static const Vertex vertices[] = { { { -halfSize,  halfSize, 0.0f },{ 0.0f, 1.0f } },
+                                     { {  halfSize,  halfSize, 0.0f },{ 1.0f, 1.0f } },
+                                     { {  halfSize, -halfSize, 0.0f },{ 1.0f, 0.0f } },
+                                     { { -halfSize, -halfSize, 0.0f },{ 0.0f, 0.0f } }
+  };
 
   static const uint32_t indices[] = { 0,1,2,0,2,3 };
 

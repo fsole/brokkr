@@ -135,7 +135,7 @@ namespace bkk
       //@TODO Allow the user to specify command buffer pool from which command buffers are allocated (Command buffers are allocated from global command buffer pool from the context)
 
       VkCommandPool commandPoolCreate(const context_t& context);
-      void commandPoolDestroy(const context_t& context);
+      void commandPoolDestroy(const context_t& context, VkCommandPool commandPool);
 
       void commandBufferCreate(const context_t& context, VkCommandBufferLevel level,
         VkSemaphore* waitSemaphore, VkPipelineStageFlags* waitStages, uint32_t waitSemaphoreCount,

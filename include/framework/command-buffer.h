@@ -23,6 +23,29 @@ namespace bkk
     class renderer_t;
     class actor_t;
 
+    struct layout_transition_t
+    {
+      layout_transition_t(core::render::texture_t* texture, VkImageLayout layout,
+        VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT)
+        :texture(texture), renderTarget( core::BKK_NULL_HANDLE), layout(layout), srcStageMask(srcStageMask), dstStageMask(dstStageMask)
+      {
+      }
+
+      layout_transition_t(render_target_handle_t renderTarget, VkImageLayout layout,
+        VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+        VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT)
+        :texture(nullptr), renderTarget(renderTarget), layout(layout), srcStageMask(srcStageMask), dstStageMask(dstStageMask)
+      {
+      }
+
+      core::render::texture_t* texture;
+      render_target_handle_t renderTarget;
+      VkImageLayout layout;
+      VkPipelineStageFlags srcStageMask;
+      VkPipelineStageFlags dstStageMask;
+    };
+
     class command_buffer_t
     {
       public:
@@ -40,7 +63,11 @@ namespace bkk
         void render(actor_t* actors, uint32_t actorCount, const char* passName );
         void blit(render_target_handle_t renderTarget, material_handle_t materialHandle = core::BKK_NULL_HANDLE, const char* pass = nullptr);
         void blit(const bkk::core::render::texture_t& texture, material_handle_t materialHandle = core::BKK_NULL_HANDLE, const char* pass = nullptr);
-        
+
+        void changeLayout(render_target_handle_t renderTarget, VkImageLayout layout, VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+        void changeLayout(core::render::texture_t* texture, VkImageLayout layout, VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+        void changeLayout(const layout_transition_t* transitions, uint32_t count);
+
         void dispatchCompute(compute_material_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ);
         void dispatchCompute(compute_material_handle_t computeMaterial, const char* pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ);
 
@@ -75,7 +102,6 @@ namespace bkk
         bool clear_;
         bool released_;
         VkSemaphore signalSemaphore_;
-
     };
 
     //Generates a number of "render command-buffers" in parallel
@@ -86,6 +112,8 @@ namespace bkk
       actor_t* actors, uint32_t actorCount,
       const char* passName,
       VkSemaphore signalSemaphore,
+      command_buffer_t* prevCommandBuffers, uint32_t count,
+      layout_transition_t* layoutTransitions, uint32_t layoutTransitionsCount,
       command_buffer_t* commandBuffers, uint32_t commandBufferCount);
 
 

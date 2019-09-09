@@ -2441,7 +2441,7 @@ VkCommandPool render::commandPoolCreate(const context_t& context)
   return createCommandPool(context.device, context.graphicsQueue.queueIndex);
 }
 
-void commandPoolDestroy(const context_t& context, VkCommandPool commandPool)
+void render::commandPoolDestroy(const context_t& context, VkCommandPool commandPool)
 {
   vkDestroyCommandPool(context.device, commandPool, nullptr);
 }
@@ -3573,7 +3573,7 @@ void render::texture2DCreateAndGenerateMipmaps(const context_t& context, const i
     renderTargets[mipLevel].layout = VK_IMAGE_LAYOUT_UNDEFINED;
     render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, &renderTargets[mipLevel]);
     render::textureCopy(commandBuffer, &renderTargets[mipLevel], texture, mipSize, mipSize, mipLevel);
-    render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, &renderTargets[mipLevel]);
+    render::textureChangeLayout(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, &renderTargets[mipLevel]);
 
     render::commandBufferEnd(commandBuffer);
     render::commandBufferSubmit(context, commandBuffer);

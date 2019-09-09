@@ -53,10 +53,10 @@ frame_buffer_t::frame_buffer_t(render_target_handle_t* renderTargets, uint32_t t
     attachments[i].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     attachments[i].samples = VK_SAMPLE_COUNT_1_BIT;
     subpass.colorAttachmentIndex.push_back(i);
-    imageViews[i] = target->getColorBuffer().imageView;
+    imageViews[i] = target->getColorBuffer()->imageView;
     if (target->hasDepthBuffer())
     {
-      core::render::depth_stencil_buffer_t depthBuffer = target->getDepthBuffer();
+      core::render::depth_stencil_buffer_t depthBuffer = *target->getDepthStencilBuffer();
       render::render_pass_t::attachment_t depthAttachment;
       depthAttachment.format = depthBuffer.format;
       depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;

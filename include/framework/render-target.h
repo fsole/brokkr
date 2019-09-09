@@ -32,8 +32,8 @@ namespace bkk
 
       void destroy(renderer_t* renderer);
             
-      core::render::texture_t getColorBuffer() const { return target_; }
-      core::render::depth_stencil_buffer_t getDepthBuffer() const { return depthStencilBuffer_; }
+      core::render::texture_t* getColorBuffer(){ return (core::render::texture_t*)&target_; }
+      core::render::depth_stencil_buffer_t* getDepthStencilBuffer() { return &depthStencilBuffer_; }
       bool hasDepthBuffer() const { return hasDepthBuffer_; }
 
       uint32_t getWidth() const { return width_; }

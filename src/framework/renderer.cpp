@@ -116,6 +116,10 @@ renderer_t::~renderer_t()
     render::descriptorSetLayoutDestroy(context_, &globalsDescriptorSetLayout_);
     render::descriptorSetLayoutDestroy(context_, &objectDescriptorSetLayout_);
     render::descriptorPoolDestroy(context_, &globalDescriptorPool_);
+
+    for (uint32_t i(0); i < commandPool_.size(); ++i)
+      render::commandPoolDestroy(context_, commandPool_[i]);
+
     render::contextDestroy(&context_);
   }
 }
@@ -479,7 +483,7 @@ void renderer_t::createTextureBlitResources()
   render::descriptor_binding_t binding = { render::descriptor_t::type_e::COMBINED_IMAGE_SAMPLER, 0, render::descriptor_t::stage_e::FRAGMENT };
   render::descriptorSetLayoutCreate(context_, &binding, 1u, &textureBlitDescriptorSetLayout_);
 
-  render::descriptor_t descriptor = render::getDescriptor(renderTargets_.get(colorBufferHandle)->getColorBuffer());
+  render::descriptor_t descriptor = render::getDescriptor(*renderTargets_.get(colorBufferHandle)->getColorBuffer());
   render::descriptorSetCreate(context_, globalDescriptorPool_, textureBlitDescriptorSetLayout_, &descriptor, &presentationDescriptorSet_);
 
   render::pipelineLayoutCreate(context_, &textureBlitDescriptorSetLayout_, 1u, nullptr, 0u, &textureBlitPipelineLayout_);

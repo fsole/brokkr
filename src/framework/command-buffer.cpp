@@ -157,7 +157,6 @@ void command_buffer_t::endCommandBuffer()
   if (!name_.empty())
     render::commandBufferDebugMarkerEnd(renderer_->getContext(), commandBuffer_);
 
-  render::commandBufferRenderPassEnd(commandBuffer_);
   render::commandBufferEnd(commandBuffer_);
 }
 
@@ -210,18 +209,26 @@ void command_buffer_t::render(actor_t* actors, uint32_t actorCount, const char* 
     }
   }
   
+  render::commandBufferRenderPassEnd(commandBuffer_);
   endCommandBuffer();
 }
 
 void command_buffer_t::blit(render_target_handle_t renderTarget, material_handle_t materialHandle, const char* pass)
 {
-  bkk::core::render::texture_t texture = {};
+  bkk::core::render::texture_t* texture = nullptr;
   if (renderer_  && renderTarget != core::BKK_NULL_HANDLE)
   {
     texture = renderer_->getRenderTarget(renderTarget)->getColorBuffer();    
   }
 
-  blit(texture, materialHandle, pass);
+  if (texture == nullptr)
+  {
+    blit(bkk::core::render::texture_t(), materialHandle, pass);
+  }
+  else
+  {
+    blit(*texture, materialHandle, pass);
+  }
 }
 
 void command_buffer_t::blit(const bkk::core::render::texture_t& texture, material_handle_t materialHandle, const char* pass)
@@ -243,15 +250,17 @@ void command_buffer_t::blit(const bkk::core::render::texture_t& texture, materia
   if (render::textureIsValid(texture) )
     material->setTexture("MainTexture", texture);
 
-  material->updateDescriptorSets();
-  
+  const char* passName = "blit";
+  if (pass != nullptr)
+    passName = pass;
+
+  material->updateDescriptorSet(passName);
+
   camera_t* camera = renderer_->getActiveCamera();
   actor_t* actor = renderer_->getActor(renderer_->getRootActor());
   mesh::mesh_t* mesh = renderer_->getMesh(actor->getMeshHandle());
 
-  const char* passName = "blit";
-  if (pass != nullptr)
-    passName = pass;
+  
 
   core::render::graphics_pipeline_t pipeline = material->getPipeline(passName, frameBuffer_, renderer_);
   render::descriptor_set_t materialDescriptorSet = material->getDescriptorSet(passName);
@@ -265,7 +274,54 @@ void command_buffer_t::blit(const bkk::core::render::texture_t& texture, materia
 
   core::mesh::draw(commandBuffer_, *mesh);
 
+  render::commandBufferRenderPassEnd(commandBuffer_);
   endCommandBuffer();
+}
+
+void command_buffer_t::changeLayout(render_target_handle_t renderTarget, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask)
+{
+  layout_transition_t transition(renderTarget, layout, srcStageMask, dstStageMask);
+  changeLayout(&transition, 1u);
+}
+
+void command_buffer_t::changeLayout(render::texture_t* texture, VkImageLayout layout, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask)
+{
+  layout_transition_t transition(texture, layout, srcStageMask, dstStageMask);
+  changeLayout(&transition, 1u);
+}
+void command_buffer_t::changeLayout(const layout_transition_t* transitions, uint32_t count)
+{  
+  if (!renderer_ )
+    return;
+  
+  createCommandBuffer(GRAPHICS);
+  if (commandBuffer_.handle == VK_NULL_HANDLE)
+    return;
+
+  render::context_t& context = renderer_->getContext();
+  render::commandBufferBegin(context, commandBuffer_);
+
+  for (uint32_t i(0); i < count; ++i)
+  {
+    //Get texture than has to be transitioned
+    render::texture_t* texture = transitions[i].texture;
+    if (texture == nullptr && transitions[i].renderTarget != BKK_NULL_HANDLE)
+    {
+      render_target_t * renderTargetPtr = renderer_->getRenderTarget(transitions[i].renderTarget);
+      if (renderTargetPtr) texture = renderTargetPtr->getColorBuffer();
+    }
+
+    if (texture != nullptr)
+    {
+      VkImageSubresourceRange subresourceRange = {};
+      subresourceRange.levelCount = 1u;
+      subresourceRange.layerCount = 1u;
+      subresourceRange.aspectMask = texture->aspectFlags;
+
+      render::textureChangeLayout(commandBuffer_, transitions[i].layout, transitions[i].srcStageMask, transitions[i].dstStageMask, texture);
+    }
+  }
+  render::commandBufferEnd(commandBuffer_);
 }
 
 void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, uint32_t pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
@@ -278,6 +334,7 @@ void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial
 
   createCommandBuffer(COMPUTE);
   computeMaterialPtr->dispatch(commandBuffer_, pass, groupSizeX, groupSizeY, groupSizeZ);
+  endCommandBuffer();
 }
 
 void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial, const char* pass, uint32_t groupSizeX, uint32_t groupSizeY, uint32_t groupSizeZ)
@@ -290,6 +347,7 @@ void command_buffer_t::dispatchCompute(compute_material_handle_t computeMaterial
 
   createCommandBuffer(COMPUTE);
   computeMaterialPtr->dispatch(commandBuffer_, pass, groupSizeX, groupSizeY, groupSizeZ);
+  endCommandBuffer();
 }
 
 void command_buffer_t::submit()
@@ -313,7 +371,7 @@ void command_buffer_t::release()
 void command_buffer_t::submitAndRelease()
 {
   if (renderer_ && commandBuffer_.handle != VK_NULL_HANDLE)
-  {
+  {   
     render::context_t& context = renderer_->getContext();
     render::commandBufferSubmit(context, commandBuffer_);
     renderer_->releaseCommandBuffer(this);
@@ -335,9 +393,6 @@ void command_buffer_t::cleanup()
 
 VkSemaphore command_buffer_t::getSemaphore() 
 { 
-  if(renderer_ && frameBuffer_ == renderer_->getBackBuffer() )
-    return renderer_->getRenderCompleteSemaphore();
-
   return semaphore_; 
 }
 
@@ -349,7 +404,10 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
     void init(renderer_t* renderer, const std::string& name, frame_buffer_handle_t framebuffer,
       actor_t* actors, uint32_t actorCount, const char* passName,
       const core::maths::vec4* clearColor,
-      VkCommandPool commandPool, VkSemaphore signalSemaphore, command_buffer_t* commandBuffer )
+      VkCommandPool commandPool, VkSemaphore signalSemaphore, 
+      command_buffer_t* prevCommandBuffers, uint32_t prevCommandBuffersCount,
+      layout_transition_t* layoutTransitions, uint32_t layoutTransitionsCount,
+      command_buffer_t* commandBuffer )
     {
       renderer_ = renderer;
       name_ = name;
@@ -360,6 +418,10 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
       clearColor_ = clearColor;
       commandPool_ = commandPool;
       signalSemaphore_ = signalSemaphore;
+      prevCommandBuffers_ = prevCommandBuffers;
+      prevCommandBuffersCount_ = prevCommandBuffersCount;
+      layoutTransitions_ = layoutTransitions;
+      layoutTransitionsCount_ = layoutTransitionsCount;
       commandBuffer_ = commandBuffer;
     }
 
@@ -367,7 +429,8 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
     {
       commandBuffer_->init(renderer_, name_.c_str(), signalSemaphore_, commandPool_);
       commandBuffer_->setFrameBuffer(framebuffer_);
-
+      commandBuffer_->setDependencies(prevCommandBuffers_, prevCommandBuffersCount_);
+      commandBuffer_->changeLayout(layoutTransitions_, layoutTransitionsCount_);
       if (clearColor_)
         commandBuffer_->clearRenderTargets(*clearColor_);
 
@@ -385,7 +448,14 @@ class render_task_t : public bkk::core::thread_pool_t::task_t
     VkCommandPool commandPool_;
     VkSemaphore signalSemaphore_;
 
+    command_buffer_t* prevCommandBuffers_;
+    uint32_t prevCommandBuffersCount_;
+
+    layout_transition_t* layoutTransitions_; 
+    uint32_t layoutTransitionsCount_;
+
     command_buffer_t* commandBuffer_;
+
 };
 
 void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
@@ -395,6 +465,8 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
   actor_t* actors, uint32_t actorCount,
   const char* passName,
   VkSemaphore signalSemaphore,
+  command_buffer_t* prevCommandBuffers, uint32_t prevCommandBufferCount,
+  layout_transition_t* layoutTransitions, uint32_t layoutTransitionsCount,
   command_buffer_t* commandBuffers, uint32_t commandBufferCount)
 {
   //Prepare pipelines (Can be done in parallel as well)
@@ -425,7 +497,10 @@ void bkk::framework::generateCommandBuffersParallel(renderer_t* renderer,
     VkCommandPool commandPool = renderer->getCommandPool(i % commandPoolCount);    
 
     renderTask[i].init(renderer, cmdBufferName, framebuffer, actors + currentActor, count, passName,
-      clear, commandPool, signal, &commandBuffers[i]);
+      clear, commandPool, signal, 
+      prevCommandBuffers, (i == 0u) ? prevCommandBufferCount : 0u,
+      layoutTransitions, (i == 0u)  ? layoutTransitionsCount : 0u,
+      &commandBuffers[i]);
 
     //Ensure command pools are not used from two different threads at the same time
     //making tasks dependent on previous task using that same pool

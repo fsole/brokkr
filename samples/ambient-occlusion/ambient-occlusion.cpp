@@ -158,6 +158,8 @@ public:
     //Render scene
     command_buffer_t renderSceneCmd(&renderer, "Render");
     renderSceneCmd.setFrameBuffer(sceneFBO_);
+    renderSceneCmd.changeLayout(colorRT_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    renderSceneCmd.changeLayout(normalDepthRT_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     renderSceneCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
     renderSceneCmd.submitAndRelease();
@@ -170,16 +172,21 @@ public:
 
       command_buffer_t ssaoPass = command_buffer_t(&renderer, "SSAO");
       ssaoPass.setFrameBuffer(ssaoFBO_);
+      ssaoPass.changeLayout(normalDepthRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+      ssaoPass.changeLayout(ssaoRT_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
       ssaoPass.blit(BKK_NULL_HANDLE, ssaoMaterial_);
       ssaoPass.submitAndRelease();
 
       command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer, "Blur", renderer.getRenderCompleteSemaphore());
+      blitToBackbufferCmd.changeLayout(colorRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+      blitToBackbufferCmd.changeLayout(ssaoRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
       blitToBackbufferCmd.blit(ssaoRT_, blurMaterial_);
       blitToBackbufferCmd.submitAndRelease();
     }
     else
     {
       command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer, "Blit", renderer.getRenderCompleteSemaphore());
+      blitToBackbufferCmd.changeLayout(colorRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
       blitToBackbufferCmd.blit(colorRT_);
       blitToBackbufferCmd.submitAndRelease();
     }

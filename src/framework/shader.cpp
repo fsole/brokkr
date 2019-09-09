@@ -888,7 +888,7 @@ core::render::graphics_pipeline_t shader_t::getPipeline(uint32_t pass, frame_buf
     {
       graphicsPipelineDescriptions_[i].viewPort = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
       graphicsPipelineDescriptions_[i].scissorRect = { { 0,0 },{ width, height } };
-      if (graphicsPipelineDescriptions_[i].blendState.size() < frameBuffer->getTargetCount())
+      if (graphicsPipelineDescriptions_[i].blendState.size() != frameBuffer->getTargetCount())
       {
         uint32_t oldSize = (uint32_t)graphicsPipelineDescriptions_[i].blendState.size();
         uint32_t newSize = frameBuffer->getTargetCount();

@@ -9,11 +9,9 @@
 #ifndef TIMER_H
 #define TIMER_H
 
-#define TIMER_LOGGING_ENABLED 0
-
+#define TIMER_LOGGING_ENABLED 1
 
 #include <chrono>
-
 
 namespace bkk
 {

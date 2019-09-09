@@ -85,7 +85,7 @@
         float k = mix(1.0, 0.0, step(0.0, FdotC));  //k=0 if FdotC is less than 0, 1 otherwise
         float c1 = k * (FdotP + FdotC);
         float c2 = min( (1 - 2 * k) * (FdotP), 0.0);
-        float g = -fogParameters.a * length(V) * (c1 - c2 * c2 / abs(FdotV));
+        float g = -fogParameters.a * length(V) * (c1 - c2 * c2 / abs(FdotV+0.0001));
         float f = clamp(exp2(-g), 0, 1);
 
         return color.rgb * f + fogParameters.rgb * (1.0 - f);

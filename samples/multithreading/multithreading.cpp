@@ -9,6 +9,7 @@
 #include "core/mesh.h"
 #include "core/maths.h"
 #include "core/image.h"
+#include "core/timer.h"
 
 #include "framework/application.h"
 #include "framework/camera.h"
@@ -148,47 +149,51 @@ public:
 
   void render()
   {
-    beginFrame();
-
     renderer_t& renderer = getRenderer();
 
+    beginFrame();
 
-    //Render shadow map
+    //Compute shadow camera transformation based on light direction
     vec3 lightDirection = normalize(globals_.light_.xyz());
-    maths::mat4 viewToWorldMatrix = maths::createTransform(maths::vec3(0.0f, 0.0f, 2.0f), maths::VEC3_ONE, maths::QUAT_UNIT) * 
-                                    maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, maths::quat(VEC3_FORWARD, lightDirection));
+    maths::mat4 viewToWorldMatrix = maths::createTransform(maths::vec3(0.0f, 0.0f, 2.0f), maths::VEC3_ONE, maths::QUAT_UNIT) *
+      maths::createTransform(maths::VEC3_ZERO, maths::VEC3_ONE, maths::quat(VEC3_FORWARD, lightDirection));
 
-    renderer.getCamera(shadowCamera_)->setViewToWorldMatrix(viewToWorldMatrix);
+    //Setup and render scene from shadow camera to the shadow map
+    renderer.getCamera(shadowCamera_)->setViewToWorldMatrix(viewToWorldMatrix);    
     renderer.setupCamera(shadowCamera_);
-
     actor_t* visibleActors = nullptr;
     uint32_t actorCount = renderer.getVisibleActors(shadowCamera_, &visibleActors);
 
+    layout_transition_t layoutTransition(shadowMap_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     generateCommandBuffersParallel(&renderer, "parallelCommandBuffer",
       shadowFBO_, &VEC4_ZERO,
       visibleActors, actorCount, "DepthPass",
       VK_NULL_HANDLE,
+      nullptr, 0u,
+      &layoutTransition, 1u,
       &shadowCommandBuffers_[0], (uint32_t)shadowCommandBuffers_.size());
 
     for (uint32_t i(0); i < shadowCommandBuffers_.size(); ++i)
       shadowCommandBuffers_[i].submitAndRelease();
 
-    //Render scene
+    //Setup and render scene from viewing camera to the back buffer
     camera_handle_t camera = cameraController_.getCameraHandle();
     renderer.setupCamera(camera);
-
     visibleActors = nullptr;
     actorCount = renderer.getVisibleActors(camera, &visibleActors);
 
+    layoutTransition = layout_transition_t(shadowMap_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     generateCommandBuffersParallel(&renderer, "parallelCommandBuffer",
       BKK_NULL_HANDLE, &VEC4_ONE,
       visibleActors, actorCount, "OpaquePass",
       renderer.getRenderCompleteSemaphore(),
+      &shadowCommandBuffers_[0], (uint32_t)shadowCommandBuffers_.size(),
+      &layoutTransition, 1u,
       &sceneCommandBuffers_[0], (uint32_t)sceneCommandBuffers_.size());
 
     for (uint32_t i(0); i < sceneCommandBuffers_.size(); ++i)
       sceneCommandBuffers_[i].submitAndRelease();
-    
+
     presentFrame();
   }
 
@@ -231,7 +236,7 @@ private:
 
 int main()
 {  
-  multithreading_sample_t(uvec2(1200u, 800u), 4096u).run();
+  multithreading_sample_t(uvec2(1200u, 800u), 2046u).run();
   return 0;
 }
 

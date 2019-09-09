@@ -141,7 +141,7 @@ namespace bkk
         core::transform_manager_t transformManager_;
 
         //Presentation pass resources
-        bkk::core::mesh::mesh_t fullScreenQuad_;        
+        bkk::core::mesh::mesh_t fullScreenQuad_;
         bkk::core::render::descriptor_set_t presentationDescriptorSet_;        
         bkk::core::render::graphics_pipeline_t presentationPipeline_;
 

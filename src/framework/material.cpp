@@ -224,7 +224,7 @@ bool material_t::setTexture(const char* property, render_target_handle_t randerT
   render_target_t* targetPtr = renderer_->getRenderTarget(randerTarget);
   if (targetPtr != nullptr)
   {
-    return setTexture(property, targetPtr->getColorBuffer());
+    return setTexture(property, *targetPtr->getColorBuffer());
   }
 
   return false;
@@ -282,21 +282,42 @@ void material_t::updateDescriptorSets()
 
   for (uint32_t pass = 0; pass < descriptorSet_.size(); ++pass)
   {
-    if (updateDescriptorSet_[pass])
-    {
-      if (descriptorSet_[pass].handle == VK_NULL_HANDLE)
-      {
-        render::descriptor_t* descriptorsPtr = descriptors_.empty() ? nullptr : &descriptors_[0];
-        render::descriptorSetCreate(context, renderer_->getDescriptorPool(), shader->getDescriptorSetLayout(), descriptorsPtr, &descriptorSet_[pass]);
-      }
-      else
-      {
-        render::descriptorSetUpdate(context, shader->getDescriptorSetLayout(), &descriptorSet_[pass]);
-      }
-
-      updateDescriptorSet_[pass] = false;
-    }
+    updateDescriptorSet(pass);
   }
+}
+
+void material_t::updateDescriptorSet(uint32_t pass)
+{
+  render::context_t& context = renderer_->getContext();
+  shader_t* shader = renderer_->getShader(shader_);
+  if (!shader)
+    return;
+
+  if (updateDescriptorSet_[pass])
+  {
+    if (descriptorSet_[pass].handle == VK_NULL_HANDLE)
+    {
+      render::descriptor_t* descriptorsPtr = descriptors_.empty() ? nullptr : &descriptors_[0];
+      render::descriptorSetCreate(context, renderer_->getDescriptorPool(), shader->getDescriptorSetLayout(), descriptorsPtr, &descriptorSet_[pass]);
+    }
+    else
+    {
+      render::descriptorSetUpdate(context, shader->getDescriptorSetLayout(), &descriptorSet_[pass]);
+    }
+
+    updateDescriptorSet_[pass] = false;
+  }
+}
+
+void material_t::updateDescriptorSet(const char* pass)
+{
+  render::context_t& context = renderer_->getContext();
+  shader_t* shader = renderer_->getShader(shader_);
+  if (!shader)
+    return;
+
+  if (shader)
+    return updateDescriptorSet(shader->getPassIndexFromName(pass));
 }
 
 render::descriptor_set_t material_t::getDescriptorSet(uint32_t pass)

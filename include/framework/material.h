@@ -53,6 +53,9 @@ namespace bkk
 
         void updateDescriptorSets();
 
+        void updateDescriptorSet(const char* pass = nullptr);
+        void updateDescriptorSet(uint32_t pass);
+
         shader_t* getShader();
 
       protected:

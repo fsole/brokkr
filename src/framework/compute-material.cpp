@@ -48,5 +48,4 @@ void compute_material_t::dispatch(render::command_buffer_t& commandBuffer, uint3
     render::descriptorSetBind(commandBuffer, computeShader->getPipelineLayout(pass), 0, &descriptorSet, 1u);
     render::computeDispatch(commandBuffer, groupSizeX, groupSizeY, groupSizeZ);
   }
-  render::commandBufferEnd(commandBuffer);
 }

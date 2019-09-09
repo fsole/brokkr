@@ -108,11 +108,11 @@ public:
     bloomRT_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
     bloomFBO_ = renderer.frameBufferCreate(&bloomRT_, 1u);
     shader_handle_t bloomShader = renderer.shaderCreate("../framework-test/bloom.shader");
-    bloomMaterial_ = renderer.materialCreate(bloomShader);
+    bloomMaterial_ = renderer.materialCreate(bloomShader);;
     shader_handle_t blendShader = renderer.shaderCreate("../framework-test/blend.shader");
     blendMaterial_ = renderer.materialCreate(blendShader);
     material_t* blendMaterial = renderer.getMaterial(blendMaterial_);
-    blendMaterial->setTexture("bloomBlur", renderer.getRenderTarget(bloomRT_)->getColorBuffer());
+    blendMaterial->setTexture("bloomBlur", *renderer.getRenderTarget(bloomRT_)->getColorBuffer());
 
     //create camera
     camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x/(float)imageSize.y, 0.1f, 100.0f));
@@ -186,14 +186,15 @@ public:
     actor_t* visibleActors = nullptr;
     int count = renderer.getVisibleActors(camera, &visibleActors);
 
-    command_buffer_t renderSceneCmd(&renderer);
+    command_buffer_t renderSceneCmd(&renderer, "Render Scene");
     renderSceneCmd.setFrameBuffer(sceneFBO_);
-    renderSceneCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+    renderSceneCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));    
+    renderSceneCmd.changeLayout(sceneRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
     renderSceneCmd.submitAndRelease();
     
     //Render skybox
-    command_buffer_t renderSkyboxCmd = command_buffer_t(&renderer);
+    command_buffer_t renderSkyboxCmd = command_buffer_t(&renderer, "Render skybox");
     renderSkyboxCmd.setFrameBuffer(sceneFBO_);
     renderSkyboxCmd.setDependencies(&renderSceneCmd, 1u);
     renderSkyboxCmd.blit(bkk::core::BKK_NULL_HANDLE, skyboxMaterial_ );
@@ -201,45 +202,62 @@ public:
     
     if (bloomEnabled_)
     {
-      material_t* bloomMaterial = renderer.getMaterial(bloomMaterial_);
-      bloomMaterial->setProperty("globals.bloomTreshold", bloomTreshold_);
-      
+      renderer.getMaterial(bloomMaterial_)->setProperty("globals.bloomTreshold", bloomTreshold_);
+
       //Extract bright pixels from scene render target
-      command_buffer_t extractBrightPixelsCmd = command_buffer_t(&renderer);
+      command_buffer_t extractBrightPixelsCmd = command_buffer_t(&renderer, "Bright pixels extraction");
       extractBrightPixelsCmd.setFrameBuffer(brightPixelsFBO_);
       extractBrightPixelsCmd.setDependencies(&renderSkyboxCmd, 1u);
       extractBrightPixelsCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-      extractBrightPixelsCmd.blit(sceneRT_ , bloomMaterial_, "extractBrightPixels" );
+      layout_transition_t extractBrightPixelsLayoutTransitions[2] = {
+        layout_transition_t(sceneRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+        layout_transition_t(brightPixelsRT_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) };
+      extractBrightPixelsCmd.changeLayout(&extractBrightPixelsLayoutTransitions[0], 2u);
+      extractBrightPixelsCmd.blit(sceneRT_ , bloomMaterial_, "extractBrightPixels" );      
       extractBrightPixelsCmd.submitAndRelease();
-      
+            
       //Blur vertical pass
-      command_buffer_t blurVerticalCmd = command_buffer_t(&renderer);
+      command_buffer_t blurVerticalCmd = command_buffer_t(&renderer, "Vertical Blur");
       blurVerticalCmd.setFrameBuffer(blurVerticalFBO_);
       blurVerticalCmd.setDependencies(&extractBrightPixelsCmd, 1u);
       blurVerticalCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+      layout_transition_t blurVerticalLayoutTransitions[2] = {
+       layout_transition_t(brightPixelsRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+       layout_transition_t(blurVerticalRT_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) };
+      blurVerticalCmd.changeLayout(&blurVerticalLayoutTransitions[0], 2u);
       blurVerticalCmd.blit(brightPixelsRT_, bloomMaterial_, "blurVertical");
       blurVerticalCmd.submitAndRelease();
 
       //Blur horizontal pass
-      command_buffer_t blurHorizontalCmd = command_buffer_t(&renderer);
+      command_buffer_t blurHorizontalCmd = command_buffer_t(&renderer, "Horizontal Blur");
       blurHorizontalCmd.setFrameBuffer(bloomFBO_);
       blurHorizontalCmd.setDependencies(&blurVerticalCmd, 1u);
       blurHorizontalCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+      layout_transition_t blurHorizontalLayoutTransitions[2] = {
+       layout_transition_t(blurVerticalRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+       layout_transition_t(bloomRT_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) };
+      blurHorizontalCmd.changeLayout(&blurHorizontalLayoutTransitions[0], 2u);
       blurHorizontalCmd.blit(blurVerticalRT_, bloomMaterial_, "blurHorizontal");
       blurHorizontalCmd.submitAndRelease();
 
+      
       //Blend bloom and scene render targets
-      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
+      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer,"Blend Bloom and scene", renderer.getRenderCompleteSemaphore() );
       blitToBackbufferCmd.setDependencies(&blurHorizontalCmd, 1u);
-      blitToBackbufferCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+      blitToBackbufferCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));      
+      layout_transition_t blitToBackbufferLayoutTransitions[2] = {
+       layout_transition_t(sceneRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+       layout_transition_t(bloomRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) };
+      blitToBackbufferCmd.changeLayout(&blitToBackbufferLayoutTransitions[0], 2u);
       blitToBackbufferCmd.blit(sceneRT_, blendMaterial_, "blend" );
       blitToBackbufferCmd.submitAndRelease();
     }
     else
     {
       //Copy scene render target to the back buffer
-      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer);
+      command_buffer_t blitToBackbufferCmd = command_buffer_t(&renderer, "blitToBackbuffer", renderer.getRenderCompleteSemaphore());
       blitToBackbufferCmd.clearRenderTargets(maths::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+      blitToBackbufferCmd.changeLayout(sceneRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
       blitToBackbufferCmd.blit(sceneRT_, blendMaterial_);
       blitToBackbufferCmd.submitAndRelease();
     }
@@ -283,6 +301,7 @@ private:
 
   bool bloomEnabled_;
   material_handle_t bloomMaterial_;
+
   material_handle_t blendMaterial_;
   frame_buffer_handle_t bloomFBO_;
   render_target_handle_t bloomRT_;
