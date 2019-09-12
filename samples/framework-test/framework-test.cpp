@@ -213,7 +213,7 @@ public:
         layout_transition_t(sceneRT_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
         layout_transition_t(brightPixelsRT_, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) };
       extractBrightPixelsCmd.changeLayout(&extractBrightPixelsLayoutTransitions[0], 2u);
-      extractBrightPixelsCmd.blit(sceneRT_ , bloomMaterial_, "extractBrightPixels" );      
+      extractBrightPixelsCmd.blit(sceneRT_, bloomMaterial_, "extractBrightPixels" );      
       extractBrightPixelsCmd.submitAndRelease();
             
       //Blur vertical pass

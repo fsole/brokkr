@@ -694,7 +694,10 @@ void shader_t::destroy(renderer_t* renderer)
   for (uint32_t i(0); i < pipelines.size(); ++i)
   {
     for (uint32_t j(0); j < pipelines[i].size(); ++j)
-      render::graphicsPipelineDestroy(renderer->getContext(), &pipelines[i][j]);
+    {
+      if(pipelines[i][j].handle != VK_NULL_HANDLE )
+        render::graphicsPipelineDestroy(renderer->getContext(), &pipelines[i][j]);
+    }
   }
 
   if (descriptorSetLayout_.handle != VK_NULL_HANDLE)
@@ -864,52 +867,49 @@ void shader_t::preparePipeline(const char* name, frame_buffer_handle_t framebuff
 
 core::render::graphics_pipeline_t shader_t::getPipeline(uint32_t pass, frame_buffer_handle_t fb, renderer_t* renderer)
 {
-  std::vector<core::render::graphics_pipeline_t>* pipelines = graphicsPipelines_.get(fb);
-  if (pipelines && pass < pipelines->size() )
+  core::render::graphics_pipeline_t pipeline = {};
+  if (pass < pass_.size())
   {
-    return pipelines->operator[](pass);
-  }
-  else
-  {
-    //Create all the pipelines and return the pipeline for the selected pass
-    core::render::graphics_pipeline_t pipeline = {};
-    uint32_t width = 0u;
-    uint32_t height = 0u;
-    VkRenderPass renderPass = {};
-    
-    frame_buffer_t* frameBuffer = renderer->getFrameBuffer(fb);
-    width = frameBuffer->getWidth();
-    height = frameBuffer->getHeight();
-    renderPass = frameBuffer->getRenderPass().handle;
-
-    uint32_t count = (uint32_t)pass_.size();
-    std::vector<core::render::graphics_pipeline_t> pipelines(count);
-    for (uint32_t i = 0; i < count ; ++i)
+    std::vector<core::render::graphics_pipeline_t>* pipelinesPtr = graphicsPipelines_.get(fb);
+    if (pipelinesPtr == nullptr)
     {
-      graphicsPipelineDescriptions_[i].viewPort = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
-      graphicsPipelineDescriptions_[i].scissorRect = { { 0,0 },{ width, height } };
-      if (graphicsPipelineDescriptions_[i].blendState.size() != frameBuffer->getTargetCount())
+      graphicsPipelines_.add(fb, std::vector<core::render::graphics_pipeline_t>(pass_.size()));
+      pipelinesPtr = graphicsPipelines_.get(fb);
+    }
+
+    pipeline = pipelinesPtr->at(pass);
+    if (pipeline.handle == VK_NULL_HANDLE )
+    {
+      frame_buffer_t* frameBuffer = renderer->getFrameBuffer(fb);
+      uint32_t width = frameBuffer->getWidth();
+      uint32_t height = frameBuffer->getHeight();
+      VkRenderPass renderPass = frameBuffer->getRenderPass().handle;
+      graphicsPipelineDescriptions_[pass].viewPort = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
+      graphicsPipelineDescriptions_[pass].scissorRect = { { 0,0 },{ width, height } };
+      if (graphicsPipelineDescriptions_[pass].blendState.size() < frameBuffer->getTargetCount())
       {
-        uint32_t oldSize = (uint32_t)graphicsPipelineDescriptions_[i].blendState.size();
+        uint32_t oldSize = (uint32_t)graphicsPipelineDescriptions_[pass].blendState.size();
         uint32_t newSize = frameBuffer->getTargetCount();
-        graphicsPipelineDescriptions_[i].blendState.resize(newSize);
-        for (uint32_t j(0);  j< newSize; ++j)
+        graphicsPipelineDescriptions_[pass].blendState.resize(newSize);
+        for (uint32_t j(oldSize); j < newSize; ++j)
         {
-          graphicsPipelineDescriptions_[i].blendState[j] = {
+          graphicsPipelineDescriptions_[pass].blendState[j] = {
             VK_FALSE,
             VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD,
             VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD, 0xF };
         }
       }
 
-      bkk::core::render::graphics_pipeline_t pipeline;
       bkk::core::render::graphicsPipelineCreate(renderer->getContext(),
-        renderPass, 0u, vertexFormats_[i], pipelineLayouts_[i],
-        graphicsPipelineDescriptions_[i], &pipelines[i]);
+        renderPass, 0u, vertexFormats_[pass], pipelineLayouts_[pass],
+        graphicsPipelineDescriptions_[pass], &pipeline);
+
+      pipelinesPtr->at(pass) = pipeline;
+
     }
-    graphicsPipelines_.add(fb, pipelines);
-    return pipelines[pass];
   }
+
+  return pipeline;
 }
 
 core::render::descriptor_set_layout_t shader_t::getDescriptorSetLayout()

@@ -25,6 +25,11 @@ namespace bkk
 
     struct layout_transition_t
     {
+      layout_transition_t()
+      :texture(nullptr), renderTarget(core::BKK_NULL_HANDLE), layout(), srcStageMask(), dstStageMask()
+      {
+      }
+
       layout_transition_t(core::render::texture_t* texture, VkImageLayout layout,
         VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
         VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT)
