@@ -82,10 +82,10 @@
       {
         vec3 clipSpacePosition = vec3(uv* 2.0 - 1.0, depth);
         vec4 viewSpacePosition = camera.projectionInverse * vec4(clipSpacePosition,1.0);
-        return(viewSpacePosition.xyz / (viewSpacePosition.w+0.00001));
+        return(viewSpacePosition.xyz / viewSpacePosition.w);
       }
       
-      void ClipQuadToHorizon(inout vec3 L[5], out int n)
+      void clipQuadToHorizon(inout vec3 L[5], out int n)
       {
         // detect clipping config
         int config = 0;
@@ -196,7 +196,7 @@
           L[4] = L[0];
       }
 
-      float IntegrateEdge(vec3 v1, vec3 v2)
+      float integrateEdge(vec3 v1, vec3 v2)
       {
         float cosTheta = dot(v1, v2);
         float theta = acos(cosTheta);
@@ -205,7 +205,7 @@
         return res;
       }
 
-      vec3 LTC_Evaluate(vec3 N, vec3 V, vec3 P, mat3 Minv, vec3 points[4], bool twoSided)
+      vec3 ltcEvaluate(vec3 N, vec3 V, vec3 P, mat3 Minv, vec3 points[4], bool twoSided)
       {
         // construct orthonormal basis around N
         vec3 T1, T2;
@@ -223,7 +223,7 @@
         L[3] = Minv * (points[3] - P);
 
         int n;
-        ClipQuadToHorizon(L, n);
+        clipQuadToHorizon(L, n);
 
         if (n == 0)
           return vec3(0, 0, 0);
@@ -238,19 +238,16 @@
         // integrate
         float sum = 0.0;
 
-        sum += IntegrateEdge(L[0], L[1]);
-        sum += IntegrateEdge(L[1], L[2]);
-        sum += IntegrateEdge(L[2], L[3]);
+        sum += integrateEdge(L[0], L[1]);
+        sum += integrateEdge(L[1], L[2]);
+        sum += integrateEdge(L[2], L[3]);
         if (n >= 4)
-          sum += IntegrateEdge(L[3], L[4]);
+          sum += integrateEdge(L[3], L[4]);
         if (n == 5)
-          sum += IntegrateEdge(L[4], L[0]);
+          sum += integrateEdge(L[4], L[0]);
 
         sum = twoSided ? abs(sum) : max(0.0, sum);
-
-        vec3 Lo_i = vec3(sum, sum, sum);
-
-        return Lo_i;
+        return vec3(sum, sum, sum);
       }
 
       const float LUT_SIZE = 64.0;
@@ -282,14 +279,14 @@
           vec3(t.w, 0, t.x)
         );
 
-        vec3 spec = LTC_Evaluate(N, V, pos, Minv, rectPointsVS, true);
-        spec *= texture(ltcAmpTexture, uv2).g;
-        vec3 diff = LTC_Evaluate(N, V, pos, mat3(1), rectPointsVS, true);
+        vec3 spec = texture(ltcAmpTexture, uv2).g * ltcEvaluate(N, V, pos, Minv, rectPointsVS, true);
+        vec3 diff = ltcEvaluate(N, V, pos, mat3(1), rectPointsVS, true);
+
         vec3 c = globals.color.rgb * (spec + albedoRoughness.rgb*diff);
         c /= 2.0*pi;
         c += texture(emissionRT, uv).rgb;
-        color = vec4(c, 1.0);
 
+        color = vec4(c, 1.0);
       }			
     </FragmentShader>
   </Pass>  

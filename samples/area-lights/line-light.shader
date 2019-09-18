@@ -154,6 +154,7 @@
         vec3 c = diffuse * lightDiffuseIntensity + specular * lightSpecularIntensity;
         c /= 2.0*pi;
         c += texture(emissionRT, uv).rgb;
+
         color = vec4(c, 1.0);
       }			
     </FragmentShader>
