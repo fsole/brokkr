@@ -586,6 +586,80 @@ static void parseResources( core::render::context_t& context,
   render::descriptorSetLayoutCreate(context, bindingsPtr, (uint32_t)bindings.size(), descriptorSetLayout);
 }
 
+static VkBlendFactor blendFactorFromString(const char* factor)
+{
+  if (strcmp(factor, "Zero") == 0)
+  {
+    return VK_BLEND_FACTOR_ZERO;
+  }
+  else if (strcmp(factor, "One") == 0)
+  {
+    return VK_BLEND_FACTOR_ONE;
+  }
+
+  return VK_BLEND_FACTOR_MAX_ENUM;
+  //TODO: Rest of the cases
+}
+
+static VkBlendOp blendOpFromString(const char* op)
+{
+  if (strcmp(op, "Sub") == 0)
+  {
+    return VK_BLEND_OP_SUBTRACT;
+  }
+  else if (strcmp(op, "Add") == 0)
+  {
+    return VK_BLEND_OP_ADD;
+  }
+  //TODO: Rest of the cases
+
+  return VK_BLEND_OP_MAX_ENUM;
+}
+
+
+static VkPipelineColorBlendAttachmentState parseBlendState(const pugi::xml_node& blendNode)
+{
+  VkPipelineColorBlendAttachmentState result = {
+    VK_TRUE,
+    VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD,
+    VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD, 0xF };
+
+  VkBlendOp blendOp = blendOpFromString(blendNode.attribute("ColorBlendOperation").value());
+  if (blendOp != VK_BLEND_OP_MAX_ENUM)
+  {
+    result.colorBlendOp = blendOp;
+    result.alphaBlendOp = blendOp;
+  }
+
+  VkBlendFactor factor = blendFactorFromString(blendNode.attribute("ColorSrcFactor").value());
+  if (factor != VK_BLEND_FACTOR_MAX_ENUM)
+  {
+    result.srcColorBlendFactor = factor;
+    result.srcAlphaBlendFactor = factor;
+  }
+
+  factor = blendFactorFromString(blendNode.attribute("ColorDstFactor").value());
+  if (factor != VK_BLEND_FACTOR_MAX_ENUM)
+  {
+    result.dstColorBlendFactor = factor;
+    result.dstAlphaBlendFactor = factor;
+  }
+
+  blendOp = blendOpFromString(blendNode.attribute("AlphaBlendOperation").value());
+  if (blendOp != VK_BLEND_OP_MAX_ENUM)
+    result.alphaBlendOp = blendOp;
+  
+  factor = blendFactorFromString(blendNode.attribute("AlphaSrcFactor").value());
+  if (factor != VK_BLEND_FACTOR_MAX_ENUM)
+    result.srcAlphaBlendFactor = factor;
+  
+  factor = blendFactorFromString(blendNode.attribute("AlphaDstFactor").value());
+  if (factor != VK_BLEND_FACTOR_MAX_ENUM)
+    result.dstAlphaBlendFactor = factor;
+
+  return result;
+}
+
 render::graphics_pipeline_t::description_t parsePipelineDescription(const pugi::xml_node& passNode )
 {
   bool depthWrite = true;
@@ -632,8 +706,10 @@ render::graphics_pipeline_t::description_t parsePipelineDescription(const pugi::
   blendStates[0] = defaultBlend;
 
   for (pugi::xml_node blendNode = passNode.child("Blend"); blendNode; blendNode = blendNode.next_sibling("Blend"))
-  {
+  {    
     uint32_t target = stringToInt(blendNode.attribute("Target").value());
+
+    //Resize if needed
     if (target >= (uint32_t)blendStates.size())
     {
       uint32_t oldSize = (uint32_t)blendStates.size();
@@ -643,6 +719,9 @@ render::graphics_pipeline_t::description_t parsePipelineDescription(const pugi::
       for (uint32_t i(oldSize); i < newSize; ++i)
         blendStates[i] = defaultBlend;
     }
+
+    VkPipelineColorBlendAttachmentState blendState = parseBlendState( blendNode);
+    blendStates[target] = blendState;
   }
 
   render::graphics_pipeline_t::description_t pipelineDesc = {};

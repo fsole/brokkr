@@ -985,9 +985,9 @@ void render::texture2DCreate(const context_t& context, const image::image2D_t* i
   imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
   imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
   imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+  imageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
   imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  vkCreateImage(context.device, &imageCreateInfo, nullptr, &texture->image);
+  VkResult result = vkCreateImage(context.device, &imageCreateInfo, nullptr, &texture->image);
 
 
   //Allocate and bind memory for the image.

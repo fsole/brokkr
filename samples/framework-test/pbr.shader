@@ -27,7 +27,6 @@
     <ZWrite Value="On"/>
     <ZTest Value="LEqual"/>
     <Cull Value="Back"/>
-    <Blend Target="0" SrcColor="SrcAlpha" DstColor="OneMinusSrcAlpha" SrcAlpha="" DstAlpha=""/>
 
     <VertexShader>
       layout(location = 0) in vec3 aPosition;

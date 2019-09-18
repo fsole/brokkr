@@ -12,6 +12,12 @@
     <None Include="..\..\..\samples\area-lights\simple.shader">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="..\..\..\samples\area-lights\area-light.shader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\..\..\samples\area-lights\blit-gamma-correct.shader">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\samples\area-lights\area-lights.cpp" />

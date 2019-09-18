@@ -11,6 +11,7 @@ Remember to set the working directory to "../../../samples/bin/" in order to run
 <p><image src="samples/screenshots/deferred-shading.png?raw=true" width="640" title="Deferred shading" /></p>
 <p><image src="samples/screenshots/multithreading.png?raw=true"width="640" title="Scene rendering" /></p>
 <p><image src="samples/screenshots/framework-test.png?raw=true"width="640" title="Framework test" /></p>
+<p><image src="samples/screenshots/area-lights.png?raw=true"width="640" title="Area lights" /></p>
 <p><image src="samples/screenshots/skinning.gif?raw=true" title="Skinning animation" /></p>
 <p><image src="samples/screenshots/particles.gif?raw=true" title="Compute-based Particle system" /></p>
 <p><image src="samples/screenshots/fluid-simulation.gif?raw=true" width="640" title="SPH Fluid simulation" /></p>

@@ -8,6 +8,7 @@
 
 #include "core/mesh.h"
 #include "core/maths.h"
+#include "core/image.h"
 
 #include "framework/application.h"
 #include "framework/camera.h"
@@ -17,18 +18,126 @@ using namespace bkk::core;
 using namespace bkk::core::maths;
 using namespace bkk::framework;
 
+static bool loadDDS(const char* path, image::image2D_t* image)
+{
+  struct DDS_PIXELFORMAT
+  {
+    uint32_t dwSize;
+    uint32_t dwFlags;
+    uint32_t dwFourCC;
+    uint32_t dwRGBBitCount;
+    uint32_t dwRBitMask;
+    uint32_t dwGBitMask;
+    uint32_t dwBBitMask;
+    uint32_t dwABitMask;
+  };
+
+  struct DDS_HEADER
+  {
+    uint32_t        dwSize;
+    uint32_t        dwFlags;
+    uint32_t        dwHeight;
+    uint32_t        dwWidth;
+    uint32_t        dwPitchOrLinearSize;
+    uint32_t        dwDepth;
+    uint32_t        dwMipMapCount;
+    uint32_t        dwReserved1[11];
+    DDS_PIXELFORMAT ddspf;
+    uint32_t        dwCaps;
+    uint32_t        dwCaps2;
+    uint32_t        dwCaps3;
+    uint32_t        dwCaps4;
+    uint32_t        dwReserved2;
+  };
+
+  struct DDS_HEADER_DXT10
+  {
+    uint32_t dxgiFormat;
+    uint32_t resourceDimension;
+    uint32_t miscFlag;
+    uint32_t arraySize;
+    uint32_t miscFlags2;
+  };
+
+  enum
+  {
+    DDS_FORMAT_R32G32B32A32_FLOAT = 2,
+    DDS_FORMAT_R32G32_FLOAT = 16,
+    DDS_FORMAT_R16G16_FLOAT = 34,
+    DDS_FORMAT_R32_FLOAT = 41
+  };
+
+  FILE* file = fopen(path, "rb");
+
+  if (!file)
+    return false;
+    
+  uint32_t magicNumber = 0u;
+  fread(&magicNumber, sizeof(uint32_t), 1, file);
+  if (magicNumber != 0x20534444)
+    return false;
+
+  DDS_HEADER header = {};
+  fread(&header, sizeof(header), 1, file);
+
+  DDS_HEADER_DXT10 headerDX10 = {};
+  fread(&headerDX10, sizeof(headerDX10), 1, file);
+   
+  //Read pixel data
+  uint32_t size = header.dwPitchOrLinearSize * header.dwHeight;  
+  uint8_t* data =(uint8_t*)malloc(size);
+  bool success = fread(data, size, 1, file) == 1;
+  fclose(file);
+
+  if( success )
+  {
+    image->componentCount = 4;
+    image->width = header.dwWidth;
+    image->height = header.dwHeight;
+    image->componentSize = sizeof(float);
+    image->dataSize = image->componentCount * image->componentSize * image->width * image->height;
+    image->data = data;
+
+    if (headerDX10.dxgiFormat == DDS_FORMAT_R32G32_FLOAT)
+    {
+      //Add missing channels
+      image->data = (uint8_t*)malloc(image->dataSize);
+      float* imageDataPtr = (float*)image->data;
+      float* dataPtr = (float*)data;
+      for (int i(0); i < image->width*image->height; ++i)
+      {
+        for (int component(0); component < 4; ++component)
+          imageDataPtr[4 * i + component] = component < 4 ? dataPtr[2*i + component] : 0.0f;
+      }
+      free(data);
+    }
+
+    return true;
+  }
+  else
+  {
+    free(data);
+    return false;
+  }
+}
+
 class area_lights_sample_t : public application_t
 {
 public:
   area_lights_sample_t(const uvec2& imageSize)
     :application_t("Area lights", imageSize.x, imageSize.y, 3u),
     cameraController_(vec3(0.0f, 4.0f, 12.0f), vec2(0.1f, 0.0f), 0.5f, 0.01f),
-    lightAngle_(0.0f),
-    lightVelocity_(4.0),
-    lightColorBegin_(1.0f, 1.0f, 1.0f),
-    lightColorEnd_(1.0f, 1.0f, 1.0f),
+    lineLightAngle_(0.0f),
+    lineLightVelocity_(4.0f),
+    lineLightColorBegin_(1.0f, 1.0f, 1.0f),
+    lineLightColorEnd_(1.0f, 1.0f, 1.0f),
+    lineLightLength_(4.0f),
+    areaLightVelocity_(4.0f),
+    areaLightAngle_(0.0f),
+    areaLightColor_(1.0f,0.0f,0.0f),
+    areaLightScale_(3.5f),
     modelRoughness_(0.5f),
-    modelAlbedo_(0.0f,1.0f,0.0f),
+    modelAlbedo_(1.0f,1.0f,1.0f),
     floorRoughness_(0.0f),
     floorAlbedo_(1.0f, 1.0f, 1.0f)
   {
@@ -41,32 +150,58 @@ public:
     render_target_handle_t targets[] = { albedoRoughnessRT, emissionRT, normalDepthRT };
     gBuffer_ = renderer.frameBufferCreate(targets, 3u);
 
+    //Create buffer where lighting will be applied
+    resultImage_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
+    resultFBO_ = renderer.frameBufferCreate(&resultImage_, 1u);
+
     //create meshes
     mesh_handle_t model = renderer.meshCreate("../resources/lucy.obj", mesh::EXPORT_NORMALS_UVS);
     mesh_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
-    mesh_handle_t lineLight = renderer.meshAdd(mesh::unitCube(getRenderContext()));
+    mesh_handle_t lineLightMesh = renderer.meshAdd(mesh::unitCube(getRenderContext()));
+    mesh_handle_t areaLightMesh = renderer.meshAdd(mesh::unitCube(getRenderContext()));
 
     //create materials
-    shader_handle_t shader = renderer.shaderCreate("../area-lights/simple.shader");
+    shader_handle_t shader = renderer.shaderCreate("../area-lights/blit-gamma-correct.shader");
+    blitMaterial_ = renderer.materialCreate(shader);
+
+    shader = renderer.shaderCreate("../area-lights/simple.shader");
+
+    //Model material
     material_handle_t modelMaterial = renderer.materialCreate(shader);
     material_t* modelMaterialPtr = renderer.getMaterial(modelMaterial);
     modelMaterialPtr->setProperty("globals.albedo", modelAlbedo_);
     modelMaterialPtr->setProperty("globals.roughness", modelRoughness_);
 
+    //Floor material
     material_handle_t floorMaterial = renderer.materialCreate(shader);
     material_t* floorMaterialPtr = renderer.getMaterial(floorMaterial);
     floorMaterialPtr->setProperty("globals.albedo", floorAlbedo_);
     floorMaterialPtr->setProperty("globals.roughness", 0.0f);
 
+    //Line light material
     shader_handle_t lineLightShader = renderer.shaderCreate("../area-lights/line-light.shader");
     material_handle_t lineLightMaterial = renderer.materialCreate(lineLightShader);
     material_t* lineLightMaterialPtr = renderer.getMaterial(lineLightMaterial);
-    lineLightMaterialPtr->setProperty("globals.colorBegin", lightColorBegin_);
-    lineLightMaterialPtr->setProperty("globals.colorEnd", lightColorEnd_);
-    lineLightMaterialPtr->setProperty("globals.radius", 20.0f);
+    lineLightMaterialPtr->setProperty("globals.colorBegin", lineLightColorBegin_);
+    lineLightMaterialPtr->setProperty("globals.colorEnd", lineLightColorEnd_);
+    lineLightMaterialPtr->setProperty("globals.radius", 50.0f);
     lineLightMaterialPtr->setTexture("albedoRoughnessRT", albedoRoughnessRT);
     lineLightMaterialPtr->setTexture("emissionRT", emissionRT);
     lineLightMaterialPtr->setTexture("normalDepthRT", normalDepthRT);
+
+    //Area light material
+    ltcAmpTexture_ = textureFromDDS("../area-lights/ltc_amp.dds");
+    ltcMatTexture_ = textureFromDDS("../area-lights/ltc_mat.dds");
+    shader_handle_t areaLightShader = renderer.shaderCreate("../area-lights/area-light.shader");
+    material_handle_t areaLightMaterial = renderer.materialCreate(areaLightShader);    
+    material_t* areaLightMaterialPtr = renderer.getMaterial(areaLightMaterial);
+    areaLightMaterialPtr->setProperty("globals.color", areaLightColor_);
+    areaLightMaterialPtr->setProperty("globals.radius", 50.0f);
+    areaLightMaterialPtr->setTexture("albedoRoughnessRT", albedoRoughnessRT);
+    areaLightMaterialPtr->setTexture("emissionRT", emissionRT);
+    areaLightMaterialPtr->setTexture("normalDepthRT", normalDepthRT);
+    areaLightMaterialPtr->setTexture("ltcAmpTexture", ltcAmpTexture_);
+    areaLightMaterialPtr->setTexture("ltcMatTexture", ltcMatTexture_);
 
     //create actors
     mat4 modelTransform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(0.01f), quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), degreeToRadian(-50.0f)));
@@ -76,8 +211,12 @@ public:
     renderer.actorCreate("floor", plane, floorMaterial, floorTransform);
 
     //Create line light
-    mat4 lightTransform = createTransform(vec3(-3.0f, -0.3f, 0.5f), vec3(0.1f,0.1f,4.0f), QUAT_UNIT);
-    renderer.actorCreate("lineLight", lineLight, lineLightMaterial, lightTransform);
+    actor_handle_t lineLightActor = renderer.actorCreate("lineLight", lineLightMesh, lineLightMaterial, mat4());
+    lights_[0] = *renderer.getActor(lineLightActor);
+
+    //Create area light
+    actor_handle_t areaLightActor = renderer.actorCreate("areaLight", areaLightMesh, areaLightMaterial, mat4());
+    lights_[1] = *renderer.getActor(areaLightActor);
 
     //create camera
     camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 100.0f));
@@ -100,16 +239,49 @@ public:
     mat4 projectionMatrix = perspectiveProjectionMatrix(1.2f, (f32)width / (f32)height, 0.1f, 100.0f);
     cameraController_.getCamera()->setProjectionMatrix(projectionMatrix);
   }
+
+  void onQuit()
+  {
+    render::context_t& context = getRenderer().getContext();
+    render::textureDestroy(context, &ltcAmpTexture_);
+    render::textureDestroy(context, &ltcMatTexture_);
+  }
   
   void animateLights()
   {
-    lightAngle_ += (getTimeDelta() * lightVelocity_ / 1000.0f);
+    lineLightAngle_ += (getTimeDelta() * lineLightVelocity_ / 1000.0f);
     mat4 lineLightTx = createTransform(vec3(-3.0f, -0.3f, 0.5f), 
-                                       vec3(0.1f, 0.1f, 4.0f), 
-                                       quaternionFromAxisAngle(VEC3_UP, lightAngle_));
+                                       vec3(0.1f, 0.1f, lineLightLength_),
+                                       quaternionFromAxisAngle(VEC3_UP, lineLightAngle_));
 
     renderer_t& renderer = getRenderer();
     renderer.actorSetTransform(renderer.findActor("lineLight")->getTransformHandle(), lineLightTx);
+    
+    areaLightAngle_ += (getTimeDelta() * areaLightVelocity_ / 1000.0f);
+    mat4 areaLightTx = createTransform(vec3(2.0f, 2.0f, 5.0f),
+      vec3(areaLightScale_, areaLightScale_, 0.0f),
+      quaternionFromAxisAngle( VEC3_UP, areaLightAngle_));
+
+    renderer.actorSetTransform(renderer.findActor("areaLight")->getTransformHandle(), areaLightTx);
+  }
+
+  render::texture_t textureFromDDS(const char* path)
+  {
+    render::texture_t texture;
+    image::image2D_t image = {};
+    if (loadDDS(path, &image))
+    { 
+      render::texture_sampler_t sampler = { render::texture_sampler_t::filter_mode_e::LINEAR,
+                                            render::texture_sampler_t::filter_mode_e::LINEAR,
+                                            render::texture_sampler_t::filter_mode_e::LINEAR,
+                                            render::texture_sampler_t::wrap_mode_e::CLAMP_TO_EDGE,
+                                            render::texture_sampler_t::wrap_mode_e::CLAMP_TO_EDGE,
+                                            render::texture_sampler_t::wrap_mode_e::CLAMP_TO_EDGE };
+
+      render::texture2DCreate(getRenderer().getContext(), &image, 1u, sampler, &texture);
+      image::free(&image);
+    }
+    return texture;
   }
 
   void render()
@@ -132,40 +304,58 @@ public:
     renderSceneCmd.render(visibleActors, count, "OpaquePass");
     renderSceneCmd.submitAndRelease();
    
-    //Render line light
-    command_buffer_t lightPassCmd(&renderer, "Light pass", renderer.getRenderCompleteSemaphore());
-    lightPassCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));
-    lightPassCmd.render(renderer.findActor("lineLight"), 1u, "LightPass");
+    //Render lights
+    command_buffer_t lightPassCmd(&renderer, "Light pass");
+    lightPassCmd.setFrameBuffer(resultFBO_);
+    lightPassCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));    
+    lightPassCmd.render(lights_, 2u, "LightPass");
     lightPassCmd.submitAndRelease();
-    
+
+    //Gamma correction
+    command_buffer_t blitToBackBuffer(&renderer, "Gamma correction", renderer.getRenderCompleteSemaphore());
+    blitToBackBuffer.blit(resultImage_, blitMaterial_);
+    blitToBackBuffer.submitAndRelease();
+
     presentFrame();
   }
 
   void buildGuiFrame()
   {
-    renderer_t& renderer = getRenderer();
-
     ImGui::Begin("Controls");
 
-    ImGui::LabelText("", "Light");
-    ImGui::SliderFloat("Light velocity (rad/s)", &lightVelocity_, 0.0f, 10.0f);
-    ImGui::ColorEdit3("Light color begin", lightColorBegin_.data);
-    ImGui::ColorEdit3("Light color end", lightColorEnd_.data);
-    material_t* lightMaterial = renderer.getMaterial(renderer.findActor("lineLight")->getMaterialHandle());
-    lightMaterial->setProperty("globals.colorBegin", lightColorBegin_);
-    lightMaterial->setProperty("globals.colorEnd", lightColorEnd_);
+    ImGui::LabelText("", "Line Light");
+    ImGui::SliderFloat("Line light velocity (rad/s)", &lineLightVelocity_, 0.0f, 10.0f);
+    ImGui::ColorEdit3("Line light color begin", lineLightColorBegin_.data);
+    ImGui::ColorEdit3("Line light color end", lineLightColorEnd_.data);
+    ImGui::SliderFloat("Line light length", &lineLightLength_, 0.0f, 10.0f);
+    material_t* materialPtr = getRenderer().getMaterial(lights_[0].getMaterialHandle());
+    materialPtr->setProperty("globals.colorBegin", lineLightColorBegin_);
+    materialPtr->setProperty("globals.colorEnd", lineLightColorEnd_);
+
+    ImGui::Separator();
+
+    ImGui::LabelText("", "Area Light");
+    ImGui::SliderFloat("Area light velocity (rad/s)", &areaLightVelocity_, 0.0f, 10.0f);
+    ImGui::SliderFloat("Area light scale", &areaLightScale_, 0.0f, 5.0f);
+    ImGui::ColorEdit3("Area light color", areaLightColor_.data);
+    materialPtr = getRenderer().getMaterial(lights_[1].getMaterialHandle());
+    materialPtr->setProperty("globals.color", areaLightColor_);
+
+    ImGui::Separator();
 
     ImGui::LabelText("", "Model");
-    ImGui::ColorEdit3("Model albedo", modelAlbedo_.data);
-    ImGui::SliderFloat("Model roughness", &modelRoughness_, 0.0f, 1.0f);
-    material_t* modelMaterial = renderer.getMaterial(renderer.findActor("model")->getMaterialHandle());
+    ImGui::ColorEdit3("Model Albedo", modelAlbedo_.data);
+    ImGui::SliderFloat("Model Roughness", &modelRoughness_, 0.0f, 1.0f);
+    material_t* modelMaterial = getRenderer().getMaterial(getRenderer().findActor("model")->getMaterialHandle());
     modelMaterial->setProperty("globals.albedo", modelAlbedo_);
     modelMaterial->setProperty("globals.roughness", modelRoughness_);
 
+    ImGui::Separator();
+
     ImGui::LabelText("", "Floor");
-    ImGui::ColorEdit3("Floor albedo", floorAlbedo_.data);
-    ImGui::SliderFloat("Floor roughness", &floorRoughness_, 0.0f, 1.0f);
-    material_t* floorMaterial = renderer.getMaterial(renderer.findActor("floor")->getMaterialHandle());
+    ImGui::ColorEdit3("Floor Albedo", floorAlbedo_.data);
+    ImGui::SliderFloat("Floor Roughness", &floorRoughness_, 0.0f, 1.0f);
+    material_t* floorMaterial = getRenderer().getMaterial(getRenderer().findActor("floor")->getMaterialHandle());
     floorMaterial->setProperty("globals.albedo", floorAlbedo_);
     floorMaterial->setProperty("globals.roughness", floorRoughness_);
 
@@ -177,10 +367,23 @@ private:
   frame_buffer_handle_t gBuffer_;
   free_camera_controller_t cameraController_;
 
-  float lightAngle_;  
-  float lightVelocity_;
-  vec3 lightColorBegin_;
-  vec3 lightColorEnd_;
+  frame_buffer_handle_t resultFBO_;
+  render_target_handle_t resultImage_;
+  material_handle_t blitMaterial_;
+
+  float lineLightAngle_;
+  float lineLightVelocity_;
+  vec3 lineLightColorBegin_;
+  vec3 lineLightColorEnd_;
+  float lineLightLength_;
+
+  float areaLightVelocity_;
+  float areaLightAngle_;
+  vec3 areaLightColor_;
+  float areaLightScale_;
+  render::texture_t ltcAmpTexture_;
+  render::texture_t ltcMatTexture_;
+  actor_t lights_[2];
 
   float modelRoughness_;
   vec3 modelAlbedo_;

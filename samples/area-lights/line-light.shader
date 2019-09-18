@@ -28,10 +28,8 @@
       {
         mat4 mv = camera.worldToView * model.transform;		
         normalVS =  normalize( mv * vec4(aNormal,0.0) ).xyz;
-        mat4 mvp = camera.projection * mv;
-        gl_Position =  mvp * vec4(aPosition,1.0);
-        lightColor = mix(globals.colorBegin,globals.colorEnd,aPosition.z + 0.5);
-        
+        lightColor = mix(globals.colorBegin, globals.colorEnd, aPosition.z + 0.5);
+        gl_Position = camera.projection * mv * vec4(aPosition,1.0);
       }
     </VertexShader>
     
@@ -55,7 +53,8 @@
   <Pass Name="LightPass">
     <ZWrite Value="Off"/>
     <ZTest Value="Always"/>
-    <Cull Value="Front"/>
+    <Cull Value="Off"/>
+    <Blend Target="0" ColorBlendOperation="Add" ColorSrcFactor="One" ColorDstFactor="One" />
     
 
     <VertexShader>
@@ -63,20 +62,13 @@
       layout(location = 1) in vec3 aNormal;
       layout(location = 2) in vec2 aUV;
       
-      layout(location = 0) out vec3 lineBeginVS;
-      layout(location = 1) out vec3 lineEndVS;
+      layout(location = 0) out vec3 linePointsVS[2];
       
       void main()
       {
-        //Remove scale from local matrix
-        mat4 modelNoScale = model.transform;
-        modelNoScale[0].xyz = normalize(modelNoScale[0].xyz);
-        modelNoScale[1].xyz = normalize(modelNoScale[1].xyz);
-        modelNoScale[2].xyz = normalize(modelNoScale[2].xyz);
-        
-        mat4 mv = camera.worldToView * modelNoScale;
-        lineBeginVS = (mv * vec4(0.0,0.0,-1.0,1.0) ).xyz;
-        lineEndVS =   (mv * vec4(0.0,0.0, 1.0,1.0) ).xyz;
+        mat4 mv = camera.worldToView * model.transform;
+        linePointsVS[0] = (mv * vec4(0.0,0.0,-0.5,1.0) ).xyz;
+        linePointsVS[1] = (mv * vec4(0.0,0.0, 0.5,1.0) ).xyz;
         
         gl_Position = camera.projection * camera.worldToView * vec4(aPosition * globals.radius + model.transform[3].xyz, 1.0);
       }
@@ -84,9 +76,8 @@
     
     <FragmentShader>            
     
-      layout(location = 0) in vec3 lineBeginVS;
-      layout(location = 1) in vec3 lineEndVS;
-      
+      layout(location = 0) in vec3 linePointsVS[2];
+
       layout(location = 0) out vec4 color;
       
       vec3 viewSpacePositionFromDepth(vec2 uv, float depth)
@@ -96,7 +87,7 @@
         return(viewSpacePosition.xyz / viewSpacePosition.w);        
       }
       
-      // Get Most Representative Point for the diffuse part of a line light
+      // Get Most Representative Point  in the light for the diffuse part
       vec3 GetMRPDiffuse(vec3 P, vec3 A, vec3 B, out float t)
       {
         vec3 PA = A - P; 
@@ -108,6 +99,7 @@
         return A + AB * t;
       }
 
+      // Get Most Representative Point in the light for the specular part
       vec3 GetMRPSpecular(vec3 P, vec3 A, vec3 B, vec3 R, out float t)
       {
         vec3 PA = A - P;
@@ -123,11 +115,12 @@
         return A + AB * t;
       }
 
+      const float pi = 3.14159265;
       void main()
       {
         vec2 uv = gl_FragCoord.xy / textureSize(albedoRoughnessRT, 0);        
         vec4 normalDepth = texture( normalDepthRT, uv );
-        if( normalDepth.w > gl_FragCoord.z ) 
+        if( normalDepth.w &gt; gl_FragCoord.z ) 
           discard;
         
         vec3 fragPositionVS = viewSpacePositionFromDepth(uv, normalDepth.w );                
@@ -135,7 +128,7 @@
 
         //Diffuse term
         float t = 0.0;
-        vec3 diffuseMostRepresentativePoint = GetMRPDiffuse(fragPositionVS, lineBeginVS, lineEndVS, t);        
+        vec3 diffuseMostRepresentativePoint = GetMRPDiffuse(fragPositionVS, linePointsVS[0], linePointsVS[1], t);
         vec3 L = diffuseMostRepresentativePoint - fragPositionVS;
         float d = length(L);
         L /= d;
@@ -147,7 +140,7 @@
         //specular term
         vec3 V = -normalize(fragPositionVS);
         vec3 R = reflect(V, N);
-        vec3 specularMostRepresentativePoint = GetMRPSpecular(fragPositionVS, lineBeginVS, lineEndVS, R, t);
+        vec3 specularMostRepresentativePoint = GetMRPSpecular(fragPositionVS, linePointsVS[0], linePointsVS[1], R, t);
         L = specularMostRepresentativePoint - fragPositionVS;
         d = length(L);
         L /= d;                
@@ -158,8 +151,10 @@
         falloff = 1.0 / d * d;
         vec3 lightSpecularIntensity = mix(globals.colorBegin.rgb, globals.colorEnd.rgb, t) * falloff;
         
-        vec3 c = texture(emissionRT, uv).rgb + diffuse * lightDiffuseIntensity + specular * lightSpecularIntensity;
-        color = vec4(pow(c, vec3(1.0 / 2.2)), 1.0);
+        vec3 c = diffuse * lightDiffuseIntensity + specular * lightSpecularIntensity;
+        c /= 2.0*pi;
+        c += texture(emissionRT, uv).rgb;
+        color = vec4(c, 1.0);
       }			
     </FragmentShader>
   </Pass>  
