@@ -337,6 +337,17 @@ actor_t* renderer_t::getActor(actor_handle_t handle)
   return actors_.get(handle);
 }
 
+material_t* renderer_t::getActorMaterial(actor_handle_t handle)
+{
+  actor_t* actor = actors_.get(handle);
+  if (actor)
+  {
+    return getMaterial(actor->getMaterialHandle());
+  }
+
+  return nullptr;
+}
+
 void renderer_t::actorSetParent(actor_handle_t actor, actor_handle_t parent)
 {
   transformManager_.setParent(actors_.get(actor)->getTransformHandle(), actors_.get(parent)->getTransformHandle());

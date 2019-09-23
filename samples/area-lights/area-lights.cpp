@@ -62,9 +62,7 @@ static bool loadDDS(const char* path, image::image2D_t* image)
   enum
   {
     DDS_FORMAT_R32G32B32A32_FLOAT = 2,
-    DDS_FORMAT_R32G32_FLOAT = 16,
-    DDS_FORMAT_R16G16_FLOAT = 34,
-    DDS_FORMAT_R32_FLOAT = 41
+    DDS_FORMAT_R32G32_FLOAT = 16
   };
 
   FILE* file = fopen(path, "rb");
@@ -91,11 +89,11 @@ static bool loadDDS(const char* path, image::image2D_t* image)
 
   if( success )
   {
-    image->componentCount = 4;
     image->width = header.dwWidth;
     image->height = header.dwHeight;
-    image->componentSize = sizeof(float);
-    image->dataSize = image->componentCount * image->componentSize * image->width * image->height;
+    image->componentCount = 4;
+    image->componentSize = 4;
+    image->dataSize = 16 * header.dwWidth * header.dwHeight;
     image->data = data;
 
     if (headerDX10.dxgiFormat == DDS_FORMAT_R32G32_FLOAT)
@@ -105,20 +103,18 @@ static bool loadDDS(const char* path, image::image2D_t* image)
       float* imageDataPtr = (float*)image->data;
       float* dataPtr = (float*)data;
       for (int i(0); i < image->width*image->height; ++i)
-      {
         for (int component(0); component < 4; ++component)
           imageDataPtr[4 * i + component] = component < 4 ? dataPtr[2*i + component] : 0.0f;
-      }
+
       free(data);
     }
-
-    return true;
   }
   else
   {
     free(data);
-    return false;
   }
+
+  return success;
 }
 
 class area_lights_sample_t : public application_t
@@ -154,31 +150,24 @@ public:
     resultImage_ = renderer.renderTargetCreate(imageSize.x, imageSize.y, VK_FORMAT_R32G32B32A32_SFLOAT, false);
     resultFBO_ = renderer.frameBufferCreate(&resultImage_, 1u);
 
-    //create meshes
-    mesh_handle_t model = renderer.meshCreate("../resources/lucy.obj", mesh::EXPORT_NORMALS_UVS);
-    mesh_handle_t plane = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
-    mesh_handle_t lineLightMesh = renderer.meshAdd(mesh::unitCube(getRenderContext()));
-    mesh_handle_t areaLightMesh = renderer.meshAdd(mesh::unitCube(getRenderContext()));
-
-    //create materials
+    //Material for final gamma correction
     shader_handle_t shader = renderer.shaderCreate("../area-lights/blit-gamma-correct.shader");
     blitMaterial_ = renderer.materialCreate(shader);
 
+    //Create and setup model material
     shader = renderer.shaderCreate("../area-lights/simple.shader");
-
-    //Model material
     material_handle_t modelMaterial = renderer.materialCreate(shader);
     material_t* modelMaterialPtr = renderer.getMaterial(modelMaterial);
     modelMaterialPtr->setProperty("globals.albedo", modelAlbedo_);
     modelMaterialPtr->setProperty("globals.roughness", modelRoughness_);
 
-    //Floor material
+    //Create and setup floor material
     material_handle_t floorMaterial = renderer.materialCreate(shader);
     material_t* floorMaterialPtr = renderer.getMaterial(floorMaterial);
     floorMaterialPtr->setProperty("globals.albedo", floorAlbedo_);
     floorMaterialPtr->setProperty("globals.roughness", 0.0f);
 
-    //Line light material
+    //Create and setup line light material
     shader_handle_t lineLightShader = renderer.shaderCreate("../area-lights/line-light.shader");
     material_handle_t lineLightMaterial = renderer.materialCreate(lineLightShader);
     material_t* lineLightMaterialPtr = renderer.getMaterial(lineLightMaterial);
@@ -189,12 +178,12 @@ public:
     lineLightMaterialPtr->setTexture("emissionRT", emissionRT);
     lineLightMaterialPtr->setTexture("normalDepthRT", normalDepthRT);
 
-    //Area light material
+    //Create and setup area light material
+    shader_handle_t areaLightShader = renderer.shaderCreate("../area-lights/area-light.shader");
+    material_handle_t areaLightMaterial = renderer.materialCreate(areaLightShader);
+    material_t* areaLightMaterialPtr = renderer.getMaterial(areaLightMaterial);
     ltcAmpTexture_ = textureFromDDS("../area-lights/ltc_amp.dds");
     ltcMatTexture_ = textureFromDDS("../area-lights/ltc_mat.dds");
-    shader_handle_t areaLightShader = renderer.shaderCreate("../area-lights/area-light.shader");
-    material_handle_t areaLightMaterial = renderer.materialCreate(areaLightShader);    
-    material_t* areaLightMaterialPtr = renderer.getMaterial(areaLightMaterial);
     areaLightMaterialPtr->setProperty("globals.color", areaLightColor_);
     areaLightMaterialPtr->setProperty("globals.radius", 50.0f);
     areaLightMaterialPtr->setTexture("albedoRoughnessRT", albedoRoughnessRT);
@@ -203,20 +192,19 @@ public:
     areaLightMaterialPtr->setTexture("ltcAmpTexture", ltcAmpTexture_);
     areaLightMaterialPtr->setTexture("ltcMatTexture", ltcMatTexture_);
 
-    //create actors
+    //create scene actors
+    mesh_handle_t modelMesh = renderer.meshCreate("../resources/lucy.obj", mesh::EXPORT_NORMALS_UVS);
     mat4 modelTransform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(0.01f), quaternionFromAxisAngle(vec3(0.0f, 1.0f, 0.0f), degreeToRadian(-50.0f)));
-    renderer.actorCreate("model", model, modelMaterial, modelTransform);
+    renderer.actorCreate("model", modelMesh, modelMaterial, modelTransform);
 
+    mesh_handle_t planeMesh = renderer.meshAdd(mesh::unitQuad(getRenderContext()));
     mat4 floorTransform = createTransform(vec3(0.0f, -1.0f, 0.0f), vec3(20.0f), quaternionFromAxisAngle(vec3(1, 0, 0), degreeToRadian(90.0f)));
-    renderer.actorCreate("floor", plane, floorMaterial, floorTransform);
+    renderer.actorCreate("floor", planeMesh, floorMaterial, floorTransform);
 
-    //Create line light
-    actor_handle_t lineLightActor = renderer.actorCreate("lineLight", lineLightMesh, lineLightMaterial, mat4());
-    lights_[0] = *renderer.getActor(lineLightActor);
-
-    //Create area light
-    actor_handle_t areaLightActor = renderer.actorCreate("areaLight", areaLightMesh, areaLightMaterial, mat4());
-    lights_[1] = *renderer.getActor(areaLightActor);
+    //Create light actors
+    mesh_handle_t cubeMesh = renderer.meshAdd(mesh::unitCube(getRenderContext()));
+    lights_[0] = renderer.actorCreate("lineLight", cubeMesh, lineLightMaterial, mat4());
+    lights_[1] = renderer.actorCreate("areaLight", cubeMesh, areaLightMaterial, mat4());
 
     //create camera
     camera_handle_t camera = renderer.cameraAdd(camera_t(camera_t::PERSPECTIVE_PROJECTION, 1.2f, imageSize.x / (float)imageSize.y, 0.1f, 100.0f));
@@ -255,14 +243,14 @@ public:
                                        quaternionFromAxisAngle(VEC3_UP, lineLightAngle_));
 
     renderer_t& renderer = getRenderer();
-    renderer.actorSetTransform(renderer.findActor("lineLight")->getTransformHandle(), lineLightTx);
+    renderer.actorSetTransform(lights_[0], lineLightTx);
     
     areaLightAngle_ += (getTimeDelta() * areaLightVelocity_ / 1000.0f);
     mat4 areaLightTx = createTransform(vec3(2.0f, 2.0f, 5.0f),
       vec3(areaLightScale_, areaLightScale_, 0.0f),
       quaternionFromAxisAngle( VEC3_UP, areaLightAngle_));
 
-    renderer.actorSetTransform(renderer.findActor("areaLight")->getTransformHandle(), areaLightTx);
+    renderer.actorSetTransform(lights_[1], areaLightTx);
   }
 
   render::texture_t textureFromDDS(const char* path)
@@ -305,10 +293,11 @@ public:
     renderSceneCmd.submitAndRelease();
    
     //Render lights
+    actor_t lights[] = { *renderer.getActor(lights_[0]), *renderer.getActor(lights_[1]) };
     command_buffer_t lightPassCmd(&renderer, "Light pass");
     lightPassCmd.setFrameBuffer(resultFBO_);
     lightPassCmd.clearRenderTargets(vec4(0.0f, 0.0f, 0.0f, 1.0f));    
-    lightPassCmd.render(lights_, 2u, "LightPass");
+    lightPassCmd.render(lights, 2u, "LightPass");
     lightPassCmd.submitAndRelease();
 
     //Gamma correction
@@ -328,7 +317,7 @@ public:
     ImGui::ColorEdit3("Line light color begin", lineLightColorBegin_.data);
     ImGui::ColorEdit3("Line light color end", lineLightColorEnd_.data);
     ImGui::SliderFloat("Line light length", &lineLightLength_, 0.0f, 10.0f);
-    material_t* materialPtr = getRenderer().getMaterial(lights_[0].getMaterialHandle());
+    material_t* materialPtr = getRenderer().getActorMaterial(lights_[0]);
     materialPtr->setProperty("globals.colorBegin", lineLightColorBegin_);
     materialPtr->setProperty("globals.colorEnd", lineLightColorEnd_);
 
@@ -336,9 +325,9 @@ public:
 
     ImGui::LabelText("", "Area Light");
     ImGui::SliderFloat("Area light velocity (rad/s)", &areaLightVelocity_, 0.0f, 10.0f);
-    ImGui::SliderFloat("Area light scale", &areaLightScale_, 0.0f, 5.0f);
     ImGui::ColorEdit3("Area light color", areaLightColor_.data);
-    materialPtr = getRenderer().getMaterial(lights_[1].getMaterialHandle());
+    ImGui::SliderFloat("Area light scale", &areaLightScale_, 0.0f, 5.0f);
+    materialPtr = getRenderer().getActorMaterial(lights_[1]);
     materialPtr->setProperty("globals.color", areaLightColor_);
 
     ImGui::Separator();
@@ -383,7 +372,7 @@ private:
   float areaLightScale_;
   render::texture_t ltcAmpTexture_;
   render::texture_t ltcMatTexture_;
-  actor_t lights_[2];
+  actor_handle_t lights_[2];
 
   float modelRoughness_;
   vec3 modelAlbedo_;
